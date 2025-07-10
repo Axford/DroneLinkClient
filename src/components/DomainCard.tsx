@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Dropdown, Button, Collapse, Image } from 'react-bootstrap';
-import { ThreeDotsVertical, Calendar, Person, Activity, Envelope, Key, Eye, EyeSlash, Copy, ChevronDown, ChevronUp, PersonPlus, Link45deg } from 'react-bootstrap-icons';
+import { ThreeDotsVertical, Calendar, Person, Activity, Envelope, Key, Eye, EyeSlash, Copy, ChevronDown, ChevronUp, PersonPlus, Link45deg, Hash } from 'react-bootstrap-icons';
 import { Domain } from '../App';
 
 interface DomainCardProps {
@@ -44,6 +44,15 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
             // Could add a toast notification here
         } catch (err) {
             console.error('Failed to copy API key:', err);
+        }
+    };
+
+    const copyDomainId = async () => {
+        try {
+            await navigator.clipboard.writeText(domain._id);
+            // Could add a toast notification here
+        } catch (err) {
+            console.error('Failed to copy domain ID:', err);
         }
     };
 
@@ -115,6 +124,9 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
                 <div className="mt-auto">
                     {/* API Key Section */}
                     <div className="mb-2 p-2 bg-light rounded">
+                        <div className="text-muted mb-1" style={{ fontSize: '0.65rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            API Key
+                        </div>
                         <div className="d-flex justify-content-between align-items-center">
                             <div className="d-flex align-items-center">
                                 <Key size={14} className="me-2 text-muted" />
@@ -147,28 +159,27 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
                         </div>
                     </div>
 
-                    {/* Invite Link Section */}
-                    <div className="mb-3 p-2 bg-primary bg-opacity-10 rounded">
+                    {/* Domain ID Section */}
+                    <div className="mb-2 p-2 bg-info bg-opacity-10 rounded">
+                        <div className="text-muted mb-1" style={{ fontSize: '0.65rem', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Domain ID
+                        </div>
                         <div className="d-flex justify-content-between align-items-center">
                             <div className="d-flex align-items-center">
-                                <PersonPlus size={14} className="me-2 text-primary" />
-                                <span className="small text-primary fw-medium" style={{ fontSize: '0.75rem' }}>
-                                    Invite Users
-                                </span>
+                                <Hash size={14} className="me-2 text-info" />
+                                <code className="small text-info" style={{ fontSize: '0.75rem' }}>
+                                    {domain._id.slice(0, 8)}...{domain._id.slice(-4)}
+                                </code>
                             </div>
-                            {domain.inviteToken && (
-                                <div className="d-flex gap-1">
-                                    <Button
-                                        variant="link"
-                                        size="sm"
-                                        className="p-0 text-primary"
-                                        onClick={copyInviteLink}
-                                        title="Copy Invite Link"
-                                    >
-                                        <Link45deg size={12} />
-                                    </Button>
-                                </div>
-                            )}
+                            <Button
+                                variant="link"
+                                size="sm"
+                                className="p-0 text-info"
+                                onClick={copyDomainId}
+                                title="Copy Domain ID"
+                            >
+                                <Copy size={12} />
+                            </Button>
                         </div>
                     </div>
 
@@ -237,6 +248,33 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
                                     No users associated with this domain
                                 </div>
                             )}
+                            
+                            {/* Invite Link Section - only visible when users section is expanded */}
+                            <div className="mt-3 pt-3 border-top">
+                                <div className="p-2 bg-primary bg-opacity-10 rounded">
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <div className="d-flex align-items-center">
+                                            <PersonPlus size={14} className="me-2 text-primary" />
+                                            <span className="small text-primary fw-medium" style={{ fontSize: '0.75rem' }}>
+                                                Invite Users
+                                            </span>
+                                        </div>
+                                        {domain.inviteToken && (
+                                            <div className="d-flex gap-1">
+                                                <Button
+                                                    variant="link"
+                                                    size="sm"
+                                                    className="p-0 text-primary"
+                                                    onClick={copyInviteLink}
+                                                    title="Copy Invite Link"
+                                                >
+                                                    <Link45deg size={12} />
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </Collapse>
                 </div>

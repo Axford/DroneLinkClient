@@ -132,6 +132,7 @@ const InvitePage: React.FC = () => {
                         <strong>{inviteInfo.createdBy.displayName}</strong> has invited you to join the domain:
                     </p>
                     <h4 className="text-primary mb-4">{inviteInfo.domainName}</h4>
+                    {/* TEST: Domain created text removed */}
                     
                     <div className="d-grid gap-2">
                         <Button 

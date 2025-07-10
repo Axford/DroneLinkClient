@@ -206,7 +206,6 @@ const HomePage: React.FC<HomePageProps> = ({
         <Container fluid className="p-4">
             <Row className="mb-4">
                 <Col>
-                    <h1>Your Domains</h1>
                     <p className="text-muted">
                         Manage your DroneLink domains and monitor their activity
                     </p>
