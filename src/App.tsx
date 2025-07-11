@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import Sidebar from './Sidebar';
 import HomePage from './HomePage';
 import InvitePage from './InvitePage';
+import DomainDetailPage from './DomainDetailPage';
 import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
 
@@ -16,6 +17,11 @@ export interface User {
   profilePicture: string;
   lastSignInDate: string;
   domains: string[];
+  mapState?: {
+    lng: number;
+    lat: number;
+    zoom: number;
+  };
 }
 
 export interface Domain {
@@ -164,6 +170,11 @@ function AppContent() {
     return <InvitePage />;
   }
 
+  // Handle domain detail pages separately
+  if (location.pathname.startsWith('/private/domain/')) {
+    return <DomainDetailPage />;
+  }
+
   if (loading) {
     return (
       <Container fluid className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
@@ -214,6 +225,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/private/domain/:domainId" element={<DomainDetailPage />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>
       </Router>

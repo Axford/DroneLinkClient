@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Dropdown, Button, Collapse, Image } from 'react-bootstrap';
 import { ThreeDotsVertical, Calendar, Person, Activity, Envelope, Key, Eye, EyeSlash, Copy, ChevronDown, ChevronUp, PersonPlus, Link45deg, Hash } from 'react-bootstrap-icons';
+import { useNavigate } from 'react-router-dom';
 import { Domain } from '../App';
 
 interface DomainCardProps {
@@ -14,6 +15,7 @@ interface DomainCardProps {
 }
 
 const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onRegenerateKey, onRegenerateInvite, onCopyInviteLink, isDeleting = false }) => {
+    const navigate = useNavigate();
     const [showApiKey, setShowApiKey] = useState(false);
     const [showUsers, setShowUsers] = useState(false);
     
@@ -79,11 +81,18 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
             <Card.Body className="d-flex flex-column">
                 <div className="d-flex justify-content-between align-items-start mb-3">
                     <div className="flex-grow-1 me-2">
-                        <Card.Title className="mb-0" title={domain.name} style={{ 
-                            wordBreak: 'break-word',
-                            hyphens: 'auto',
-                            lineHeight: '1.3'
-                        }}>
+                        <Card.Title 
+                            className="mb-0" 
+                            title={domain.name} 
+                            style={{ 
+                                wordBreak: 'break-word',
+                                hyphens: 'auto',
+                                lineHeight: '1.3',
+                                cursor: 'pointer',
+                                color: '#0d6efd'
+                            }}
+                            onClick={() => navigate(`/private/domain/${domain._id}`)}
+                        >
                             {domain.name}
                         </Card.Title>
                     </div>
