@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Button, Spinner, Alert } from 'react-bootstrap';
-import { ArrowLeft } from 'react-bootstrap-icons';
+import { Container, Button, Spinner, Alert, Badge } from 'react-bootstrap';
+import { ArrowLeft, Wifi, WifiOff } from 'react-bootstrap-icons';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import mapboxgl from 'mapbox-gl';
 import { Domain, User } from './App';
+import { useDroneLinkState } from './dronelink/useDroneLinkState';
+import InspectorPanel from './components/InspectorPanel';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Mapbox token will be set dynamically from backend config
@@ -23,6 +25,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
     const saveMapStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const dataLoadedRef = useRef<boolean>(false);
+    
+    // DroneLink state management
+    const droneLinkState = useDroneLinkState();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -60,9 +66,23 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 setUser(userResult);
                 setMapboxToken(configResult.data.mapboxAccessToken);
                 
+                console.log('Config loaded:', {
+                    hasMapboxToken: !!configResult.data.mapboxAccessToken,
+                    token: configResult.data.mapboxAccessToken ? 'present' : 'missing'
+                });
+                
                 // Set Mapbox token if available
                 if (configResult.data.mapboxAccessToken) {
                     mapboxgl.accessToken = configResult.data.mapboxAccessToken;
+                    console.log('Mapbox access token set');
+                } else {
+                    console.warn('No Mapbox access token found in config');
+                }
+
+                // Load historical DroneLink data for this domain (only once)
+                if (domainId && !dataLoadedRef.current) {
+                    dataLoadedRef.current = true;
+                    await droneLinkState.loadHistoricalData(domainId);
                 }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -72,7 +92,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         };
 
         fetchData();
-    }, [domainId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [domainId]); // Removed droneLinkState dependency to prevent loops
 
     // Debounced function to save map state
     const saveMapState = useCallback((lng: number, lat: number, zoom: number) => {
@@ -97,44 +118,82 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         }, 5000);
     }, []);
 
+    // Separate effect to initialize map when all conditions are met
     useEffect(() => {
-        if (mapContainer.current && !map.current && mapboxToken && user) {
-            try {
-                // Use user's saved map state or defaults
-                const mapState = user.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
-                
-                map.current = new mapboxgl.Map({
-                    container: mapContainer.current,
-                    style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku',
-                    center: [mapState.lng, mapState.lat],
-                    zoom: mapState.zoom
-                });
+        const initializeMap = () => {
+            console.log('Map initialization attempt:', {
+                hasContainer: !!mapContainer.current,
+                hasMap: !!map.current,
+                hasToken: !!mapboxToken,
+                hasUser: !!user
+            });
+            
+            if (mapContainer.current && !map.current && mapboxToken && user) {
+                try {
+                    console.log('Initializing Mapbox map...');
+                    // Use user's saved map state or defaults
+                    const mapState = user.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
+                    console.log('Using map state:', mapState);
+                    
+                    map.current = new mapboxgl.Map({
+                        container: mapContainer.current,
+                        style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku',
+                        center: [mapState.lng, mapState.lat],
+                        zoom: mapState.zoom
+                    });
 
-                // Add navigation controls
-                map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+                    console.log('Map created successfully');
 
-                // Add event listeners for map movement
-                map.current.on('moveend', () => {
-                    if (map.current) {
-                        const center = map.current.getCenter();
-                        const zoom = map.current.getZoom();
-                        saveMapState(center.lng, center.lat, zoom);
-                    }
-                });
+                    // Add navigation controls
+                    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                map.current.on('zoomend', () => {
-                    if (map.current) {
-                        const center = map.current.getCenter();
-                        const zoom = map.current.getZoom();
-                        saveMapState(center.lng, center.lat, zoom);
-                    }
-                });
-            } catch (error) {
-                console.error('Failed to initialize Mapbox:', error);
+                    // Add event listeners for map movement
+                    map.current.on('moveend', () => {
+                        if (map.current) {
+                            const center = map.current.getCenter();
+                            const zoom = map.current.getZoom();
+                            saveMapState(center.lng, center.lat, zoom);
+                        }
+                    });
+
+                    map.current.on('zoomend', () => {
+                        if (map.current) {
+                            const center = map.current.getCenter();
+                            const zoom = map.current.getZoom();
+                            saveMapState(center.lng, center.lat, zoom);
+                        }
+                    });
+
+                    map.current.on('load', () => {
+                        console.log('Map loaded successfully');
+                    });
+
+                    map.current.on('error', (e) => {
+                        console.error('Map error:', e);
+                    });
+                } catch (error) {
+                    console.error('Failed to initialize Mapbox:', error);
+                }
             }
+        };
+
+        // Try multiple times with increasing delays to handle timing issues
+        const timeouts: NodeJS.Timeout[] = [];
+        
+        // Immediate attempt
+        initializeMap();
+        
+        // Retry attempts if not successful
+        if (mapboxToken && user && !map.current) {
+            [50, 200, 500].forEach(delay => {
+                timeouts.push(setTimeout(initializeMap, delay));
+            });
         }
 
         return () => {
+            // Clear all timeouts
+            timeouts.forEach(timeout => clearTimeout(timeout));
+            
             // Clear any pending save timeout
             if (saveMapStateTimeoutRef.current) {
                 clearTimeout(saveMapStateTimeoutRef.current);
@@ -173,18 +232,41 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     }
 
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="bg-dark text-light" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
-            <div className="bg-light border-bottom px-3 py-2 d-flex align-items-center">
-                <Button 
-                    variant="outline-secondary" 
-                    size="sm" 
-                    onClick={() => navigate('/private')}
-                    className="me-3"
-                >
-                    <ArrowLeft size={16} />
-                </Button>
-                <h5 className="mb-0">{domain.name}</h5>
+            <div className="bg-dark border-secondary px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
+                <div className="d-flex align-items-center">
+                    <Button 
+                        variant="outline-secondary" 
+                        size="sm" 
+                        onClick={() => navigate('/private')}
+                        className="me-3"
+                    >
+                        <ArrowLeft size={16} />
+                    </Button>
+                    <h5 className="mb-0 me-3">{domain.name}</h5>
+                </div>
+                
+                <div className="d-flex align-items-center gap-2">
+                    {/* DroneLink Status */}
+                    <div className="d-flex align-items-center gap-2">
+                        {droneLinkState.nodeCount > 0 ? (
+                            <Wifi size={16} className="text-success" />
+                        ) : (
+                            <WifiOff size={16} className="text-muted" />
+                        )}
+                        <Badge bg={droneLinkState.nodeCount > 0 ? 'success' : 'secondary'}>
+                            {droneLinkState.nodeCount} nodes
+                        </Badge>
+                        <small className="text-white">
+                            {droneLinkState.stats.received} msgs
+                        </small>
+                    </div>
+                    
+                    {droneLinkState.isLoading && (
+                        <Spinner animation="border" size="sm" />
+                    )}
+                </div>
             </div>
 
             {/* Resizable Panels */}
@@ -198,15 +280,15 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 width: '100%', 
                                 height: '100%',
                                 position: 'relative',
-                                backgroundColor: '#f8f9fa'
+                                backgroundColor: '#212529'
                             }} 
                         >
                             {!mapboxToken && (
                                 <div className="d-flex align-items-center justify-content-center h-100">
-                                    <div className="text-center text-muted">
-                                        <h5>Map View</h5>
-                                        <p>Mapbox token required to display map</p>
-                                        <small>Add mapboxAccessToken to config.json</small>
+                                    <div className="text-center">
+                                        <h5 className="text-white">Map View</h5>
+                                        <p className="text-white">Mapbox token required to display map</p>
+                                        <small className="text-secondary">Add mapboxAccessToken to config.json</small>
                                     </div>
                                 </div>
                             )}
@@ -217,50 +299,17 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     <PanelResizeHandle 
                         style={{
                             width: '4px',
-                            backgroundColor: '#dee2e6',
+                            backgroundColor: '#495057',
                             cursor: 'col-resize',
-                            borderLeft: '1px solid #adb5bd',
-                            borderRight: '1px solid #adb5bd'
+                            borderLeft: '1px solid #343a40',
+                            borderRight: '1px solid #343a40'
                         }}
                     />
 
                     {/* Inspector Panel */}
                     <Panel defaultSize={30} minSize={20} maxSize={50}>
-                        <div className="h-100 p-3 bg-light">
-                            <h6 className="text-muted mb-3">Inspector</h6>
-                            
-                            <div className="mb-3">
-                                <small className="text-muted d-block mb-1">Domain Name</small>
-                                <div className="fw-medium">{domain.name}</div>
-                            </div>
-
-                            <div className="mb-3">
-                                <small className="text-muted d-block mb-1">Domain ID</small>
-                                <code className="small">{domain._id}</code>
-                            </div>
-
-                            <div className="mb-3">
-                                <small className="text-muted d-block mb-1">Statistics</small>
-                                <div className="small">
-                                    <div>Nodes: {domain.stats?.nodeCount || 0}</div>
-                                    <div>Packets: {domain.stats?.packetCount || 0}</div>
-                                </div>
-                            </div>
-
-                            <div className="mb-3">
-                                <small className="text-muted d-block mb-1">Users</small>
-                                <div className="small">
-                                    {domain.users && domain.users.length > 0 ? (
-                                        domain.users.map(user => (
-                                            <div key={user._id} className="mb-1">
-                                                {user.displayName}
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-muted">No users</div>
-                                    )}
-                                </div>
-                            </div>
+                        <div className="h-100 bg-dark">
+                            <InspectorPanel domainId={domainId!} droneLinkState={droneLinkState} />
                         </div>
                     </Panel>
                 </PanelGroup>
