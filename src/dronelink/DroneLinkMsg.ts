@@ -1,3 +1,51 @@
+import {
+  DRONE_LINK_MSG_TYPE_UINT8_T,
+  DRONE_LINK_MSG_TYPE_ADDR,
+  DRONE_LINK_MSG_TYPE_UINT32_T,
+  DRONE_LINK_MSG_TYPE_FLOAT,
+  DRONE_LINK_MSG_TYPE_CHAR,
+  DRONE_LINK_MSG_TYPE_NAME,
+  DRONE_LINK_MSG_TYPE_NAMEQUERY,
+  DRONE_LINK_MSG_TYPE_QUERY,
+  DRONE_LINK_MSG_PRIORITY_LOW,
+  DRONE_LINK_MSG_PRIORITY_MEDIUM,
+  DRONE_LINK_MSG_PRIORITY_HIGH,
+  DRONE_LINK_MSG_PRIORITY_CRITICAL,
+  DRONE_MODULE_PARAM_STATUS,
+  DRONE_MODULE_PARAM_NAME,
+  DRONE_MODULE_PARAM_ERROR,
+  DRONE_MODULE_PARAM_RESETCOUNT,
+  DRONE_MODULE_PARAM_TYPE,
+  DRONE_LINK_MSG_WRITABLE,
+  DRONE_LINK_MSG_TYPE_SIZES,
+  DRONE_LINK_MSG_MAX_PAYLOAD,
+  DRONE_LINK_MSG_HEADER_BYTES
+} from '@dronelink/protocol';
+
+export {
+  DRONE_LINK_MSG_TYPE_UINT8_T,
+  DRONE_LINK_MSG_TYPE_ADDR,
+  DRONE_LINK_MSG_TYPE_UINT32_T,
+  DRONE_LINK_MSG_TYPE_FLOAT,
+  DRONE_LINK_MSG_TYPE_CHAR,
+  DRONE_LINK_MSG_TYPE_NAME,
+  DRONE_LINK_MSG_TYPE_NAMEQUERY,
+  DRONE_LINK_MSG_TYPE_QUERY,
+  DRONE_LINK_MSG_PRIORITY_LOW,
+  DRONE_LINK_MSG_PRIORITY_MEDIUM,
+  DRONE_LINK_MSG_PRIORITY_HIGH,
+  DRONE_LINK_MSG_PRIORITY_CRITICAL,
+  DRONE_MODULE_PARAM_STATUS,
+  DRONE_MODULE_PARAM_NAME,
+  DRONE_MODULE_PARAM_ERROR,
+  DRONE_MODULE_PARAM_RESETCOUNT,
+  DRONE_MODULE_PARAM_TYPE,
+  DRONE_LINK_MSG_WRITABLE,
+  DRONE_LINK_MSG_TYPE_SIZES,
+  DRONE_LINK_MSG_MAX_PAYLOAD,
+  DRONE_LINK_MSG_HEADER_BYTES
+};
+
 /**
  * DroneLink Message System - React/TypeScript Port
  * 
@@ -5,37 +53,9 @@
  * Each message addresses a specific parameter within a channel of a node.
  */
 
-// Message Type Constants
-export const DRONE_LINK_MSG_TYPE_UINT8_T = 0;
-export const DRONE_LINK_MSG_TYPE_ADDR = 1;
-export const DRONE_LINK_MSG_TYPE_UINT32_T = 2;
-export const DRONE_LINK_MSG_TYPE_FLOAT = 3;
-export const DRONE_LINK_MSG_TYPE_CHAR = 4;
-export const DRONE_LINK_MSG_TYPE_NAME = 5;
-export const DRONE_LINK_MSG_TYPE_NAMEQUERY = 6;
-export const DRONE_LINK_MSG_TYPE_QUERY = 7;
-
-// Message Priority Constants
-export const DRONE_LINK_MSG_PRIORITY_LOW = 0;
-export const DRONE_LINK_MSG_PRIORITY_MEDIUM = 1;
-export const DRONE_LINK_MSG_PRIORITY_HIGH = 2;
-export const DRONE_LINK_MSG_PRIORITY_CRITICAL = 3;
-
-// Module Parameter Constants
-export const DRONE_MODULE_PARAM_STATUS = 1;
-export const DRONE_MODULE_PARAM_NAME = 2;
-export const DRONE_MODULE_PARAM_ERROR = 3;
-export const DRONE_MODULE_PARAM_RESETCOUNT = 4;
-export const DRONE_MODULE_PARAM_TYPE = 5;
-
-// Utility Constants
-export const DRONE_LINK_MSG_WRITABLE = 0b10000000;
-
 export const DRONE_LINK_MSG_TYPE_NAMES = [
   'u8', 'a', 'u32', 'f', 'c', 'n', 'nq', 'q'
 ];
-
-export const DRONE_LINK_MSG_TYPE_SIZES = [1, 4, 4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
 export interface DroneLinkAddress {
   node: number;
@@ -71,7 +91,7 @@ export class DroneLinkMsg {
   private uint8Payload: Uint8Array;
 
   constructor(buffer?: ArrayBuffer) {
-    this.rawPayload = new ArrayBuffer(16);
+    this.rawPayload = new ArrayBuffer(DRONE_LINK_MSG_MAX_PAYLOAD);
     this.uint8Payload = new Uint8Array(this.rawPayload);
     
     if (buffer) {
@@ -413,7 +433,7 @@ export class DroneLinkMsg {
    * Get total message size including header
    */
   totalSize(): number {
-    return 5 + this.msgLength;
+    return DRONE_LINK_MSG_HEADER_BYTES + this.msgLength;
   }
 
   /**
@@ -451,7 +471,7 @@ export class DroneLinkMsg {
    * Encode message without framing
    */
   encodeUnframed(): Uint8Array {
-    const buffer = new Uint8Array(this.msgLength + 5);
+    const buffer = new Uint8Array(this.msgLength + DRONE_LINK_MSG_HEADER_BYTES);
     buffer[0] = this.source;
     buffer[1] = this.node;
     buffer[2] = this.channel;
