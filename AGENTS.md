@@ -12,7 +12,7 @@ Before implementation, follow [project objectives and requirements](../DroneLink
 
 ## Accepted target ownership
 
-This repository is to own the web interface. Client source/build extraction is implemented by SEP-03; other runtime relocation remains gated. Read the accepted ADR-0003 and the proposed SEP implementation plan; do not confuse target acceptance with completed extraction.
+This repository is to own the web interface. Client source/build extraction is implemented by SEP-03; SEP-04 now separates hosted/backend persistence ownership; broader product/deployment gates remain. Read the accepted ADR-0003 and the proposed SEP implementation plan; do not confuse target acceptance with completed extraction.
 
 ## Frozen baseline and first slice
 

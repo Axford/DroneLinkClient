@@ -32,15 +32,17 @@ The archive contains `build/` plus `release-manifest.json`; the adjacent `.sha25
 
 Verification checks archive identity/digest, manifest/provenance shape, exact regular-file set/hashes and required shell/static files before extracting. Absolute/traversing paths, duplicate entries, symlinks and hardlinks are rejected. Extraction requires an explicit fresh destination and refuses to overwrite an existing release. Verification is integrity evidence, not publisher authentication. Reusing a release identity with different bytes fails. Archive generation normalizes tar/gzip metadata, but cross-toolchain byte reproducibility is not guaranteed.
 
-Select `/absolute/new-release-directory/build` in the backend's optional `clientBuildDir`. The backend continues to serve the same origin and URLs, with its own Google/session checks; this is not a separate UI service. Keep the previous verified release directory and matching backend/config revision. Roll back by selecting that directory; do not replace the selected release in place. A deployment retaining the backend's default path may explicitly install a verified build at Datastore `private/build`; this directory contains artifacts only. Clear or replace a stale ignored default build deliberately during cutover.
+Select `/absolute/new-release-directory/build` in the backend's optional `clientBuildDir`. The backend continues to serve the same origin and URLs, with its own Google/session checks; this is not a separate UI service. Keep the previous verified release directory and matching backend/config revision. Roll back by selecting that directory; do not replace the selected release in place. A deployment retaining the backend's default path may explicitly install a verified build at Server `hosted/private/build`; this directory contains artifacts only. Clear or replace a stale ignored default build deliberately during cutover.
 
 ## Coordinated acceptance
 
 These development checks require the named sibling repositories and installed dependencies; they are separate from ordinary Client builds:
 
 ```sh
-cd ../DroneLinkDatastore
+cd ../DroneLinkServer/hosted
 CLIENT_BUILD_DIR=/absolute/new-release-directory/build npm run test:application
+CLIENT_BUILD_DIR=/absolute/new-release-directory/build npm run test:integration
+cd ../../DroneLinkDatastore
 DRONELINK_CLIENT_DIR=../DroneLinkClient npm run test:protocol
 python3 tools/check_docs.py
 ```
@@ -58,3 +60,9 @@ Companion Datastore commit: `3864195` (source removal, explicit artifact/client 
 A separate C1 clone with its own locked installation and no sibling repositories passes three React startup tests, 20 codec tests, 12 release tests and production packaging/verification/extraction. Repackaging produces identical bytes in the checked environment. Dirty sources and identity collisions are rejected. Both old and new frontend artifacts pass 51 HTTP/session checks against the SEP-02 and current backends; retained release selection, missing/installed default paths and invalid-artifact failures pass. Coordinated protocol checks pass 20 tests; unchanged gateway checks pass 27 tests and 16 browser fixture round trips. Documentation checks pass.
 
 Local ignored `releases/` retains the C1 archive and checksum, verified `installed-afcb0a2/` directory, pre-extraction `baseline-f0-9bed13e/` build with source/checksum inventory, and acceptance logs. C1 archive SHA-256: `8eaa3456c36079ce1089f4b4945f09dbfaacff96664d241d1b5d62bbb2d786f6`. No service configuration was changed and no artifact was deployed or published. Live Google/MongoDB/full-browser deployment, hardware and backend/persistence extraction remain pending.
+
+## SEP-04 service ownership update
+
+The active backend now belongs to Server `hosted/`, with its own installation/configuration and a pinned persistence archive. Client source and C1 release bytes are unchanged. Use [hosted operations](../../DroneLinkServer/hosted/README.md) for selection of a verified Client build and HTTP/real-storage acceptance. Relative `clientBuildDir` resolves against the hosted package root; its default is `hosted/private/build`. Datastore retains shared contracts, persistence/protocol libraries and coordinated development checks; it has no backend start command. Earlier SEP-03 evidence above describes its then-current Datastore backend and is retained as historical evidence.
+
+SEP-04 companions: Server hosted implementation `975651f`, Datastore completion/evidence `b288660`. This documentation follow-up changes no Client source or C1 release bytes; Client codec/release/archive checks still pass.

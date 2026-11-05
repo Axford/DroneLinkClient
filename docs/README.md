@@ -14,7 +14,7 @@ System facts and roadmap status are maintained in Datastore; this repo owns its 
 
 ## Project intent and accepted target boundaries
 
-Read [objectives and requirements](../../DroneLinkDatastore/docs/project/objectives.md), [traceability](../../DroneLinkDatastore/docs/project/traceability.md) and [target repository architecture](../../DroneLinkDatastore/docs/architecture/target.md). The target responsibilities are accepted; Client extraction is implemented under SEP-03; backend/persistence migration remains pending. The local architecture guide describes current source.
+Read [objectives and requirements](../../DroneLinkDatastore/docs/project/objectives.md), [traceability](../../DroneLinkDatastore/docs/project/traceability.md) and [target repository architecture](../../DroneLinkDatastore/docs/architecture/target.md). The target responsibilities are accepted; Client extraction is implemented under SEP-03; backend/persistence separation is now implemented under SEP-04's local gate. The local architecture guide describes current source.
 
 ## Architecture baseline
 
