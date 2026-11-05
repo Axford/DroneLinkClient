@@ -2,17 +2,17 @@
 
 Status: observed source. Reviewed: 2026-11-04.
 
-This checkout contains Git metadata/configuration and LICENSE only. There is no application, build manifest, packet codec or test suite here as of reviewed code revision `1431a15`.
+Client owns the React/TypeScript source at `src/`, public assets at `public/`, its package/lockfile, frontend/codec tests and local release tooling. SEP-03 imports Datastore's frontend subtree history without rewriting the existing Client history. LICENSE and local documentation are retained. There is one authoritative frontend source tree; Datastore retains the Express backend and same-origin artifact hosting.
 
-The current React browser application is in [DroneLinkDatastore/private](../../DroneLinkDatastore/private); the original browser tools are in [DroneLinkServer/public](../../DroneLinkServer/public). Do not assume the Client name implies either application has been extracted here.
+[App](../src/App.tsx) owns session/domain startup; [DomainDetailPage](../src/DomainDetailPage.tsx) owns the map/inspector layout; [DroneLinkState](../src/dronelink/DroneLinkState.ts) reconstructs observed state from history/polling. Existing send-stub and state/cursor limitations are unchanged; see the shared [HTTP contract](../../DroneLinkDatastore/docs/contracts/http.md).
 
-Any future extraction needs an architecture decision covering ownership, deployment, API/session assumptions and shared-contract distribution. The proposed separation plan now assigns future operator application extraction here, under the accepted boundary, pending API/build/hosting validation; there is still no implemented application in this checkout.
+The actual TypeScript codec consumes the checked-in protocol 0.1.1 archive under `vendor/`, with a lockfile integrity pin. Normal install/build/test/release uses no sibling source. [Release tooling](../tools/release.py) owns archive/provenance/integrity and fresh-directory extraction; the backend owns route authentication and artifact selection through `clientBuildDir`. Browser APIs and assets retain their same-origin/root-relative paths; no API origin or auth redesign is introduced. Build artifacts contain no server source/configuration or node_modules. See [operations](operations.md).
 
 ## Accepted target responsibility boundary
 
-See [target architecture](../../DroneLinkDatastore/docs/architecture/target.md) and [ADR-0003](../../DroneLinkDatastore/docs/decisions/0003-repository-boundaries.md) for the accepted target allocation and [SEP](../../DroneLinkDatastore/docs/planning/repository-separation.md) for review/extraction gates. No runtime relocation is implemented.
+See [target architecture](../../DroneLinkDatastore/docs/architecture/target.md) and [ADR-0003](../../DroneLinkDatastore/docs/decisions/0003-repository-boundaries.md) for the accepted target allocation and [SEP](../../DroneLinkDatastore/docs/planning/repository-separation.md) for review/extraction gates. Client source ownership has moved under SEP-03; backend/persistence relocation remains pending.
 
-Accepted on 2026-11-05: this repository owns web interface. This is target ownership; the observed source described above has not yet moved.
+Accepted on 2026-11-05: this repository owns web interface. SEP-03 implements this Client ownership; the remaining target responsibilities are still gated.
 
 ## Agreed workbench Client direction
 

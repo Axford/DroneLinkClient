@@ -1,6 +1,6 @@
 # DroneLinkClient documentation
 
-Reviewed: 2026-11-04. Role: reserved client repository.
+Reviewed: 2026-11-05. Role: React web interface, build/test ownership and versioned frontend artifacts.
 
 - [Local architecture](architecture.md)
 - [Local operations](operations.md)
@@ -14,8 +14,8 @@ System facts and roadmap status are maintained in Datastore; this repo owns its 
 
 ## Project intent and accepted target boundaries
 
-Read [objectives and requirements](../../DroneLinkDatastore/docs/project/objectives.md), [traceability](../../DroneLinkDatastore/docs/project/traceability.md) and [target repository architecture](../../DroneLinkDatastore/docs/architecture/target.md). The target responsibilities are accepted; migration is not implemented; the local architecture guide describes current source.
+Read [objectives and requirements](../../DroneLinkDatastore/docs/project/objectives.md), [traceability](../../DroneLinkDatastore/docs/project/traceability.md) and [target repository architecture](../../DroneLinkDatastore/docs/architecture/target.md). The target responsibilities are accepted; Client extraction is implemented under SEP-03; backend/persistence migration remains pending. The local architecture guide describes current source.
 
 ## Architecture baseline
 
-The agreed cross-repository direction is frozen as [ARCH-1.0](../../DroneLinkDatastore/docs/architecture/baseline.md). Use the [canonical glossary](../../DroneLinkDatastore/docs/project/glossary.md) for actors and terms, and [requirements](../../DroneLinkDatastore/docs/project/requirements.md) for policy. The proposed first implementation scope is [SEP-01](../../DroneLinkDatastore/docs/planning/sep-01-protocol-compatibility.md); runtime ownership has not moved.
+The agreed cross-repository direction is frozen as [ARCH-1.0](../../DroneLinkDatastore/docs/architecture/baseline.md). Use the [canonical glossary](../../DroneLinkDatastore/docs/project/glossary.md) for actors and terms, and [requirements](../../DroneLinkDatastore/docs/project/requirements.md) for policy. [SEP-01](../../DroneLinkDatastore/docs/planning/sep-01-protocol-compatibility.md) established the pinned protocol and [SEP-03](../../DroneLinkDatastore/docs/planning/repository-separation.md#sep-03-planning-decisions--2026-11-05) moves Client source/build ownership.
