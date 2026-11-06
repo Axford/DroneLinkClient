@@ -74,3 +74,9 @@ Current Client uses the matched native hosted API: opaque domain cursor stack fo
 ## SEP-06 page lifecycle acceptance follow-up
 
 DomainDetailPage now follows domain route changes rather than a component-lifetime loaded flag. Its metadata requests are abortable, late results cannot replace the current domain, and cleanup stops the previous stream. Map initialization follows loading completion, including history replays exceeding the earlier retry window. Two actual-page/real-hook React regressions demonstrate the old domain-switch and slow-map failures and pass with the fixes. Eight React tests now pass; standards/spec review found no additional issues. The protocol and storage interfaces are unchanged. This follow-up pairs with Server1fd14d5/native0.2.0 and replaces the earlier Clientf638585 artifact in the next matched staging deployment.
+
+## SEP-06 completed hosted acceptance — 2026-11-06
+
+Client19619c7 is the verified deployed artifact, paired with Server artifact1fd14d5/native persistence0.2.0. Real Google pending/approved/disabled flows, domain creation, retained count, map/inspector rendering, decoded history and live changes pass. The user manually confirmed reload/reconnect at six messages/value43.5, then a seventh packet changed the open page to44.5 without refresh. Eight React regressions and the production build pass; unchanged protocol/release tooling results remain valid and the final immutable archive verifies. This documentation follow-up changes no release bytes. The shared plan owns exact image/source/archive identities and completion evidence.
+
+Expand All is a pre-existing inspector UI follow-up: its parent expansion prop does not update ChannelCard's local expansion state. Individual channel-header expansion works. Production, physical gateway preservation and M1/M2 product behavior remain outside SEP-06.
