@@ -1,6 +1,6 @@
 # DroneLinkClient documentation
 
-Reviewed: 2026-11-05. Role: React web interface, build/test ownership and versioned frontend artifacts.
+Reviewed: 2026-11-06. Role: React web interface, build/test ownership and versioned frontend artifacts.
 
 - [Local architecture](architecture.md)
 - [Local operations](operations.md)
@@ -18,4 +18,6 @@ Read [objectives and requirements](../../DroneLinkDatastore/docs/project/objecti
 
 ## Architecture baseline
 
-The agreed cross-repository direction is frozen as [ARCH-1.0](../../DroneLinkDatastore/docs/architecture/baseline.md). Use the [canonical glossary](../../DroneLinkDatastore/docs/project/glossary.md) for actors and terms, and [requirements](../../DroneLinkDatastore/docs/project/requirements.md) for policy. [SEP-01](../../DroneLinkDatastore/docs/planning/sep-01-protocol-compatibility.md) established the pinned protocol and [SEP-03](../../DroneLinkDatastore/docs/planning/repository-separation.md#sep-03-planning-decisions--2026-11-05) moves Client source/build ownership.
+The current cross-repository direction is frozen as [ARCH-1.1](../../DroneLinkDatastore/docs/architecture/baseline.md). Use the [canonical glossary](../../DroneLinkDatastore/docs/project/glossary.md) for actors and terms, and [requirements](../../DroneLinkDatastore/docs/project/requirements.md) for policy. [SEP-01](../../DroneLinkDatastore/docs/planning/sep-01-protocol-compatibility.md) established the pinned protocol and [SEP-03](../../DroneLinkDatastore/docs/planning/repository-separation.md#sep-03-planning-decisions--2026-11-05) completed Client source/build ownership.
+
+ARCH-1.1 publication (2026-11-06): accepted [ADR-0004](../../DroneLinkDatastore/docs/decisions/0004-cloud-access-and-domain-retirement.md) defines managed-cloud access/domain retirement; [M1 slice A](../../DroneLinkDatastore/docs/planning/m1-contracts-and-telemetry.md#slice-a-implementation-plan--2026-11-06) is ready, runtime implementation unstarted. The local annotated `architecture-v1.1` tag captures this documentation adoption; the original `architecture-v1.0` snapshot is retained unchanged. This component documentation change modifies no runtime, deployment, account or firmware.
