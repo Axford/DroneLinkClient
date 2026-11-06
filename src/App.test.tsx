@@ -27,8 +27,8 @@ test('shows a session request failure without rendering the domain list', async 
 test('loads the domain list using the existing same-origin session and domain APIs', async () => {
   global.fetch = jest.fn()
     .mockResolvedValueOnce({ ok: true, json: async () => ({ _id: 'user', domains: [] }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [], pagination: { page: 1, limit: 10, total: 0, pages: 0, hasNext: false, hasPrev: false } }) });
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [], pagination: { limit: 10, nextCursor: null } }) });
   render(<App />);
   expect(await screen.findByText('Domain list')).toBeInTheDocument();
-  expect(fetch).toHaveBeenNthCalledWith(2, '/api/domains?page=1&limit=10');
+  expect(fetch).toHaveBeenNthCalledWith(2, '/api/domains?limit=10');
 });

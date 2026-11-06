@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Spinner, Alert } from 'react-bootstrap';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
@@ -54,44 +54,24 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    pages: 0,
-    hasNext: false,
-    hasPrev: false
-  });
+  const [pagination, setPagination] = useState<{ limit: number; nextCursor: string | null; hasPrev: boolean }>({ limit: 10, nextCursor: null, hasPrev: false });
+  const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
   const location = useLocation();
 
-  const fetchDomains = async (page = 1, limit = 10) => {
+  const loadPage = useCallback(async (stack: Array<string | undefined>) => {
+    const cursor = stack[stack.length - 1];
     try {
-      const response = await fetch(`/api/domains?page=${page}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch domains');
-      }
+      const response = await fetch(`/api/domains?limit=10${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      if (!response.ok) throw new Error('Failed to fetch domains');
       const result = await response.json();
-      
-      // Handle both new and old API response formats
-      if (result.success) {
-        setDomains(result.data);
-        setPagination(result.pagination);
-      } else if (Array.isArray(result)) {
-        // Old format - just an array of domains
-        setDomains(result);
-        setPagination({
-          page: 1,
-          limit: result.length,
-          total: result.length,
-          pages: 1,
-          hasNext: false,
-          hasPrev: false
-        });
-      }
+      setDomains(result.data);
+      setCursorStack(stack);
+      setPagination({ limit: 10, nextCursor: result.pagination.nextCursor, hasPrev: stack.length > 1 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch domains');
     }
-  };
+  }, []);
+  const fetchDomains = (direction: 'next' | 'previous' | 'reset' = 'reset') => loadPage(direction === 'reset' ? [undefined] : direction === 'previous' ? cursorStack.slice(0, -1) : [...cursorStack, pagination.nextCursor || undefined]);
 
   useEffect(() => {
     // Skip data fetching for invite pages
@@ -110,7 +90,7 @@ function AppContent() {
         setUser(userData);
         
         // Fetch domains after user is loaded
-        await fetchDomains();
+        await loadPage([undefined]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
@@ -119,7 +99,7 @@ function AppContent() {
     };
 
     fetchData();
-  }, [location.pathname]);
+  }, [location.pathname, loadPage]);
 
   const handleDomainUpdate = (updatedDomain: Domain) => {
     const domainIndex = domains.findIndex(d => d._id === updatedDomain._id);
@@ -130,7 +110,7 @@ function AppContent() {
         setDomains(newDomains);
     } else {
         // Add new domain and refresh the list
-        fetchDomains(pagination.page, pagination.limit);
+        fetchDomains();
     }
   };
 
@@ -138,10 +118,7 @@ function AppContent() {
     // This will be handled in HomePage with toast notifications
     setDomains(domains.filter(d => d._id !== domainId));
     
-    // Update pagination if needed
-    if (domains.length === 1 && pagination.page > 1) {
-      fetchDomains(pagination.page - 1, pagination.limit);
-    }
+    await fetchDomains();
   };
 
   if (loading) {

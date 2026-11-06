@@ -13,14 +13,11 @@ interface HomePageProps {
     onDomainUpdate: (domain: Domain) => void;
     onDomainDelete: (domainId: string) => void;
     pagination: {
-        page: number;
         limit: number;
-        total: number;
-        pages: number;
-        hasNext: boolean;
+        nextCursor: string | null;
         hasPrev: boolean;
     };
-    onPageChange: (page: number, limit: number) => void;
+    onPageChange: (direction: 'next' | 'previous' | 'reset') => void;
     loading: boolean;
 }
 
@@ -81,10 +78,6 @@ const HomePage: React.FC<HomePageProps> = ({
         } finally {
             setIsDeleting(null);
         }
-    };
-
-    const handlePageChange = (page: number) => {
-        onPageChange(page, pagination.limit);
     };
 
     const handleRegenerateKey = async (domain: Domain) => {
@@ -156,51 +149,12 @@ const HomePage: React.FC<HomePageProps> = ({
         }
     };
 
-    const renderPagination = () => {
-        if (pagination.pages <= 1) return null;
-
-        const items = [];
-        const maxVisiblePages = 5;
-        const startPage = Math.max(1, pagination.page - Math.floor(maxVisiblePages / 2));
-        const endPage = Math.min(pagination.pages, startPage + maxVisiblePages - 1);
-
-        // Previous button
-        items.push(
-            <Pagination.Prev
-                key="prev"
-                disabled={!pagination.hasPrev}
-                onClick={() => handlePageChange(pagination.page - 1)}
-            />
-        );
-
-        // Page numbers
-        for (let page = startPage; page <= endPage; page++) {
-            items.push(
-                <Pagination.Item
-                    key={page}
-                    active={page === pagination.page}
-                    onClick={() => handlePageChange(page)}
-                >
-                    {page}
-                </Pagination.Item>
-            );
-        }
-
-        // Next button
-        items.push(
-            <Pagination.Next
-                key="next"
-                disabled={!pagination.hasNext}
-                onClick={() => handlePageChange(pagination.page + 1)}
-            />
-        );
-
-        return (
-            <div className="d-flex justify-content-center mt-4">
-                <Pagination>{items}</Pagination>
-            </div>
-        );
-    };
+    const renderPagination = () => (!pagination.hasPrev && !pagination.nextCursor ? null : (
+        <div className="d-flex justify-content-center mt-4"><Pagination>
+            <Pagination.Prev disabled={!pagination.hasPrev} onClick={() => onPageChange('previous')}>Previous</Pagination.Prev>
+            <Pagination.Next disabled={!pagination.nextCursor} onClick={() => onPageChange('next')}>Next</Pagination.Next>
+        </Pagination></div>
+    ));
 
     return (
         <Container fluid className="p-4">

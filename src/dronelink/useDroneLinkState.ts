@@ -83,6 +83,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
       if (droneLinkStateRef.current) {
         droneLinkStateRef.current.stopStreaming();
         droneLinkStateRef.current.destroy();
+        droneLinkStateRef.current = null;
       }
     };
   }, []);
@@ -95,47 +96,9 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     setError(null);
 
     try {
-      // Fetch messages from the last hour
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const url = `/api/domains/${domainId}/messages?since=${oneHourAgo.toISOString()}`;
-      console.log('Loading historical data from:', url);
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch historical data: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('Historical data API response:', {
-        success: result.success,
-        dataLength: result.data?.length || 0,
-        error: result.error,
-        fullResult: result
-      });
-      
-      if (result.success && result.data) {
-        console.log('Received historical data:', {
-          count: result.data.length,
-          firstPacket: result.data[0],
-          packetStructure: result.data[0]?.packet,
-          timeType: typeof result.data[0]?.time
-        });
-        
-        if (result.data.length > 0) {
-          await droneLinkStateRef.current.processHistoricalMessages(result.data);
-          setState({ ...droneLinkStateRef.current.getState() });
-          setStats(droneLinkStateRef.current.getStats());
-
-          // Start streaming real-time messages after historical data is loaded
-          console.log('Starting real-time message streaming...');
-          droneLinkStateRef.current.startStreaming(domainId);
-        } else {
-          console.log('No historical data found - this is normal if no DroneLink messages have been received yet');
-        }
-      } else {
-        console.log('No historical data available or API returned error:', result.error);
-      }
+      await droneLinkStateRef.current.loadHistory(domainId);
+      setState({ ...droneLinkStateRef.current.getState() });
+      setStats(droneLinkStateRef.current.getStats());
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load historical data';
       setError(errorMessage);

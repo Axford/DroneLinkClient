@@ -77,7 +77,11 @@ export class DroneLinkState {
   private queueProcessInterval?: NodeJS.Timeout;
   private pollingActive: boolean = false;
   private currentDomainId?: string;
-  private lastMessageTime: Date = new Date();
+  private streamCursor?: string;
+  private requestController?: AbortController;
+  private pollTimer?: ReturnType<typeof setTimeout>;
+  private generation = 0;
+  private seenPacketIds = new Set<string>();
 
   constructor() {
     // Initialize periodic tasks
@@ -105,6 +109,8 @@ export class DroneLinkState {
    * Reset the entire state
    */
   reset(): void {
+    this.stopStreaming();
+    this.seenPacketIds.clear();
     this.state = {};
     this.received = 0;
     this.discoveryQueue = [];
@@ -114,6 +120,7 @@ export class DroneLinkState {
    * Cleanup intervals and resources
    */
   destroy(): void {
+    this.stopStreaming();
     if (this.discoveryInterval) {
       clearInterval(this.discoveryInterval);
     }
@@ -572,83 +579,70 @@ export class DroneLinkState {
   /**
    * Start streaming real-time messages for a domain using long-polling
    */
-  startStreaming(domainId: string): void {
-    // Stop existing polling if any
-    this.stopStreaming();
-
+  async loadHistory(domainId: string): Promise<void> {
+    this.reset();
     this.currentDomainId = domainId;
-    this.pollingActive = true;
-    this.lastMessageTime = new Date();
-    
-    console.log(`Starting message polling for domain ${domainId}`);
-    this.pollForMessages();
-  }
-
-  /**
-   * Stop streaming messages
-   */
-  stopStreaming(): void {
-    console.log('Stopping message polling');
-    this.pollingActive = false;
-    this.currentDomainId = undefined;
-  }
-
-  /**
-   * Long-polling loop for new messages
-   */
-  private async pollForMessages(): Promise<void> {
-    if (!this.pollingActive || !this.currentDomainId || !this.liveMode) {
-      return;
-    }
-
+    const generation = this.generation;
+    const controller = new AbortController(); this.requestController = controller;
+    let cursor: string | null = null;
+    let liveCursor: string | undefined;
     try {
-      const response = await fetch(
-        `/api/domains/${this.currentDomainId}/stream?since=${this.lastMessageTime.toISOString()}&timeout=30000`
-      );
+      do {
+        const query: string = cursor ? `cursor=${encodeURIComponent(cursor)}` : `from=${encodeURIComponent(new Date(Date.now() - 3600000).toISOString())}`;
+        const response = await fetch(`/api/domains/${domainId}/messages?${query}`, { signal: controller.signal });
+        if (!response.ok) throw new Error('Failed to load packet history');
+        const page: { data: any[]; cursor: string; nextCursor: string | null } = await response.json();
+        if (generation !== this.generation) return;
+        const fresh = this.uniquePackets(page.data);
+        await this.processHistoricalMessages(fresh);
+        if (generation !== this.generation) return;
+        cursor = page.nextCursor; liveCursor = page.cursor;
+      } while (cursor);
+      this.startStreaming(domainId, liveCursor);
+    } catch (error) { if (!controller.signal.aborted) throw error; }
+  }
 
+  private uniquePackets(packets: any[]): any[] {
+    return packets.filter(packet => {
+      if (!packet._id) return true;
+      if (this.seenPacketIds.has(packet._id)) return false;
+      this.seenPacketIds.add(packet._id);
+      if (this.seenPacketIds.size > 10000) this.seenPacketIds.delete(this.seenPacketIds.values().next().value!);
+      return true;
+    });
+  }
+
+  startStreaming(domainId: string, cursor?: string): void {
+    this.stopStreaming();
+    this.currentDomainId = domainId; this.streamCursor = cursor; this.pollingActive = true;
+    void this.pollForMessages(this.generation);
+  }
+
+  stopStreaming(): void {
+    this.generation++;
+    this.pollingActive = false; this.currentDomainId = undefined;
+    this.requestController?.abort(); this.requestController = undefined;
+    clearTimeout(this.pollTimer); this.pollTimer = undefined;
+  }
+
+  private async pollForMessages(generation: number): Promise<void> {
+    if (!this.pollingActive || !this.currentDomainId || !this.liveMode || generation !== this.generation) return;
+    const domainId = this.currentDomainId;
+    const controller = new AbortController(); this.requestController = controller;
+    let delay = 100;
+    try {
+      const query = this.streamCursor ? `cursor=${encodeURIComponent(this.streamCursor)}` : '';
+      const response = await fetch(`/api/domains/${domainId}/stream?${query}&timeout=30000`, { signal: controller.signal });
       if (!response.ok) {
-        throw new Error(`Polling failed: ${response.statusText}`);
+        if ([401, 403, 404].includes(response.status)) { this.stopStreaming(); return; }
+        throw new Error('Live packet request failed');
       }
-
       const result = await response.json();
-
-      if (result.success) {
-        if (result.type === 'messages' && result.data && result.data.length > 0) {
-          console.log(`Received ${result.data.length} new messages via polling`);
-          
-          // Process each new message
-          for (const packet of result.data) {
-            this.processStreamMessage(packet);
-            
-            // Update last message time
-            if (packet.time) {
-              const packetTime = new Date(packet.time);
-              if (packetTime > this.lastMessageTime) {
-                this.lastMessageTime = packetTime;
-              }
-            }
-          }
-        }
-        
-        // Continue polling if still active
-        if (this.pollingActive) {
-          // Small delay before next poll to prevent overwhelming the server
-          setTimeout(() => this.pollForMessages(), 100);
-        }
-      } else {
-        console.error('Polling error:', result.error);
-        // Retry after delay
-        if (this.pollingActive) {
-          setTimeout(() => this.pollForMessages(), 5000);
-        }
-      }
-    } catch (error) {
-      console.error('Error during message polling:', error);
-      // Retry after delay if still active
-      if (this.pollingActive) {
-        setTimeout(() => this.pollForMessages(), 5000);
-      }
-    }
+      if (generation !== this.generation) return;
+      for (const packet of this.uniquePackets(result.data)) this.processStreamMessage(packet);
+      this.streamCursor = result.cursor;
+    } catch (error) { if (controller.signal.aborted) return; delay = 5000; }
+    if (generation === this.generation && this.pollingActive) this.pollTimer = setTimeout(() => { void this.pollForMessages(generation); }, delay);
   }
 
   /**

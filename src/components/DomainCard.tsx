@@ -17,6 +17,18 @@ interface DomainCardProps {
 const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onRegenerateKey, onRegenerateInvite, onCopyInviteLink, isDeleting = false }) => {
     const navigate = useNavigate();
     const [showApiKey, setShowApiKey] = useState(false);
+    const [retainedCount, setRetainedCount] = useState<number | null>(null);
+    const [countLoading, setCountLoading] = useState(false);
+    const [countError, setCountError] = useState(false);
+    const loadCount = async () => {
+        setCountLoading(true); setCountError(false);
+        try {
+            const response = await fetch(`/api/domains/${domain._id}/packet-count`);
+            if (!response.ok) throw new Error();
+            setRetainedCount((await response.json()).data.retainedPacketCount);
+        } catch { setCountError(true); }
+        finally { setCountLoading(false); }
+    };
     const [showUsers, setShowUsers] = useState(false);
     
     const formatDate = (dateString: string | undefined) => {
@@ -199,7 +211,9 @@ const DomainCard: React.FC<DomainCardProps> = ({ domain, onEdit, onDelete, onReg
                         </span>
                         <span className="d-flex align-items-center">
                             <Envelope size={14} className="me-1" />
-                            {domain.stats?.packetCount || 0} packets
+                            <Button variant="link" size="sm" disabled={countLoading} onClick={loadCount}>
+                                {countLoading ? 'Counting…' : countError ? 'Retry packet count' : retainedCount === null ? 'Count retained packets' : `${retainedCount} retained packets · Refresh`}
+                            </Button>
                         </span>
                     </div>
                     
