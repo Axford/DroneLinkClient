@@ -79,4 +79,8 @@ DomainDetailPage now follows domain route changes rather than a component-lifeti
 
 Client19619c7 is the verified deployed artifact, paired with Server artifact1fd14d5/native persistence0.2.0. Real Google pending/approved/disabled flows, domain creation, retained count, map/inspector rendering, decoded history and live changes pass. The user manually confirmed reload/reconnect at six messages/value43.5, then a seventh packet changed the open page to44.5 without refresh. Eight React regressions and the production build pass; unchanged protocol/release tooling results remain valid and the final immutable archive verifies. This documentation follow-up changes no release bytes. The shared plan owns exact image/source/archive identities and completion evidence.
 
-Expand All is a pre-existing inspector UI follow-up: its parent expansion prop does not update ChannelCard's local expansion state. Individual channel-header expansion works. Production, physical gateway preservation and M1/M2 product behavior remain outside SEP-06.
+Production, physical gateway preservation and M1/M2 product behavior remain outside SEP-06.
+
+## Inspector expansion fix — 2026-11-06
+
+ChannelList owns expansion state for both bulk controls and individual channel headers. ChannelCard uses that controlled value directly, so Expand All and Collapse All update the visible parameter lists and stay synchronized after individual toggles. A real-component regression reproduced the old bulk-expansion failure and now covers repeated bulk and individual actions. Nine React tests,20 codec tests and12 release tests pass; the production build and matched staging release are recorded in the shared plan.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, Badge, Button, Collapse } from 'react-bootstrap';
 import { ChevronDown, ChevronRight, ToggleOff, ToggleOn, Gear } from 'react-bootstrap-icons';
 import { ChannelState } from '../dronelink/DroneLinkState';
@@ -8,8 +8,8 @@ interface ChannelCardProps {
     nodeId: number;
     channelId: number;
     channel: ChannelState;
-    expanded?: boolean;
-    onToggleExpand?: () => void;
+    expanded: boolean;
+    onToggleExpand: () => void;
     onChannelEnable?: (enabled: boolean) => void;
 }
 
@@ -17,18 +17,10 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
     nodeId, 
     channelId, 
     channel, 
-    expanded = false, 
+    expanded,
     onToggleExpand,
     onChannelEnable 
 }) => {
-    const [isExpanded, setIsExpanded] = useState(expanded);
-    
-    const handleToggleExpand = () => {
-        const newExpanded = !isExpanded;
-        setIsExpanded(newExpanded);
-        onToggleExpand?.();
-    };
-
     const handleChannelToggle = () => {
         // For now, just toggle the visual state
         // TODO: Implement actual channel enable/disable via DroneLink message
@@ -54,11 +46,11 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
         <Card className="channel-card bg-dark border-secondary">
             <Card.Header 
                 className="bg-dark border-secondary"
-                onClick={handleToggleExpand}
+                onClick={onToggleExpand}
             >
                 <div className="d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
-                        {isExpanded ? (
+                        {expanded ? (
                             <ChevronDown size={14} className="text-muted" />
                         ) : (
                             <ChevronRight size={14} className="text-muted" />
@@ -112,7 +104,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
                 </div>
             </Card.Header>
             
-            <Collapse in={isExpanded}>
+            <Collapse in={expanded}>
                 <div>
                     <Card.Body className="py-2 bg-dark">
                         {parameterCount === 0 ? (
