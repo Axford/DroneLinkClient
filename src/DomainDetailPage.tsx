@@ -25,12 +25,15 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
     const saveMapStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const dataLoadedRef = useRef<boolean>(false);
     
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
+    const { loadHistoricalData, stopStreaming } = droneLinkState;
 
     useEffect(() => {
+        const controller = new AbortController();
+        let active = true;
+        setLoading(true); setError(null);
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -41,9 +44,9 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             try {
                 // Fetch domain, user, and config in parallel
                 const [domainResponse, userResponse, configResponse] = await Promise.all([
-                    fetch(`/api/domains/${domainId}`),
-                    fetch('/api/user'),
-                    fetch('/api/config')
+                    fetch(`/api/domains/${domainId}`, { signal: controller.signal }),
+                    fetch('/api/user', { signal: controller.signal }),
+                    fetch('/api/config', { signal: controller.signal })
                 ]);
 
                 const domainResult = await domainResponse.json();
@@ -62,6 +65,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     throw new Error(configResult.message || 'Failed to fetch config');
                 }
 
+                if (!active) return;
                 setDomain(domainResult.data);
                 setUser(userResult);
                 setMapboxToken(configResult.data.mapboxAccessToken);
@@ -79,21 +83,17 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     console.warn('No Mapbox access token found in config');
                 }
 
-                // Load historical DroneLink data for this domain (only once)
-                if (domainId && !dataLoadedRef.current) {
-                    dataLoadedRef.current = true;
-                    await droneLinkState.loadHistoricalData(domainId);
-                }
+                await loadHistoricalData(domainId);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to fetch data');
+                if (active && !controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to fetch data');
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
 
         fetchData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [domainId]); // Removed droneLinkState dependency to prevent loops
+        return () => { active = false; controller.abort(); stopStreaming(); };
+    }, [domainId, loadHistoricalData, stopStreaming]);
 
     // Debounced function to save map state
     const saveMapState = useCallback((lng: number, lat: number, zoom: number) => {
@@ -204,7 +204,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 map.current = null;
             }
         };
-    }, [mapboxToken, user, saveMapState]);
+    }, [loading, mapboxToken, user, saveMapState]);
 
     if (loading) {
         return (
