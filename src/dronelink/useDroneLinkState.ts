@@ -22,7 +22,7 @@ export interface DroneLinkStateHook {
   // Methods
   getNodeState: (nodeId: number) => NodeState | null;
   getParamValues: (node: number, channel: number, param: number, defaultValues: number[]) => number[];
-  loadHistoricalData: (domainId: string) => Promise<void>;
+  loadHistoricalData: (domainId: string, live?: boolean) => Promise<void>;
   startStreaming: (domainId: string) => void;
   stopStreaming: () => void;
   reset: () => void;
@@ -89,14 +89,14 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
   }, []);
 
   // Load historical data from MongoDB
-  const loadHistoricalData = useCallback(async (domainId: string): Promise<void> => {
+  const loadHistoricalData = useCallback(async (domainId: string, live = true): Promise<void> => {
     if (!droneLinkStateRef.current) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await droneLinkStateRef.current.loadHistory(domainId);
+      await droneLinkStateRef.current.loadHistory(domainId, live);
       setState({ ...droneLinkStateRef.current.getState() });
       setStats(droneLinkStateRef.current.getStats());
     } catch (err) {

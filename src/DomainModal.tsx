@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { Domain } from './App';
+import { authenticatedFetch } from './utils/api';
 import { useToast } from './contexts/ToastContext';
 
 interface DomainModalProps {
@@ -48,14 +49,14 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
         const method = isEditing ? 'PUT' : 'POST';
 
         const payload = {
-            name: name.trim()
+            name: name.trim(), ...(domain ? { revision: domain.revision } : {})
         };
 
         setLoading(true);
         setErrors([]);
 
         try {
-            const response = await fetch(url, {
+            const response = await authenticatedFetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),

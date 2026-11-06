@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Container, Spinner, Alert } from 'react-bootstrap';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
@@ -8,44 +8,18 @@ import InvitePage from './InvitePage';
 import DomainDetailPage from './DomainDetailPage';
 import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
+import { authenticatedFetch } from './utils/api';
 
 // Interfaces
 export interface User {
-  _id: string;
-  displayName: string;
-  email: string;
-  profilePicture: string;
-  lastSignInDate: string;
-  domains: string[];
-  mapState?: {
-    lng: number;
-    lat: number;
-    zoom: number;
-  };
+  _id: string; displayName: string; email: string; profilePicture?: string; isPlatformAdmin?: boolean;
+  mapState?: { lng: number; lat: number; zoom: number };
 }
-
+export type DomainRole = 'owner' | 'editor' | 'viewer';
 export interface Domain {
-    _id: string;
-    name: string;
-    apiKey?: string;
-    inviteToken?: string;
-    createdAt?: string;
-    updatedAt?: string;
-    createdBy?: {
-        _id: string;
-        displayName: string;
-        email: string;
-    } | null;
-    users?: {
-        _id: string;
-        displayName: string;
-        email: string;
-        profilePicture?: string;
-    }[];
-    stats?: {
-        nodeCount: number;
-        packetCount: number;
-    };
+  _id: string; name: string; revision: number; status: 'active' | 'archived'; myRole: DomainRole | null;
+  canManageMembers: boolean; canManageKeys: boolean; canEdit: boolean; canArchive: boolean; canRestore: boolean;
+  createdAt?: string; updatedAt?: string; createdBy?: { _id: string; displayName: string; email: string } | null;
 }
 
 function AppContent() {
@@ -55,22 +29,26 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pagination, setPagination] = useState<{ limit: number; nextCursor: string | null; hasPrev: boolean }>({ limit: 10, nextCursor: null, hasPrev: false });
+  const [domainStatus, setDomainStatus] = useState<'active' | 'archived'>('active');
   const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
   const location = useLocation();
+  const listGeneration = useRef(0);
 
   const loadPage = useCallback(async (stack: Array<string | undefined>) => {
+    const generation = ++listGeneration.current;
     const cursor = stack[stack.length - 1];
     try {
-      const response = await fetch(`/api/domains?limit=10${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      const response = await authenticatedFetch(`/api/domains?limit=10&status=${domainStatus}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
       if (!response.ok) throw new Error('Failed to fetch domains');
       const result = await response.json();
+      if (generation !== listGeneration.current) return;
       setDomains(result.data);
       setCursorStack(stack);
       setPagination({ limit: 10, nextCursor: result.pagination.nextCursor, hasPrev: stack.length > 1 });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch domains');
     }
-  }, []);
+  }, [domainStatus]);
   const fetchDomains = (direction: 'next' | 'previous' | 'reset' = 'reset') => loadPage(direction === 'reset' ? [undefined] : direction === 'previous' ? cursorStack.slice(0, -1) : [...cursorStack, pagination.nextCursor || undefined]);
 
   useEffect(() => {
@@ -80,13 +58,15 @@ function AppContent() {
       return;
     }
 
+    let active = true;
     const fetchData = async () => {
       try {
-        const userResponse = await fetch('/api/user');
+        const userResponse = await authenticatedFetch('/api/user');
         if (!userResponse.ok) {
           throw new Error('Failed to fetch user data');
         }
         const userData = await userResponse.json();
+        if (!active) return;
         setUser(userData);
         
         // Fetch domains after user is loaded
@@ -94,11 +74,13 @@ function AppContent() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unknown error occurred');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchData();
+    const invalidate = () => { listGeneration.current++; };
+    return () => { active = false; invalidate(); };
   }, [location.pathname, loadPage]);
 
   const handleDomainUpdate = (updatedDomain: Domain) => {
@@ -136,7 +118,7 @@ function AppContent() {
       <Container className="mt-5">
         <Alert variant="danger">
           <Alert.Heading>Error</Alert.Heading>
-          <p>{error}</p>
+          <p>{error}</p><a href="/auth/google">Sign in with Google</a>
         </Alert>
       </Container>
     );
@@ -167,7 +149,7 @@ function AppContent() {
       <Container className="mt-5">
         <Alert variant="danger">
           <Alert.Heading>Error</Alert.Heading>
-          <p>{error}</p>
+          <p>{error}</p><a href="/auth/google">Sign in with Google</a>
         </Alert>
       </Container>
     );
@@ -189,6 +171,9 @@ function AppContent() {
             pagination={pagination}
             onPageChange={fetchDomains}
             loading={loading}
+            canCreate={user.isPlatformAdmin === true}
+            status={domainStatus}
+            onStatusChange={setDomainStatus}
           />
         </main>
       </div>

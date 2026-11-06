@@ -14,7 +14,7 @@ test('keeps the loading indicator while the session request is pending', () => {
   global.fetch = jest.fn(() => new Promise(() => {}));
   render(<App />);
   expect(screen.getByRole('status')).toHaveTextContent('Loading...');
-  expect(fetch).toHaveBeenCalledWith('/api/user');
+  expect(fetch).toHaveBeenCalledWith('/api/user', expect.anything());
 });
 
 test('shows a session request failure without rendering the domain list', async () => {
@@ -30,5 +30,5 @@ test('loads the domain list using the existing same-origin session and domain AP
     .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: [], pagination: { limit: 10, nextCursor: null } }) });
   render(<App />);
   expect(await screen.findByText('Domain list')).toBeInTheDocument();
-  expect(fetch).toHaveBeenNthCalledWith(2, '/api/domains?limit=10');
+  expect(fetch).toHaveBeenNthCalledWith(2, '/api/domains?limit=10&status=active', expect.anything());
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { Nav, Image, Dropdown, Button } from 'react-bootstrap';
 import { HouseDoorFill, List } from 'react-bootstrap-icons';
 import { User } from './App';
+import { logout } from './utils/api';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -33,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, isCollapsed, toggleSidebar }) =
                         <span className="user-name">{user.displayName}</span>
                     </Dropdown.Toggle>
                     <Dropdown.Menu>
-                        <Dropdown.Item href="/auth/logout">Logout</Dropdown.Item>
+                        <Dropdown.Item onClick={() => void logout()}>Logout</Dropdown.Item>
                     </Dropdown.Menu>
                 </Dropdown>
             </div>

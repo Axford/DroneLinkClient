@@ -5,6 +5,7 @@ import DomainDetailPage from './DomainDetailPage';
 import mapboxgl from 'mapbox-gl';
 jest.mock('react-resizable-panels', () => ({ Panel: ({ children }: any) => <div>{children}</div>, PanelGroup: ({ children }: any) => <div>{children}</div>, PanelResizeHandle: () => null }));
 jest.mock('mapbox-gl', () => ({ Map: jest.fn(), NavigationControl: jest.fn() }));
+jest.mock('./components/DomainCollaboration', () => () => <div>Collaboration</div>);
 jest.mock('./components/InspectorPanel', () => () => <div>Inspector</div>);
 function Harness() {
   const navigate = useNavigate();
@@ -50,4 +51,33 @@ test('the map initializes when a slow history replay finally reveals its contain
   expect(constructor).not.toHaveBeenCalled();
   await act(async () => { finishHistory!({ ok: true, json: async () => ({ success: true, data: [], cursor: 'cursor', nextCursor: null }) }); });
   expect(constructor).toHaveBeenCalledTimes(1);
+});
+
+test('newer archived access context wins over an older delayed Owner refresh', async () => {
+  let refreshes = 0; let finishOld: (value: any) => void = () => {};
+  const reply = (data: any) => ({ ok: true, status: 200, json: async () => data });
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url.includes('/stream?')) return new Promise(() => {});
+    if (url.includes('/messages?')) return reply({ data: [], cursor: 'cursor', nextCursor: null });
+    if (url === '/api/user') return reply({ _id: 'user', email: 'user@example.test' });
+    if (url === '/api/config') return reply({ data: { mapboxAccessToken: null } });
+    refreshes++;
+    if (refreshes === 2) return new Promise(resolve => { finishOld = resolve; });
+    return reply({ data: { _id: 'a', name: 'Alpha', revision: refreshes === 1 ? 1 : 3, status: refreshes === 1 ? 'active' : 'archived', myRole: refreshes === 1 ? 'owner' : 'viewer' } });
+  });
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  await screen.findByText('Alpha'); act(() => window.dispatchEvent(new Event('focus'))); await waitFor(() => expect(refreshes).toBe(2));
+  act(() => window.dispatchEvent(new Event('focus'))); await screen.findByText(/Archived domain · Read-only/);
+  await act(async () => finishOld(reply({ data: { _id: 'a', name: 'Alpha', revision: 2, status: 'active', myRole: 'owner' } })));
+  expect(screen.getByText(/Archived domain · Read-only/)).toBeInTheDocument();
+});
+test('a late denied request from a previous domain cannot clear the current domain', async () => {
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url.includes('/stream?')) return new Promise(() => {});
+    const data = url === '/api/user' ? { _id: 'user' } : url === '/api/config' ? { data: { mapboxAccessToken: null } } : url.includes('/messages?') ? { data: [], cursor: 'cursor', nextCursor: null } : { data: { _id: 'b', name: 'Bravo', status: 'active' } };
+    return { ok: true, status: 200, json: async () => data };
+  });
+  render(<MemoryRouter initialEntries={['/private/domain/b']}><Harness /></MemoryRouter>); await screen.findByText('Bravo');
+  act(() => window.dispatchEvent(new CustomEvent('dronelink:access-changed', { detail: { status: 403, url: '/api/domains/a/key' } })));
+  expect(screen.getByText('Bravo')).toBeInTheDocument(); expect(screen.queryByText('Domain access denied.')).not.toBeInTheDocument();
 });

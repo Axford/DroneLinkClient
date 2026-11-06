@@ -84,3 +84,11 @@ Production, physical gateway preservation and M1/M2 product behavior remain outs
 ## Inspector expansion fix — 2026-11-06
 
 ChannelList owns expansion state for both bulk controls and individual channel headers. ChannelCard uses that controlled value directly, so Expand All and Collapse All update the visible parameter lists and stay synchronized after individual toggles. A real-component regression reproduced the old bulk-expansion failure and now covers repeated bulk and individual actions. Nine React tests,20 codec tests and12 release tests pass; the production build and matched staging release are recorded in the shared plan.
+
+## M1 A.3 local acceptance — 2026-11-06
+
+The matching Server source is94cf71b with persistence0.3.0, plus A.4 release guards; deploy only a matched verified artifact under the M1 maintenance procedure. New Client manifests carry accessPolicyVersion1; the new Server release tool rejects older Client contracts. GET logout is no longer a sign-out action: Client obtains a CSRF token and uses protected POST before navigating away.
+
+Local acceptance includes collaboration/targeted-invitation interactions, Viewer key exclusion, stale key/context/domain denial cleanup, archive controls and retained history, plus the existing map/inspector/codec/release checks. Real isolated Chrome against native emulator-backed Server verifies creation, copy/accept, Viewer denial, Editor key visibility, demotion cleanup and archive/reload/restore in two browser contexts. Only OAuth provider responses are substituted; production app/storage/Client and real OAuth-state handling are used. This is not a managed Google claim. Browser runner is Server hosted/tests/browser/access.cjs with explicit CLIENT_BUILD_DIR and optionally DRONELINK_PLAYWRIGHT_MODULE, using an installed Chrome and owned demo project.
+
+The user chose one real Admin account for managed acceptance and deferred real ordinary-role accounts. Do not claim full M1/A-T8 closure from local synthetic identities. Retain the previous staging release as historical evidence; after policy activation recovery is maintenance plus a compatible M1 release.

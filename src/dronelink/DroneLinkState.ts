@@ -1,3 +1,4 @@
+import { authenticatedFetch, accessEvent } from '../utils/api';
 /**
  * DroneLink State Management - React/TypeScript Port
  * 
@@ -579,7 +580,7 @@ export class DroneLinkState {
   /**
    * Start streaming real-time messages for a domain using long-polling
    */
-  async loadHistory(domainId: string): Promise<void> {
+  async loadHistory(domainId: string, live = true): Promise<void> {
     this.reset();
     this.currentDomainId = domainId;
     const generation = this.generation;
@@ -589,7 +590,7 @@ export class DroneLinkState {
     try {
       do {
         const query: string = cursor ? `cursor=${encodeURIComponent(cursor)}` : `from=${encodeURIComponent(new Date(Date.now() - 3600000).toISOString())}`;
-        const response = await fetch(`/api/domains/${domainId}/messages?${query}`, { signal: controller.signal });
+        const response = await authenticatedFetch(`/api/domains/${domainId}/messages?${query}`, { signal: controller.signal });
         if (!response.ok) throw new Error('Failed to load packet history');
         const page: { data: any[]; cursor: string; nextCursor: string | null } = await response.json();
         if (generation !== this.generation) return;
@@ -598,7 +599,7 @@ export class DroneLinkState {
         if (generation !== this.generation) return;
         cursor = page.nextCursor; liveCursor = page.cursor;
       } while (cursor);
-      this.startStreaming(domainId, liveCursor);
+      if (live) this.startStreaming(domainId, liveCursor);
     } catch (error) { if (!controller.signal.aborted) throw error; }
   }
 
@@ -632,9 +633,9 @@ export class DroneLinkState {
     let delay = 100;
     try {
       const query = this.streamCursor ? `cursor=${encodeURIComponent(this.streamCursor)}` : '';
-      const response = await fetch(`/api/domains/${domainId}/stream?${query}&timeout=30000`, { signal: controller.signal });
+      const response = await authenticatedFetch(`/api/domains/${domainId}/stream?${query}&timeout=30000`, { signal: controller.signal });
       if (!response.ok) {
-        if ([401, 403, 404].includes(response.status)) { this.stopStreaming(); return; }
+        if ([401, 403, 404, 409].includes(response.status)) { this.stopStreaming(); if (response.status === 409) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: 409, domainId } })); return; }
         throw new Error('Live packet request failed');
       }
       const result = await response.json();

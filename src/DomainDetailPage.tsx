@@ -5,6 +5,8 @@ import { ArrowLeft, Wifi, WifiOff } from 'react-bootstrap-icons';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import mapboxgl from 'mapbox-gl';
 import { Domain, User } from './App';
+import DomainCollaboration from './components/DomainCollaboration';
+import { accessEvent, affectsDomain, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import InspectorPanel from './components/InspectorPanel';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -18,6 +20,9 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const navigate = useNavigate();
     const mapContainer = useRef<HTMLDivElement>(null);
     const map = useRef<mapboxgl.Map | null>(null);
+    const refreshGeneration = useRef(0);
+    const statusRef = useRef<string | undefined>(undefined);
+    const selectedDomain = useRef(domainId); selectedDomain.current = domainId;
     
     const [domain, setDomain] = useState<Domain | null>(null);
     const [user, setUser] = useState<User | null>(null);
@@ -28,12 +33,12 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
-    const { loadHistoricalData, stopStreaming } = droneLinkState;
+    const { loadHistoricalData, stopStreaming, reset } = droneLinkState;
 
     useEffect(() => {
         const controller = new AbortController();
         let active = true;
-        setLoading(true); setError(null);
+        setLoading(true); setError(null); setDomain(null); reset();
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -44,9 +49,9 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             try {
                 // Fetch domain, user, and config in parallel
                 const [domainResponse, userResponse, configResponse] = await Promise.all([
-                    fetch(`/api/domains/${domainId}`, { signal: controller.signal }),
-                    fetch('/api/user', { signal: controller.signal }),
-                    fetch('/api/config', { signal: controller.signal })
+                    authenticatedFetch(`/api/domains/${domainId}`, { signal: controller.signal }),
+                    authenticatedFetch('/api/user', { signal: controller.signal }),
+                    authenticatedFetch('/api/config', { signal: controller.signal })
                 ]);
 
                 const domainResult = await domainResponse.json();
@@ -66,7 +71,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 }
 
                 if (!active) return;
-                setDomain(domainResult.data);
+                setDomain(domainResult.data); statusRef.current = domainResult.data.status;
                 setUser(userResult);
                 setMapboxToken(configResult.data.mapboxAccessToken);
                 
@@ -83,7 +88,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     console.warn('No Mapbox access token found in config');
                 }
 
-                await loadHistoricalData(domainId);
+                await loadHistoricalData(domainId, domainResult.data.status !== 'archived');
             } catch (err) {
                 if (active && !controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to fetch data');
             } finally {
@@ -93,7 +98,25 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
 
         fetchData();
         return () => { active = false; controller.abort(); stopStreaming(); };
-    }, [domainId, loadHistoricalData, stopStreaming]);
+    }, [domainId, loadHistoricalData, stopStreaming, reset]);
+
+    const refreshDomain = useCallback(async () => {
+        if (!domainId) return;
+        const generation = ++refreshGeneration.current;
+        const result = await authenticatedFetchJson(`/api/domains/${domainId}`);
+        if (selectedDomain.current !== domainId || generation !== refreshGeneration.current) return;
+        const wasArchived = statusRef.current === 'archived'; statusRef.current = result.data.status;
+        setDomain(previous => previous?._id === result.data._id ? result.data : previous);
+        if (result.data.status === 'archived') stopStreaming();
+        else if (wasArchived) await loadHistoricalData(domainId);
+    }, [domainId, stopStreaming, loadHistoricalData]);
+    useEffect(() => {
+        let active = true;
+        const refresh = () => { void refreshDomain().catch(error => { if (active) { stopStreaming(); reset(); setDomain(null); setError(error.message); } }); };
+        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { stopStreaming(); reset(); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
+        const timer = setInterval(refresh, 15000); window.addEventListener('focus', refresh); window.addEventListener(accessEvent, accessChanged);
+        return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
+    }, [domainId, refreshDomain, stopStreaming, reset]);
 
     // Debounced function to save map state
     const saveMapState = useCallback((lng: number, lat: number, zoom: number) => {
@@ -105,7 +128,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         // Set new timeout for 5 seconds
         saveMapStateTimeoutRef.current = setTimeout(async () => {
             try {
-                await fetch('/api/user/map-state', {
+                await authenticatedFetch('/api/user/map-state', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
@@ -269,6 +292,9 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 </div>
             </div>
 
+            {domain.status === 'archived' && <Alert variant="warning" className="mb-0">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
+            {user && <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={refreshDomain} />}
+            <small className="px-3 py-1">Observation only · Parameter commands unavailable.</small>
             {/* Resizable Panels */}
             <div style={{ flex: 1 }}>
                 <PanelGroup direction="horizontal">

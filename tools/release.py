@@ -137,7 +137,7 @@ def pack():
             raise ValueError('Build contains a symlink')
         if path.is_file():
             files[path.relative_to(ROOT).as_posix()] = path.read_bytes()
-    manifest = {'schemaVersion': 1, 'packageVersion': package['version'], 'clientRevision': revision,
+    manifest = {'schemaVersion': 1, 'accessPolicyVersion': 1, 'packageVersion': package['version'], 'clientRevision': revision,
                 'protocolVersion': lock['version'], 'protocolArchiveSha256': digest(protocol_path.read_bytes()),
                 'buildTools': {'node': command('node', '--version'), 'npm': command('npm', '--version')},
                 'files': {name.removeprefix('build/'): digest(data) for name, data in files.items()}}
