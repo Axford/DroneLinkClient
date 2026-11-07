@@ -33,7 +33,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
-    const { loadHistoricalData, stopStreaming, reset } = droneLinkState;
+    const { loadSharedObservations, stopStreaming, reset } = droneLinkState;
 
     useEffect(() => {
         const controller = new AbortController();
@@ -88,7 +88,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     console.warn('No Mapbox access token found in config');
                 }
 
-                await loadHistoricalData(domainId, domainResult.data.status !== 'archived');
+                await loadSharedObservations(domainId, domainResult.data.status !== 'archived');
             } catch (err) {
                 if (active && !controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to fetch data');
             } finally {
@@ -98,7 +98,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
 
         fetchData();
         return () => { active = false; controller.abort(); stopStreaming(); };
-    }, [domainId, loadHistoricalData, stopStreaming, reset]);
+    }, [domainId, loadSharedObservations, stopStreaming, reset]);
 
     const refreshDomain = useCallback(async () => {
         if (!domainId) return;
@@ -108,8 +108,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         const wasArchived = statusRef.current === 'archived'; statusRef.current = result.data.status;
         setDomain(previous => previous?._id === result.data._id ? result.data : previous);
         if (result.data.status === 'archived') stopStreaming();
-        else if (wasArchived) await loadHistoricalData(domainId);
-    }, [domainId, stopStreaming, loadHistoricalData]);
+        else if (wasArchived) await loadSharedObservations(domainId);
+    }, [domainId, stopStreaming, loadSharedObservations]);
     useEffect(() => {
         let active = true;
         const refresh = () => { void refreshDomain().catch(error => { if (active) { stopStreaming(); reset(); setDomain(null); setError(error.message); } }); };
@@ -282,7 +282,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                             {droneLinkState.nodeCount} nodes
                         </Badge>
                         <small className="text-white">
-                            {droneLinkState.stats.received} msgs
+                            {droneLinkState.stats.received} observed parameters
                         </small>
                     </div>
                     
@@ -335,7 +335,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     {/* Inspector Panel */}
                     <Panel defaultSize={30} minSize={20} maxSize={50}>
                         <div className="h-100 bg-dark">
-                            <InspectorPanel domainId={domainId!} droneLinkState={droneLinkState} />
+                            <InspectorPanel domainId={domainId!} droneLinkState={droneLinkState} canReset={domain?.canEdit === true} />
                         </div>
                     </Panel>
                 </PanelGroup>

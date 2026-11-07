@@ -1,4 +1,4 @@
-import { authenticatedFetch, accessEvent } from '../utils/api';
+import { CloudObservations, ObservationView } from './CloudObservations';
 /**
  * DroneLink State Management - React/TypeScript Port
  * 
@@ -18,6 +18,9 @@ export interface ParameterState {
   name?: string;
   timestamp?: number;
   lastHeard?: number;
+  source?: string;
+  nameLastHeard?: number;
+  nameSource?: string;
 }
 
 export interface ChannelState {
@@ -32,6 +35,8 @@ export interface ChannelState {
 
 export interface NodeState {
   id: number;
+  observationGeneration?: number;
+  droneId?: string;
   channels: { [channelId: number]: ChannelState };
   lastHeard: number;
   name?: string;
@@ -43,6 +48,7 @@ export interface GlobalState {
 }
 
 export type StateEventType = 
+  | 'state.changed'
   | 'node.new'
   | 'module.new' 
   | 'module.heard'
@@ -77,12 +83,12 @@ export class DroneLinkState {
   private discoveryInterval?: NodeJS.Timeout;
   private queueProcessInterval?: NodeJS.Timeout;
   private pollingActive: boolean = false;
-  private currentDomainId?: string;
-  private streamCursor?: string;
-  private requestController?: AbortController;
-  private pollTimer?: ReturnType<typeof setTimeout>;
-  private generation = 0;
-  private seenPacketIds = new Set<string>();
+
+  private cloud = new CloudObservations(view => this.applyCloudView(view));
+
+  get observationStatus() { return this.cloud.status; }
+  get snapshotWriteFailures() { return this.cloud.failedWrites; }
+  resetNodeObservations(node: number) { return this.cloud.resetNode(node); }
 
   constructor() {
     // Initialize periodic tasks
@@ -111,7 +117,6 @@ export class DroneLinkState {
    */
   reset(): void {
     this.stopStreaming();
-    this.seenPacketIds.clear();
     this.state = {};
     this.received = 0;
     this.discoveryQueue = [];
@@ -580,132 +585,53 @@ export class DroneLinkState {
   /**
    * Start streaming real-time messages for a domain using long-polling
    */
-  async loadHistory(domainId: string, live = true): Promise<void> {
+  /** Compatibility alias: this loads shared observations, never packet history. */
+  async loadHistory(domainId: string, live = true): Promise<void> { return this.loadObservations(domainId, live); }
+
+  async loadObservations(domainId: string, live = true): Promise<void> {
     this.reset();
-    this.currentDomainId = domainId;
-    const generation = this.generation;
-    const controller = new AbortController(); this.requestController = controller;
-    let cursor: string | null = null;
-    let liveCursor: string | undefined;
-    try {
-      do {
-        const query: string = cursor ? `cursor=${encodeURIComponent(cursor)}` : `from=${encodeURIComponent(new Date(Date.now() - 3600000).toISOString())}`;
-        const response = await authenticatedFetch(`/api/domains/${domainId}/messages?${query}`, { signal: controller.signal });
-        if (!response.ok) throw new Error('Failed to load packet history');
-        const page: { data: any[]; cursor: string; nextCursor: string | null } = await response.json();
-        if (generation !== this.generation) return;
-        const fresh = this.uniquePackets(page.data);
-        await this.processHistoricalMessages(fresh);
-        if (generation !== this.generation) return;
-        cursor = page.nextCursor; liveCursor = page.cursor;
-      } while (cursor);
-      if (live) this.startStreaming(domainId, liveCursor);
-    } catch (error) { if (!controller.signal.aborted) throw error; }
+    await this.cloud.load(domainId, live);
   }
 
-  private uniquePackets(packets: any[]): any[] {
-    return packets.filter(packet => {
-      if (!packet._id) return true;
-      if (this.seenPacketIds.has(packet._id)) return false;
-      this.seenPacketIds.add(packet._id);
-      if (this.seenPacketIds.size > 10000) this.seenPacketIds.delete(this.seenPacketIds.values().next().value!);
-      return true;
-    });
+  private applyCloudView(view: ObservationView): void {
+    const state: GlobalState = {};
+    for (const row of view.nodes) state[row.nodeAddress] = { id: row.nodeAddress, observationGeneration: row.generation, droneId: row.droneId,
+      channels: {}, lastHeard: row.lastReceivedAt ? Date.parse(row.lastReceivedAt) : 0, interface: 'cloud' };
+    for (const row of view.channels) {
+      const node = state[row.nodeAddress]; if (!node || node.observationGeneration !== row.generation) continue;
+      const channel: ChannelState = { channel: row.channel, params: {}, lastHeard: Date.parse(row.lastReceivedAt) };
+      for (const [id, facets] of Object.entries(row.params)) {
+        const parameter: ParameterState = { param: Number(id), msgType: 0, bytesPerValue: 0, numValues: 0, values: [], writable: false };
+        for (const kind of ['value', 'name'] as const) {
+          const facet = facets[kind]; if (!facet) continue;
+          const payload = Uint8Array.from(atob(facet.payload), c => c.charCodeAt(0));
+          const type = kind === 'name' ? DRONE_LINK_MSG_TYPE_NAME : facet.msgType!;
+          const bytes = Uint8Array.from([facet.origin.sourceAddress, row.nodeAddress, row.channel, Number(id), (type << 4) | (payload.length - 1) | (kind === 'value' && facet.writable ? 128 : 0), ...Array.from(payload)]);
+          const msg = new DroneLinkMsg(); msg.parse(bytes.buffer);
+          if (kind === 'name') { parameter.name = msg.payloadToString(); parameter.nameLastHeard = Date.parse(facet.lastReceivedAt); parameter.nameSource = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP'; }
+          else {
+            parameter.msgType = type; parameter.bytesPerValue = msg.bytesPerValue(); parameter.numValues = msg.numValues();
+            parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
+            parameter.lastHeard = Date.parse(facet.lastReceivedAt); parameter.timestamp = Date.parse(facet.valueLastChangedAt!);
+            parameter.source = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP';
+            if (Number(id) === DRONE_MODULE_PARAM_TYPE && type <= DRONE_LINK_MSG_TYPE_CHAR) channel.type = Number(parameter.values[0]);
+            if (Number(id) === DRONE_MODULE_PARAM_NAME && type === DRONE_LINK_MSG_TYPE_CHAR) channel.name = msg.payloadToString();
+            if (row.channel === 1 && Number(id) === 8 && type === DRONE_LINK_MSG_TYPE_CHAR) node.name = msg.payloadToString();
+          }
+        }
+        channel.params[Number(id)] = parameter;
+      }
+      node.channels[row.channel] = channel;
+    }
+    this.state = state; this.received = view.channels.reduce((count, row) => count + Object.keys(row.params).length, 0); this.trigger('state.changed');
   }
 
   startStreaming(domainId: string, cursor?: string): void {
-    this.stopStreaming();
-    this.currentDomainId = domainId; this.streamCursor = cursor; this.pollingActive = true;
-    void this.pollForMessages(this.generation);
+    void this.loadObservations(domainId, true).catch(error => console.error('Shared observations unavailable', error));
   }
 
   stopStreaming(): void {
-    this.generation++;
-    this.pollingActive = false; this.currentDomainId = undefined;
-    this.requestController?.abort(); this.requestController = undefined;
-    clearTimeout(this.pollTimer); this.pollTimer = undefined;
-  }
-
-  private async pollForMessages(generation: number): Promise<void> {
-    if (!this.pollingActive || !this.currentDomainId || !this.liveMode || generation !== this.generation) return;
-    const domainId = this.currentDomainId;
-    const controller = new AbortController(); this.requestController = controller;
-    let delay = 100;
-    try {
-      const query = this.streamCursor ? `cursor=${encodeURIComponent(this.streamCursor)}` : '';
-      const response = await authenticatedFetch(`/api/domains/${domainId}/stream?${query}&timeout=30000`, { signal: controller.signal });
-      if (!response.ok) {
-        if ([401, 403, 404, 409].includes(response.status)) { this.stopStreaming(); if (response.status === 409) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: 409, domainId } })); return; }
-        throw new Error('Live packet request failed');
-      }
-      const result = await response.json();
-      if (generation !== this.generation) return;
-      for (const packet of this.uniquePackets(result.data)) this.processStreamMessage(packet);
-      this.streamCursor = result.cursor;
-    } catch (error) { if (controller.signal.aborted) return; delay = 5000; }
-    if (generation === this.generation && this.pollingActive) this.pollTimer = setTimeout(() => { void this.pollForMessages(generation); }, delay);
-  }
-
-  /**
-   * Process a single streaming message
-   */
-  private processStreamMessage(packet: any): void {
-    try {
-      const msg = new DroneLinkMsg();
-      
-      // Handle different packet formats (same logic as historical processing)
-      let buffer: Uint8Array;
-      
-      if (!packet.packet) {
-        console.warn('Stream packet missing packet data, skipping');
-        return;
-      }
-      
-      if (typeof packet.packet === 'string') {
-        // Base64 encoded string
-        try {
-          const binaryString = atob(packet.packet);
-          buffer = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            buffer[i] = binaryString.charCodeAt(i);
-          }
-        } catch (error) {
-          console.warn('Failed to decode base64 stream packet:', packet.packet, error);
-          return;
-        }
-      } else if (packet.packet.type === 'Buffer' && Array.isArray(packet.packet.data)) {
-        buffer = new Uint8Array(packet.packet.data);
-      } else if (packet.packet.buffer) {
-        buffer = new Uint8Array(packet.packet.buffer);
-      } else if (Array.isArray(packet.packet)) {
-        buffer = new Uint8Array(packet.packet);
-      } else {
-        console.warn('Unknown stream packet format, skipping:', typeof packet.packet);
-        return;
-      }
-      
-      msg.parse(buffer.buffer);
-      
-      // Handle timestamp
-      if (packet.time) {
-        if (typeof packet.time.getTime === 'function') {
-          msg.timestamp = packet.time.getTime();
-        } else if (typeof packet.time === 'string') {
-          msg.timestamp = new Date(packet.time).getTime();
-        } else if (typeof packet.time === 'number') {
-          msg.timestamp = packet.time;
-        } else {
-          msg.timestamp = Date.now();
-        }
-      } else {
-        msg.timestamp = Date.now();
-      }
-      
-      // Process the message through normal handling
-      this.handleLinkMsg(msg, true, 'stream');
-      
-    } catch (error) {
-      console.error('Error processing stream message:', error, packet);
-    }
+    this.cloud.stop();
+    this.pollingActive = false;
   }
 }

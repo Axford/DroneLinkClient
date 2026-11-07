@@ -9,14 +9,24 @@ import './InspectorPanel.css';
 interface InspectorPanelProps {
     domainId: string;
     droneLinkState: DroneLinkStateHook;
+    canReset?: boolean;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false }) => {
+    const [resetError, setResetError] = useState<string | null>(null);
+    const [resetting, setResetting] = useState(false);
+    const resetSelected = async () => {
+        if (!selectedNodeId || !window.confirm(`Reset shared observations for node ${selectedNodeId}? Identity, membership and packet history are retained. Unchanged values suppressed by a gateway may not return until a fresh copy reaches the Server.`)) return;
+        setResetError(null); setResetting(true);
+        try { await droneLinkState.resetNodeObservations(selectedNodeId); }
+        catch (error) { setResetError(error instanceof Error ? error.message : 'Reset failed. Refresh and review before trying again.'); }
+        finally { setResetting(false); }
+    };
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
 
     const nodes = Object.values(droneLinkState.state);
     const selectedNode = selectedNodeId ? droneLinkState.state[selectedNodeId] : null;
-    
+
     // Additional debug - check if nodeCount matches nodes array length
     const nodeCountMismatch = droneLinkState.nodeCount !== nodes.length;
     if (nodeCountMismatch) {
@@ -46,29 +56,32 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
         <div className="inspector-panel text-white">
             <div className="inspector-header border-secondary">
                 <h5 className="mb-0 text-white">Node Inspector</h5>
+                <small className="text-secondary">Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</small>
             </div>
-            
-            <div className="inspector-content">
 
-                
+            <div className="inspector-content">
+                {resetError && <Alert variant="danger">{resetError}</Alert>}
+                {canReset && selectedNode && <Button variant="outline-warning" size="sm" disabled={resetting} onClick={resetSelected}>Reset node observations</Button>}
+
+
                 {nodes.length === 0 && droneLinkState.nodeCount === 0 ? (
                     <Card className="text-center bg-dark border-secondary">
                         <Card.Body>
                             <p className="text-white mb-2">No nodes discovered</p>
                             <small className="text-secondary d-block mb-3">
-                                {droneLinkState.isLoading 
-                                    ? 'Loading historical data...' 
+                                {droneLinkState.isLoading
+                                    ? 'Loading shared observations...'
                                     : 'Waiting for DroneLink nodes...'
                                 }
                             </small>
-                            
+
                             {process.env.NODE_ENV === 'development' && (
                                 <div>
                                     <small className="text-secondary d-block mb-2">
                                         This is normal if no DroneLink messages have been received yet.
                                     </small>
-                                    <Button 
-                                        variant="outline-primary" 
+                                    <Button
+                                        variant="outline-primary"
                                         size="sm"
                                         onClick={() => window.location.reload()}
                                     >
@@ -89,7 +102,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                     </Alert>
                 ) : (
                     <div>
-                        <NodeSelector 
+                        <NodeSelector
                             nodes={nodes}
                             selectedNodeId={selectedNodeId}
                             onNodeSelect={setSelectedNodeId}
@@ -100,7 +113,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         )}
 
                         {selectedNode && (
-                            <ChannelList 
+                            <ChannelList
                                 nodeId={selectedNode.id}
                                 channels={selectedNode.channels}
                             />

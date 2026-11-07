@@ -38,8 +38,8 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
     
     const getChannelStatusText = (): string => {
         if (channel.enabled === false) return 'Disabled';
-        if (isActive) return 'Active';
-        return 'Inactive';
+        if (isActive) return 'Recent observation';
+        return 'Older observation';
     };
 
     return (

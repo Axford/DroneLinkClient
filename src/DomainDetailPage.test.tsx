@@ -12,13 +12,21 @@ function Harness() {
   return <><button onClick={() => navigate('/private/domain/b')}>Switch domain</button><Routes><Route path="/private/domain/:domainId" element={<DomainDetailPage />} /></Routes></>;
 }
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
-test('changing the selected domain aborts its old poll and loads the new domain history', async () => {
+const sharedSnapshot = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { schemaVersion: 1, activationEpoch: 'm1-c-1', nodes: [], channels: [], startCursor: 'start', catchUpCursor: 'final' }, pagination: { nextCursor: null } }) });
+function observationReply(url: string): any {
+  if (url.endsWith('/observations')) return sharedSnapshot();
+  if (url.includes('/observations/updates?')) return { ok: true, status: 200, json: async () => ({ success: true, data: { events: [], cursor: 'final', caughtUp: true }, pagination: { nextCursor: null } }) };
+  if (url.endsWith('/observation-diagnostics')) return { ok: true, status: 200, json: async () => ({ success: true, data: { snapshotWriteFailures: 0, countedThrough: null } }) };
+}
+
+test('changing the selected domain aborts its old poll and loads the new shared observations', async () => {
   const streams: Array<{ domain: string; signal: AbortSignal }> = [];
   global.fetch = jest.fn().mockImplementation(async (url: string, options?: RequestInit) => {
-    if (url.includes('/stream?')) {
+    if (url.includes('timeoutMs=25000')) {
       streams.push({ domain: url.includes('/a/') ? 'a' : 'b', signal: options!.signal as AbortSignal });
       return new Promise(() => {});
     }
+    if (observationReply(url)) return observationReply(url);
     const value = url === '/api/user' ? { _id: 'owner', displayName: 'Owner' }
       : url === '/api/config' ? { success: true, data: { mapboxAccessToken: null } }
       : url.includes('/messages?') ? { success: true, data: [], cursor: url.includes('/a/') ? 'a-cursor' : 'b-cursor', nextCursor: null }
@@ -32,24 +40,25 @@ test('changing the selected domain aborts its old poll and loads the new domain 
   expect(streams[0].signal.aborted).toBe(true);
 });
 
-test('the map initializes when a slow history replay finally reveals its container', async () => {
+test('the map initializes when a slow snapshot load finally reveals its container', async () => {
   jest.useFakeTimers();
   const constructor = mapboxgl.Map as unknown as jest.Mock;
   constructor.mockImplementation(() => ({ addControl: jest.fn(), on: jest.fn(), remove: jest.fn() }));
-  let finishHistory: ((value: any) => void) | undefined;
+  let finishObservations: ((value: any) => void) | undefined;
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
-    if (url.includes('/stream?')) return new Promise(() => {});
-    if (url.includes('/messages?')) return new Promise(resolve => { finishHistory = resolve; });
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (url.endsWith('/observations')) return new Promise(resolve => { finishObservations = resolve; });
+    if (observationReply(url)) return observationReply(url);
     const value = url === '/api/user' ? { _id: 'owner', displayName: 'Owner' }
       : url === '/api/config' ? { success: true, data: { mapboxAccessToken: 'public-fixture-token' } }
       : { success: true, data: { _id: 'a', name: 'Alpha', users: [] } };
     return { ok: true, json: async () => value };
   });
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
-  await waitFor(() => expect(finishHistory).toBeDefined());
+  await waitFor(() => expect(finishObservations).toBeDefined());
   act(() => { jest.advanceTimersByTime(600); });
   expect(constructor).not.toHaveBeenCalled();
-  await act(async () => { finishHistory!({ ok: true, json: async () => ({ success: true, data: [], cursor: 'cursor', nextCursor: null }) }); });
+  await act(async () => { finishObservations!(sharedSnapshot()); });
   expect(constructor).toHaveBeenCalledTimes(1);
 });
 
@@ -57,8 +66,8 @@ test('newer archived access context wins over an older delayed Owner refresh', a
   let refreshes = 0; let finishOld: (value: any) => void = () => {};
   const reply = (data: any) => ({ ok: true, status: 200, json: async () => data });
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
-    if (url.includes('/stream?')) return new Promise(() => {});
-    if (url.includes('/messages?')) return reply({ data: [], cursor: 'cursor', nextCursor: null });
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (observationReply(url)) return observationReply(url);
     if (url === '/api/user') return reply({ _id: 'user', email: 'user@example.test' });
     if (url === '/api/config') return reply({ data: { mapboxAccessToken: null } });
     refreshes++;
@@ -73,7 +82,8 @@ test('newer archived access context wins over an older delayed Owner refresh', a
 });
 test('a late denied request from a previous domain cannot clear the current domain', async () => {
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
-    if (url.includes('/stream?')) return new Promise(() => {});
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (observationReply(url)) return observationReply(url);
     const data = url === '/api/user' ? { _id: 'user' } : url === '/api/config' ? { data: { mapboxAccessToken: null } } : url.includes('/messages?') ? { data: [], cursor: 'cursor', nextCursor: null } : { data: { _id: 'b', name: 'Bravo', status: 'active' } };
     return { ok: true, status: 200, json: async () => data };
   });

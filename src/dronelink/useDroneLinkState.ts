@@ -13,6 +13,9 @@ export interface DroneLinkStateHook {
   nodeCount: number;
   isLoading: boolean;
   error: string | null;
+  observationStatus: string;
+  snapshotWriteFailures: number;
+  resetNodeObservations: (nodeId: number) => Promise<void>;
   stats: {
     nodes: number;
     channels: number;
@@ -22,7 +25,7 @@ export interface DroneLinkStateHook {
   // Methods
   getNodeState: (nodeId: number) => NodeState | null;
   getParamValues: (node: number, channel: number, param: number, defaultValues: number[]) => number[];
-  loadHistoricalData: (domainId: string, live?: boolean) => Promise<void>;
+  loadSharedObservations: (domainId: string, live?: boolean) => Promise<void>;
   startStreaming: (domainId: string) => void;
   stopStreaming: () => void;
   reset: () => void;
@@ -35,6 +38,8 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
   const [state, setState] = useState<GlobalState>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [observationStatus, setObservationStatus] = useState('idle');
+  const [snapshotWriteFailures, setSnapshotWriteFailures] = useState(0);
   const [stats, setStats] = useState({ nodes: 0, channels: 0, parameters: 0, received: 0 });
   
   const droneLinkStateRef = useRef<DroneLinkState | null>(null);
@@ -55,6 +60,8 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
         updateTimeoutRef.current = setTimeout(() => {
           if (droneLinkStateRef.current) {
             setState({ ...droneLinkStateRef.current.getState() });
+            setObservationStatus(droneLinkStateRef.current.observationStatus);
+            setSnapshotWriteFailures(droneLinkStateRef.current.snapshotWriteFailures);
             setStats(droneLinkStateRef.current.getStats());
           }
         }, 100); // Debounce updates by 100ms
@@ -62,6 +69,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
 
       // Subscribe to state changes
       const eventTypes: StateEventType[] = [
+        'state.changed',
         'node.new',
         'module.new',
         'module.heard',
@@ -88,21 +96,21 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     };
   }, []);
 
-  // Load historical data from MongoDB
-  const loadHistoricalData = useCallback(async (domainId: string, live = true): Promise<void> => {
+  // Load persisted shared observations plus their matching continuation
+  const loadSharedObservations = useCallback(async (domainId: string, live = true): Promise<void> => {
     if (!droneLinkStateRef.current) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await droneLinkStateRef.current.loadHistory(domainId, live);
+      await droneLinkStateRef.current.loadObservations(domainId, live);
       setState({ ...droneLinkStateRef.current.getState() });
       setStats(droneLinkStateRef.current.getStats());
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load historical data';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load shared observations';
       setError(errorMessage);
-      console.error('Error loading historical data:', err);
+      console.error('Error loading shared observations:', err);
     } finally {
       setIsLoading(false);
     }
@@ -152,10 +160,13 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     nodeCount: Object.keys(state).length,
     isLoading,
     error,
+    observationStatus,
+    snapshotWriteFailures,
+    resetNodeObservations: (nodeId: number) => droneLinkStateRef.current!.resetNodeObservations(nodeId),
     stats,
     getNodeState,
     getParamValues,
-    loadHistoricalData,
+    loadSharedObservations,
     startStreaming,
     stopStreaming,
     reset,

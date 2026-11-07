@@ -46,15 +46,15 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
             <Card.Header className="py-2 bg-dark border-secondary">
                 <div className="d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
-                        {isActive ? (
+                        {node.interface === 'cloud' ? <Hash size={16} className="text-secondary" /> : isActive ? (
                             <Wifi size={16} className="text-success" />
                         ) : (
                             <WifiOff size={16} className="text-muted" />
                         )}
                         <strong className="text-white">{node.name || `Node ${node.id}`}</strong>
                     </div>
-                    <Badge bg={isActive ? 'success' : 'secondary'}>
-                        {isActive ? 'Active' : 'Inactive'}
+                    <Badge bg={node.interface === 'cloud' ? 'secondary' : isActive ? 'success' : 'secondary'}>
+                        {node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}
                     </Badge>
                 </div>
             </Card.Header>
@@ -79,7 +79,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
                         <div className="small fw-medium text-white">{parameterCount}</div>
                     </Col>
                     <Col xs={6}>
-                        <small className="text-secondary">Last Heard:</small>
+                        <small className="text-secondary">Last received:</small>
                         <div className="small fw-medium">
                             <span className={isActive ? 'text-success' : 'text-secondary'}>
                                 {getLastHeardText()}
