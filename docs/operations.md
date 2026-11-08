@@ -115,3 +115,8 @@ The existing Server `hosted/tests/browser/access.cjs` runner now also exercises 
 
 
 M1-D final local browser acceptance passes against the native owned emulator: both independent Chrome contexts render/select the correct semantic binding and singleton identity, retain the view across an update failure, reconnect/reload, remove markers on Domain switch/reset and preserve Viewer/archive restrictions. The test substitutes OAuth provider responses and an inert map style only; production Client/Server/persistence, Mapbox SDK/DOM and session/CSRF paths are real. Software WebGL is explicit. Screenshot review confirms a readable bounded operator layout; the map camera remains user-controlled via Fit observed positions. Managed/staging/real basemap acceptance belongs to E. Central companion/release evidence is recorded in the M1-D plan.
+
+
+## M1.2 codec software checks — 2026-11-08
+
+The Client now pins immutable protocol0.1.2 under vendor with exact lock integrity; retain0.1.1 for historical releases. `npm run test:protocol` passes24 cases, including exact framed CRC/limits, complete address arrays with mutation-safe rejection and unsigned timestamp boundaries. Strict TypeScript,40 React/12 release checks and production build pass. Datastore's coordinated suite additionally proves JS↔TS interchange and an independent archive install/build/repack/C++ host run. This is software acceptance only; firmware serial and physical validation are a separate slice. No cloud activation occurs.

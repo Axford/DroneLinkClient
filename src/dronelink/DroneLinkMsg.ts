@@ -119,10 +119,10 @@ export class DroneLinkMsg {
   }
 
   /**
-   * Parse from MongoDB log format (includes timestamp)
+   * Parse legacy binary log (size byte, unsigned low32-bit timestamp, link packet)
    */
   parseFromLog(buffer: Uint8Array): void {
-    const t = (buffer[1] << 24) + (buffer[2] << 16) + (buffer[3] << 8) + buffer[4];
+    const t = ((buffer[1] << 24) | (buffer[2] << 16) | (buffer[3] << 8) | buffer[4]) >>> 0;
     this.timestamp = t;
 
     this.source = buffer[5 + 0];
@@ -209,7 +209,7 @@ export class DroneLinkMsg {
       }
       
       case DRONE_LINK_MSG_TYPE_ADDR: {
-        const temp = new Uint8Array(this.rawPayload, 0, 4);
+        const temp = new Uint8Array(this.rawPayload, 0, this.msgLength);
         return Array.from(temp);
       }
       
@@ -305,12 +305,14 @@ export class DroneLinkMsg {
    * Set address values
    */
   setAddr(values: number[]): void {
-    this.msgType = DRONE_LINK_MSG_TYPE_ADDR;
-    this.msgLength = 4;
-    this.writable = false;
-    for (let i = 0; i < values.length && i < 4; i++) {
-      this.uint8Payload[i] = values[i];
+    if (!values || ![4, 8, 12, 16].includes(values.length) ||
+        Array.from(values).some(value => !Number.isInteger(value) || value < 0 || value > 255)) {
+      throw new RangeError('ADDR requires one to four complete four-byte addresses');
     }
+    this.msgType = DRONE_LINK_MSG_TYPE_ADDR;
+    this.msgLength = values.length;
+    this.writable = false;
+    this.uint8Payload.set(values);
   }
 
   /**
@@ -447,24 +449,21 @@ export class DroneLinkMsg {
    * Encode message as framed packet for transmission
    */
   encode(): Uint8Array {
-    const buffer = new Uint8Array(this.msgLength + 4 + 2);
-    buffer[0] = 0xFE; // Frame start
-    buffer[1] = this.source;
-    buffer[2] = this.node;
-    buffer[3] = this.channel;
-    buffer[4] = (this.priority << 6) | (this.param & 0b00111111);
-    buffer[5] = (this.writable ? DRONE_LINK_MSG_WRITABLE : 0) | 
-                (this.msgType << 4) | 
-                ((this.msgLength - 1) & 0x0F);
-
-    for (let i = 0; i < this.msgLength; i++) {
-      buffer[6 + i] = this.uint8Payload[i];
+    if (!Number.isInteger(this.msgLength) || this.msgLength < 1 || this.msgLength > DRONE_LINK_MSG_MAX_PAYLOAD) {
+      throw new RangeError('Framed link payload must contain 1–16 bytes');
     }
-    
-    // Note: CRC calculation would need to be implemented separately
-    // buffer[buffer.length - 1] = crc8.calc(buffer.slice(1, this.msgLength + 6), this.msgLength + 5);
-    
-    return buffer;
+    const payload = this.encodeUnframed();
+    const frame = new Uint8Array(payload.length + 2);
+    frame[0] = 0xFE;
+    frame.set(payload, 1);
+    // CRC-8, polynomial 0x07, initial 0; exclude marker and CRC byte.
+    let crc = 0;
+    for (let index = 0; index < payload.length; index++) {
+      crc ^= payload[index];
+      for (let bit = 0; bit < 8; bit++) crc = ((crc << 1) ^ ((crc & 0x80) ? 0x07 : 0)) & 0xFF;
+    }
+    frame[frame.length - 1] = crc;
+    return frame;
   }
 
   /**
