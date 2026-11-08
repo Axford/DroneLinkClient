@@ -134,3 +134,63 @@ test('resynchronisation authorization failure stops all retries', async () => {
   expect(state.observationStatus).toBe('stopped'); jest.advanceTimersByTime(15000);
   for (let i = 0; i < 10; i++) await Promise.resolve(); expect(snapshots).toBe(2);
 });
+
+
+test('a transient live failure reports retrying with saved observations, then recovers without changing receipt time', async () => {
+  const normal = fetcher(); let calls = 0;
+  global.fetch = jest.fn().mockImplementation((url: string, options: any) => {
+    if (url.includes('timeoutMs=25000')) {
+      calls++;
+      if (calls === 1) return Promise.reject(new Error('Offline'));
+      if (calls === 2) return Promise.resolve(updates());
+      return new Promise(() => {});
+    }
+    return normal(url, options);
+  });
+  await state.loadObservations('fleet');
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(state.observationStatus).toBe('retrying');
+  expect(state.getParameterState(7, 1, 1)?.lastHeard).toBe(Date.parse(at));
+  jest.advanceTimersByTime(5000);
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  expect(state.observationStatus).toBe('ready');
+  expect(state.getParameterState(7, 1, 1)?.lastHeard).toBe(Date.parse(at));
+});
+
+
+test('a live discovered node resolves its persistent Drone identity without replaying history', async () => {
+  const normal = fetcher(snapshot([], [])); let calls = 0;
+  const liveNode = { nodeAddress: 7, generation: 0, revision: 1, lastReceivedAt: at, resetAt: null };
+  global.fetch = jest.fn().mockImplementation((url: string, options: any) => {
+    if (url.endsWith('/identities')) return Promise.resolve(response({ nodes: [{ address: 7, droneId: 'drone-seven' }], drones: [] }));
+    if (url.includes('timeoutMs=25000')) {
+      if (++calls === 1) return Promise.resolve(updates([{ nodes: [liveNode], channels: [channel()] }]));
+      return new Promise(() => {});
+    }
+    return normal(url, options);
+  });
+  await state.loadObservations('fleet');
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  expect(state.getNodeState(7)?.droneId).toBe('drone-seven');
+  expect(state.getParameterState(7, 1, 1)?.lastHeard).toBe(Date.parse(at));
+  expect((fetch as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/identities'))).toHaveLength(1);
+});
+
+
+test('a late identity lookup from the previous Domain cannot rename the current Drone', async () => {
+  const normal = fetcher(); let finish: (value: any) => void = () => {}; let identityStarted = false;
+  global.fetch = jest.fn().mockImplementation((url: string, options: any) => {
+    if (url.includes('/old/observations') && !url.includes('/updates')) {
+      const row = { nodeAddress: 7, generation: 0, revision: 1, lastReceivedAt: at, resetAt: null };
+      return Promise.resolve(response({ schemaVersion: 1, activationEpoch: 'm1-c-1', nodes: [row], channels: [], startCursor: 'start', catchUpCursor: 'caught-up' }));
+    }
+    if (url.endsWith('/old/identities')) { identityStarted = true; return new Promise(resolve => { finish = resolve; }); }
+    return normal(url, options);
+  });
+  const oldLoad = state.loadObservations('old');
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+  expect(identityStarted).toBe(true);
+  await state.loadObservations('current', false);
+  finish(response({ nodes: [{ address: 7, droneId: 'obsolete-drone' }], drones: [] })); await oldLoad;
+  expect(state.getNodeState(7)?.droneId).toBe('drone-seven');
+});

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Badge, Row, Col } from 'react-bootstrap';
 import { Wifi, WifiOff, Cpu, Hash } from 'react-bootstrap-icons';
+import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 
 interface NodeInfoProps {
@@ -31,6 +32,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     const getLastHeardText = (): string => {
         if (!node.lastHeard) return 'Never';
         
+        if (node.interface === 'cloud') return receiptLabel(node.lastHeard, currentTime);
         const timeDiff = currentTime - node.lastHeard;
         const seconds = Math.floor(timeDiff / 1000);
         const minutes = Math.floor(seconds / 60);
@@ -59,6 +61,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
                 </div>
             </Card.Header>
             <Card.Body className="py-2 bg-dark">
+                <p className="small text-white">Drone: {node.droneId || 'Identity unavailable'} · Singleton master: Node {node.id}</p>
                 <Row className="g-2">
                     <Col xs={6}>
                         <div className="d-flex align-items-center gap-1">

@@ -1,25 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Button, Spinner, Alert, Badge } from 'react-bootstrap';
-import { ArrowLeft, Wifi, WifiOff } from 'react-bootstrap-icons';
+import { ArrowLeft } from 'react-bootstrap-icons';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import mapboxgl from 'mapbox-gl';
+import ObservedMap from './components/ObservedMap';
 import { Domain, User } from './App';
 import DomainCollaboration from './components/DomainCollaboration';
-import { accessEvent, affectsDomain, authenticatedFetch, authenticatedFetchJson } from './utils/api';
+import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import InspectorPanel from './components/InspectorPanel';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Mapbox token will be set dynamically from backend config
 
 interface DomainDetailPageProps {}
 
 const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const { domainId } = useParams<{ domainId: string }>();
     const navigate = useNavigate();
-    const mapContainer = useRef<HTMLDivElement>(null);
-    const map = useRef<mapboxgl.Map | null>(null);
     const refreshGeneration = useRef(0);
     const statusRef = useRef<string | undefined>(undefined);
     const selectedDomain = useRef(domainId); selectedDomain.current = domainId;
@@ -29,7 +25,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-    const saveMapStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
@@ -38,7 +34,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     useEffect(() => {
         const controller = new AbortController();
         let active = true;
-        setLoading(true); setError(null); setDomain(null); reset();
+        refreshGeneration.current++;
+        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); reset();
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -75,19 +72,6 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 setUser(userResult);
                 setMapboxToken(configResult.data.mapboxAccessToken);
                 
-                console.log('Config loaded:', {
-                    hasMapboxToken: !!configResult.data.mapboxAccessToken,
-                    token: configResult.data.mapboxAccessToken ? 'present' : 'missing'
-                });
-                
-                // Set Mapbox token if available
-                if (configResult.data.mapboxAccessToken) {
-                    mapboxgl.accessToken = configResult.data.mapboxAccessToken;
-                    console.log('Mapbox access token set');
-                } else {
-                    console.warn('No Mapbox access token found in config');
-                }
-
                 await loadSharedObservations(domainId, domainResult.data.status !== 'archived');
             } catch (err) {
                 if (active && !controller.signal.aborted) setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -103,7 +87,12 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const refreshDomain = useCallback(async () => {
         if (!domainId) return;
         const generation = ++refreshGeneration.current;
-        const result = await authenticatedFetchJson(`/api/domains/${domainId}`);
+        let result: { data: Domain };
+        try { result = await authenticatedFetchJson(`/api/domains/${domainId}`); }
+        catch (error) {
+            if (selectedDomain.current !== domainId || generation !== refreshGeneration.current) return;
+            throw error;
+        }
         if (selectedDomain.current !== domainId || generation !== refreshGeneration.current) return;
         const wasArchived = statusRef.current === 'archived'; statusRef.current = result.data.status;
         setDomain(previous => previous?._id === result.data._id ? result.data : previous);
@@ -112,122 +101,11 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     }, [domainId, stopStreaming, loadSharedObservations]);
     useEffect(() => {
         let active = true;
-        const refresh = () => { void refreshDomain().catch(error => { if (active) { stopStreaming(); reset(); setDomain(null); setError(error.message); } }); };
-        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { stopStreaming(); reset(); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
+        const refresh = () => { void refreshDomain().catch(error => { if (active && error instanceof ApiError && [401, 403, 404].includes(error.status)) { stopStreaming(); reset(); setDomain(null); setError(error.message); } }); };
+        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { refreshGeneration.current++; stopStreaming(); reset(); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
         const timer = setInterval(refresh, 15000); window.addEventListener('focus', refresh); window.addEventListener(accessEvent, accessChanged);
         return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
     }, [domainId, refreshDomain, stopStreaming, reset]);
-
-    // Debounced function to save map state
-    const saveMapState = useCallback((lng: number, lat: number, zoom: number) => {
-        // Clear existing timeout
-        if (saveMapStateTimeoutRef.current) {
-            clearTimeout(saveMapStateTimeoutRef.current);
-        }
-
-        // Set new timeout for 5 seconds
-        saveMapStateTimeoutRef.current = setTimeout(async () => {
-            try {
-                await authenticatedFetch('/api/user/map-state', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ lng, lat, zoom })
-                });
-            } catch (error) {
-                console.error('Failed to save map state:', error);
-            }
-        }, 5000);
-    }, []);
-
-    // Separate effect to initialize map when all conditions are met
-    useEffect(() => {
-        const initializeMap = () => {
-            console.log('Map initialization attempt:', {
-                hasContainer: !!mapContainer.current,
-                hasMap: !!map.current,
-                hasToken: !!mapboxToken,
-                hasUser: !!user
-            });
-            
-            if (mapContainer.current && !map.current && mapboxToken && user) {
-                try {
-                    console.log('Initializing Mapbox map...');
-                    // Use user's saved map state or defaults
-                    const mapState = user.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
-                    console.log('Using map state:', mapState);
-                    
-                    map.current = new mapboxgl.Map({
-                        container: mapContainer.current,
-                        style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku',
-                        center: [mapState.lng, mapState.lat],
-                        zoom: mapState.zoom
-                    });
-
-                    console.log('Map created successfully');
-
-                    // Add navigation controls
-                    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-                    // Add event listeners for map movement
-                    map.current.on('moveend', () => {
-                        if (map.current) {
-                            const center = map.current.getCenter();
-                            const zoom = map.current.getZoom();
-                            saveMapState(center.lng, center.lat, zoom);
-                        }
-                    });
-
-                    map.current.on('zoomend', () => {
-                        if (map.current) {
-                            const center = map.current.getCenter();
-                            const zoom = map.current.getZoom();
-                            saveMapState(center.lng, center.lat, zoom);
-                        }
-                    });
-
-                    map.current.on('load', () => {
-                        console.log('Map loaded successfully');
-                    });
-
-                    map.current.on('error', (e) => {
-                        console.error('Map error:', e);
-                    });
-                } catch (error) {
-                    console.error('Failed to initialize Mapbox:', error);
-                }
-            }
-        };
-
-        // Try multiple times with increasing delays to handle timing issues
-        const timeouts: NodeJS.Timeout[] = [];
-        
-        // Immediate attempt
-        initializeMap();
-        
-        // Retry attempts if not successful
-        if (mapboxToken && user && !map.current) {
-            [50, 200, 500].forEach(delay => {
-                timeouts.push(setTimeout(initializeMap, delay));
-            });
-        }
-
-        return () => {
-            // Clear all timeouts
-            timeouts.forEach(timeout => clearTimeout(timeout));
-            
-            // Clear any pending save timeout
-            if (saveMapStateTimeoutRef.current) {
-                clearTimeout(saveMapStateTimeoutRef.current);
-            }
-            
-            if (map.current) {
-                map.current.remove();
-                map.current = null;
-            }
-        };
-    }, [loading, mapboxToken, user, saveMapState]);
 
     if (loading) {
         return (
@@ -255,7 +133,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     }
 
     return (
-        <div className="bg-dark text-light" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="bg-dark text-light" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Header */}
             <div className="bg-dark border-secondary px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
                 <div className="d-flex align-items-center">
@@ -273,14 +151,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 <div className="d-flex align-items-center gap-2">
                     {/* DroneLink Status */}
                     <div className="d-flex align-items-center gap-2">
-                        {droneLinkState.nodeCount > 0 ? (
-                            <Wifi size={16} className="text-success" />
-                        ) : (
-                            <WifiOff size={16} className="text-muted" />
-                        )}
-                        <Badge bg={droneLinkState.nodeCount > 0 ? 'success' : 'secondary'}>
-                            {droneLinkState.nodeCount} nodes
-                        </Badge>
+                        <Badge bg="secondary">{droneLinkState.nodeCount} singleton Drones</Badge>
+                        <small role="status">Shared updates: {droneLinkState.observationStatus}</small>
                         <small className="text-white">
                             {droneLinkState.stats.received} observed parameters
                         </small>
@@ -293,32 +165,16 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </div>
 
             {domain.status === 'archived' && <Alert variant="warning" className="mb-0">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
-            {user && <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={refreshDomain} />}
-            <small className="px-3 py-1">Observation only · Parameter commands unavailable.</small>
+            <div style={{ maxHeight: '40vh', overflowY: 'auto', flexShrink: 0 }}>
+                {user && <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={refreshDomain} />}
+            </div>
+            <small className="px-3 py-1 text-white">Observation only · Parameter commands unavailable.</small>
             {/* Resizable Panels */}
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
                     {/* Map Panel */}
                     <Panel defaultSize={70} minSize={50}>
-                        <div 
-                            ref={mapContainer} 
-                            style={{ 
-                                width: '100%', 
-                                height: '100%',
-                                position: 'relative',
-                                backgroundColor: '#212529'
-                            }} 
-                        >
-                            {!mapboxToken && (
-                                <div className="d-flex align-items-center justify-content-center h-100">
-                                    <div className="text-center">
-                                        <h5 className="text-white">Map View</h5>
-                                        <p className="text-white">Mapbox token required to display map</p>
-                                        <small className="text-secondary">Add mapboxAccessToken to config.json</small>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <ObservedMap key={domain._id} token={mapboxToken} user={user} state={droneLinkState.state} onNodeSelect={setSelectedNodeId} />
                     </Panel>
 
                     {/* Resize Handle */}
@@ -335,7 +191,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     {/* Inspector Panel */}
                     <Panel defaultSize={30} minSize={20} maxSize={50}>
                         <div className="h-100 bg-dark">
-                            <InspectorPanel domainId={domainId!} droneLinkState={droneLinkState} canReset={domain?.canEdit === true} />
+                            <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
                         </div>
                     </Panel>
                 </PanelGroup>

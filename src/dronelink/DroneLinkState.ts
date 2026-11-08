@@ -28,7 +28,7 @@ export interface ChannelState {
   params: { [paramId: number]: ParameterState };
   lastHeard: number;
   name?: string;
-  type?: number;
+  type?: number | string;
   enabled?: boolean;
   status?: number;
 }
@@ -614,7 +614,7 @@ export class DroneLinkState {
             parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
             parameter.lastHeard = Date.parse(facet.lastReceivedAt); parameter.timestamp = Date.parse(facet.valueLastChangedAt!);
             parameter.source = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP';
-            if (Number(id) === DRONE_MODULE_PARAM_TYPE && type <= DRONE_LINK_MSG_TYPE_CHAR) channel.type = Number(parameter.values[0]);
+            if (Number(id) === DRONE_MODULE_PARAM_TYPE && type <= DRONE_LINK_MSG_TYPE_CHAR) channel.type = parameter.values[0];
             if (Number(id) === DRONE_MODULE_PARAM_NAME && type === DRONE_LINK_MSG_TYPE_CHAR) channel.name = msg.payloadToString();
             if (row.channel === 1 && Number(id) === 8 && type === DRONE_LINK_MSG_TYPE_CHAR) node.name = msg.payloadToString();
           }

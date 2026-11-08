@@ -263,3 +263,5 @@
         font-size: 0.8rem;
     }
 }
+/* Dashboard cards have a global 200px minimum; inspector rows size to contents. */
+.inspector-panel .card { min-height: 0; }

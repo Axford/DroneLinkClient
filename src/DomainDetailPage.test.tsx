@@ -91,3 +91,19 @@ test('a late denied request from a previous domain cannot clear the current doma
   act(() => window.dispatchEvent(new CustomEvent('dronelink:access-changed', { detail: { status: 403, url: '/api/domains/a/key' } })));
   expect(screen.getByText('Bravo')).toBeInTheDocument(); expect(screen.queryByText('Domain access denied.')).not.toBeInTheDocument();
 });
+
+
+test('a transient access refresh failure retains the Domain and shared observations', async () => {
+  let offline = false;
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (offline) throw new TypeError('Network unavailable');
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (observationReply(url)) return observationReply(url);
+    const data = url === '/api/user' ? { _id: 'viewer' } : url === '/api/config' ? { data: { mapboxAccessToken: null } } : { data: { _id: 'a', name: 'Alpha', status: 'active', canEdit: false } };
+    return { ok: true, status: 200, json: async () => data };
+  });
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  await screen.findByText('Alpha'); offline = true;
+  await act(async () => window.dispatchEvent(new Event('focus')));
+  expect(screen.getByText('Alpha')).toBeInTheDocument(); expect(screen.getByText('Inspector')).toBeInTheDocument();
+});

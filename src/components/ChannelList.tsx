@@ -21,7 +21,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
     channelEntries.sort((a, b) => a.id - b.id);
     
     // Calculate if all channels are expanded
-    const allExpanded = channelEntries.length > 0 && expandedChannels.size === channelEntries.length;
+    const allExpanded = channelEntries.length > 0 && channelEntries.every(channel => expandedChannels.has(channel.id));
 
     const handleToggleExpand = (channelId: number) => {
         const newExpanded = new Set(expandedChannels);
@@ -39,11 +39,6 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
         } else {
             setExpandedChannels(new Set(channelEntries.map(c => c.id)));
         }
-    };
-
-    const handleChannelEnable = (channelId: number, enabled: boolean) => {
-        // TODO: Implement actual channel enable/disable via DroneLink message
-        console.log(`Channel ${channelId} ${enabled ? 'enabled' : 'disabled'}`);
     };
 
     if (channelEntries.length === 0) {
@@ -90,7 +85,6 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
                         channel={channel}
                         expanded={expandedChannels.has(channel.id)}
                         onToggleExpand={() => handleToggleExpand(channel.id)}
-                        onChannelEnable={(enabled) => handleChannelEnable(channel.id, enabled)}
                     />
                 ))}
             </div>

@@ -11,8 +11,9 @@ interface NodeSelectorProps {
 const NodeSelector: React.FC<NodeSelectorProps> = ({ nodes, selectedNodeId, onNodeSelect }) => {
     return (
         <div className="node-selector">
-            <Form.Label className="small text-white">Select Node:</Form.Label>
+            <Form.Label htmlFor="cloud-node-selector" className="small text-white">Select Drone / Node:</Form.Label>
             <Form.Select 
+                id="cloud-node-selector"
                 size="sm"
                 className="bg-dark text-white border-secondary"
                 value={selectedNodeId || ''}
@@ -21,7 +22,7 @@ const NodeSelector: React.FC<NodeSelectorProps> = ({ nodes, selectedNodeId, onNo
                 <option value="">Choose a node...</option>
                 {nodes.map(node => (
                     <option key={node.id} value={node.id}>
-                        {node.name || `Node ${node.id}`} ({node.id})
+                        {node.name || `Node ${node.id}`} · Drone {node.droneId || 'identity unavailable'}
                     </option>
                 ))}
             </Form.Select>

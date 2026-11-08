@@ -3,6 +3,7 @@ import { Card, Button, Alert } from 'react-bootstrap';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
+import MapBindings from './MapBindings';
 import ChannelList from './ChannelList';
 import './InspectorPanel.css';
 
@@ -10,9 +11,11 @@ interface InspectorPanelProps {
     domainId: string;
     droneLinkState: DroneLinkStateHook;
     canReset?: boolean;
+    selectedNodeId: number | null;
+    onNodeSelect: (nodeId: number | null) => void;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false, selectedNodeId, onNodeSelect }) => {
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
     const resetSelected = async () => {
@@ -22,44 +25,19 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
         catch (error) { setResetError(error instanceof Error ? error.message : 'Reset failed. Refresh and review before trying again.'); }
         finally { setResetting(false); }
     };
-    const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
 
     const nodes = Object.values(droneLinkState.state);
     const selectedNode = selectedNodeId ? droneLinkState.state[selectedNodeId] : null;
 
-    // Additional debug - check if nodeCount matches nodes array length
-    const nodeCountMismatch = droneLinkState.nodeCount !== nodes.length;
-    if (nodeCountMismatch) {
-        console.warn('Node count mismatch!', {
-            nodeCount: droneLinkState.nodeCount,
-            nodesArrayLength: nodes.length,
-            stateKeys: Object.keys(droneLinkState.state),
-            state: droneLinkState.state
-        });
-    }
-
-    // Debug logging
-    console.log('InspectorPanel Debug:', {
-        domainId,
-        nodeCount: droneLinkState.nodeCount,
-        stateKeys: Object.keys(droneLinkState.state),
-        stateValues: Object.values(droneLinkState.state),
-        nodes: nodes.length,
-        nodesArray: nodes,
-        stats: droneLinkState.stats,
-        isLoading: droneLinkState.isLoading,
-        error: droneLinkState.error,
-        fullState: droneLinkState.state
-    });
-
     return (
         <div className="inspector-panel text-white">
             <div className="inspector-header border-secondary">
-                <h5 className="mb-0 text-white">Node Inspector</h5>
+                <h5 className="mb-0 text-white">Drone / Node Inspector</h5>
                 <small className="text-secondary">Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</small>
             </div>
 
             <div className="inspector-content">
+                {droneLinkState.error && <Alert variant="danger">{droneLinkState.error}</Alert>}
                 {resetError && <Alert variant="danger">{resetError}</Alert>}
                 {canReset && selectedNode && <Button variant="outline-warning" size="sm" disabled={resetting} onClick={resetSelected}>Reset node observations</Button>}
 
@@ -105,15 +83,15 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         <NodeSelector
                             nodes={nodes}
                             selectedNodeId={selectedNodeId}
-                            onNodeSelect={setSelectedNodeId}
+                            onNodeSelect={onNodeSelect}
                         />
 
                         {selectedNode && (
-                            <NodeInfo node={selectedNode} />
+                            <><NodeInfo node={selectedNode} /><MapBindings node={selectedNode} /></>
                         )}
 
                         {selectedNode && (
-                            <ChannelList
+                            <ChannelList key={selectedNode.id}
                                 nodeId={selectedNode.id}
                                 channels={selectedNode.channels}
                             />

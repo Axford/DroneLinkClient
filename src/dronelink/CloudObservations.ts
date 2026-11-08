@@ -12,7 +12,7 @@ export interface ObservationView { nodes: ObservationNode[]; channels: Observati
 interface SnapshotData extends ObservationView { schemaVersion: number; activationEpoch: string; startCursor: string; catchUpCursor: string | null }
 interface UpdateData { events: ObservationEvent[]; cursor: string; caughtUp: boolean }
 interface Page<T> { data: T; pagination: { nextCursor: string | null } }
-export type ObservationStatus = 'idle' | 'loading' | 'resynchronising' | 'ready' | 'stopped';
+export type ObservationStatus = 'idle' | 'loading' | 'resynchronising' | 'ready' | 'retrying' | 'stopped';
 
 // One cloud observation lifecycle owns paging, catch-up, cancellation and reset.
 // Packet history is intentionally absent from this interface.
@@ -35,7 +35,7 @@ export class CloudObservations {
   private apply(event: ObservationEvent) {
     for (const row of event.nodes) {
       const old = this.nodes.get(row.nodeAddress);
-      if (old && (row.generation < old.generation || row.generation === old.generation && row.revision < old.revision)) continue;
+      if (old && (row.generation < old.generation || (row.generation === old.generation && row.revision < old.revision))) continue;
       if (!old || row.generation > old.generation) for (const [key, channel] of Array.from(this.channels)) if (channel.nodeAddress === row.nodeAddress) this.channels.delete(key);
       this.nodes.set(row.nodeAddress, { ...old, ...row });
     }
@@ -43,6 +43,17 @@ export class CloudObservations {
       const node = this.nodes.get(row.nodeAddress); if (!node || node.generation !== row.generation) continue;
       const key = `${row.nodeAddress}:${row.channel}`; const old = this.channels.get(key);
       if (!old || row.generation > old.generation || row.revision > old.revision) this.channels.set(key, row);
+    }
+  }
+  // Snapshot headers include Drone IDs; new-node update headers contain observations only.
+  // Resolve missing identities through the existing bounded, role-scoped B API.
+  private async hydrateIdentities(domain: string, generation: number): Promise<void> {
+    if (!Array.from(this.nodes.values()).some(node => !node.droneId)) return;
+    const result = await this.request<{ nodes: Array<{ address: number; droneId: string }> }>(domain, 'identities');
+    if (generation !== this.generation) return;
+    for (const identity of result.data.nodes) {
+      const node = this.nodes.get(identity.address);
+      if (node) this.nodes.set(identity.address, { ...node, droneId: identity.droneId });
     }
   }
   private async request<T>(domain: string, path: string, options: RequestInit = {}, timeoutMs = 30000): Promise<Page<T>> {
@@ -82,6 +93,8 @@ export class CloudObservations {
           for (const event of page.data.events) this.apply(event);
           this.cursor = page.data.cursor; if (page.data.caughtUp) break;
         }
+        await this.hydrateIdentities(domain, generation);
+        if (generation !== this.generation) return;
         this.status = 'ready'; this.publish();
         void this.diagnostics(domain, generation);
         if (generation === this.generation && live) void this.poll(domain, generation);
@@ -111,12 +124,15 @@ export class CloudObservations {
       const page: Page<UpdateData> = await this.request<UpdateData>(domain, `observations/updates?cursor=${encodeURIComponent(this.cursor!)}&timeoutMs=25000`);
       if (generation !== this.generation) return;
       for (const event of page.data.events) this.apply(event);
-      this.cursor = page.data.cursor; this.publish(); void this.diagnostics(domain, generation);
+      this.cursor = page.data.cursor;
+      await this.hydrateIdentities(domain, generation);
+      if (generation !== this.generation) return;
+      this.status = 'ready'; this.publish(); void this.diagnostics(domain, generation);
     } catch (error) {
       if (generation !== this.generation) return;
       if (error instanceof ApiError && error.status === 410) { await this.resynchronise(domain); return; }
       if (error instanceof ApiError && [401, 403, 404].includes(error.status)) { this.stop(); return; }
-      delay = 5000;
+      this.status = 'retrying'; this.publish(); delay = 5000;
     }
     if (generation === this.generation && this.live) this.timer = setTimeout(() => { void this.poll(domain, generation); }, delay);
   }

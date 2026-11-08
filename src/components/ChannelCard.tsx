@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Badge, Button, Collapse } from 'react-bootstrap';
-import { ChevronDown, ChevronRight, ToggleOff, ToggleOn, Gear } from 'react-bootstrap-icons';
+import { Card, Badge, Collapse } from 'react-bootstrap';
+import { ChevronDown, ChevronRight } from 'react-bootstrap-icons';
 import { ChannelState } from '../dronelink/DroneLinkState';
 import ParameterList from './ParameterList';
 
@@ -10,7 +10,6 @@ interface ChannelCardProps {
     channel: ChannelState;
     expanded: boolean;
     onToggleExpand: () => void;
-    onChannelEnable?: (enabled: boolean) => void;
 }
 
 const ChannelCard: React.FC<ChannelCardProps> = ({ 
@@ -18,15 +17,8 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
     channelId, 
     channel, 
     expanded,
-    onToggleExpand,
-    onChannelEnable 
+    onToggleExpand
 }) => {
-    const handleChannelToggle = () => {
-        // For now, just toggle the visual state
-        // TODO: Implement actual channel enable/disable via DroneLink message
-        onChannelEnable?.(!(channel.enabled ?? false));
-    };
-
     const parameterCount = Object.keys(channel.params).length;
     const isActive = channel.lastHeard && (Date.now() - channel.lastHeard) < 5 * 60 * 1000; // 5 minutes
     
@@ -78,28 +70,6 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
                             {parameterCount} params
                         </Badge>
                         
-                        <Button
-                            variant="link"
-                            size="sm"
-                            className="p-0 text-muted"
-                            onClick={handleChannelToggle}
-                            title={(channel.enabled ?? false) ? 'Disable Channel' : 'Enable Channel'}
-                        >
-                            {(channel.enabled ?? false) ? (
-                                <ToggleOn size={16} className="text-success" />
-                            ) : (
-                                <ToggleOff size={16} className="text-muted" />
-                            )}
-                        </Button>
-                        
-                        <Button
-                            variant="link"
-                            size="sm"
-                            className="p-0 text-muted"
-                            title="Channel Settings"
-                        >
-                            <Gear size={14} />
-                        </Button>
                     </div>
                 </div>
             </Card.Header>

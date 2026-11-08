@@ -38,3 +38,13 @@ test('bulk and individual expansion stay in sync across repeated expand/collapse
     await waitFor(() => expect(second).toBeVisible());
     expect(first).not.toBeVisible();
 });
+
+
+test('bulk expansion handles a reset/rebuilt channel set with the same number of channels', async () => {
+  const view = render(<><style>{'.collapse:not(.show) { display: none; }'}</style><ChannelList nodeId={7} channels={{ 1: channel(1, 'Original', 'Old reading') }} /></>);
+  fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
+  await waitFor(() => expect(screen.getByText('Old reading')).toBeVisible());
+  view.rerender(<><style>{'.collapse:not(.show) { display: none; }'}</style><ChannelList nodeId={7} channels={{ 2: channel(2, 'Replacement', 'New reading') }} /></>);
+  fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
+  await waitFor(() => expect(screen.getByText('New reading')).toBeVisible());
+});
