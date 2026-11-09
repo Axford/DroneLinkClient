@@ -194,3 +194,35 @@ test('a late identity lookup from the previous Domain cannot rename the current 
   finish(response({ nodes: [{ address: 7, droneId: 'obsolete-drone' }], drones: [] })); await oldLoad;
   expect(state.getNodeState(7)?.droneId).toBe('drone-seven');
 });
+
+test('malformed snapshot value is unavailable while its valid name and other parameters survive', async () => {
+  const row:any=channel();
+  row.params['1'].value={...row.params['1'].value!,msgType:2,payload:'AQI='};
+  row.params['1'].name={payload:'b2s=',lastReceivedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}};
+  row.params['2']={value:{payload:'Kg==',msgType:0,writable:false,lastReceivedAt:at,valueLastChangedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}}};
+  global.fetch=fetcher(snapshot([node()],[row]));const state=new DroneLinkState();await state.loadObservations('fleet',false);
+  expect(state.getParameterState(7,1,1)?.values).toEqual([]);
+  expect(state.getParameterState(7,1,1)?.name).toBe('ok');
+  expect(state.getParameterState(7,1,1)?.lastHeard).toBeUndefined();
+  expect(state.getParameterState(7,1,2)?.values).toEqual([42]);
+  expect(state.unavailableObservationParts).toBe(1);state.destroy();
+});
+
+test('history rejects invalid envelopes and unrepresentable byte arrays while valid later rows continue',async()=>{
+ await state.processHistoricalMessages([null,{packet:[256,7,1,1,0,9]},{packet:[7,7,1,1,0,42]}]);
+ expect(state.rejectedMessages).toBe(2);expect(state.getParameterState(7,1,1)?.values).toEqual([42]);
+});
+test('snapshot degraded count describes the current replacement and invalid names do not hide valid values',async()=>{
+ const row:any=channel();row.params['1'].name={payload:'',lastReceivedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}};
+ global.fetch=fetcher(snapshot([node()],[row]));await state.loadObservations('fleet',false);
+ expect(state.getParameterState(7,1,1)?.values).toEqual([10]);expect(state.getParameterState(7,1,1)?.name).toBeUndefined();
+ expect(state.unavailableObservationParts).toBe(1);
+ global.fetch=fetcher(snapshot([node()],[row]));await state.loadObservations('fleet',false);expect(state.unavailableObservationParts).toBe(1);
+ global.fetch=fetcher(snapshot([node(1)],[]));await state.loadObservations('fleet',false);expect(state.unavailableObservationParts).toBe(0);expect(state.getParameterState(7,1,1)).toBeNull();
+});
+
+test.each([null,42])('non-string persisted payload %p is unavailable rather than coerced',async(payload)=>{
+ const row:any=channel();row.params['1'].value.payload=payload;
+ global.fetch=fetcher(snapshot([node()],[row]));await state.loadObservations('fleet',false);
+ expect(state.getParameterState(7,1,1)?.values).toEqual([]);expect(state.unavailableObservationParts).toBe(1);
+});

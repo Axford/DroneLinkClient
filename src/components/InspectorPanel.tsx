@@ -38,6 +38,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
 
             <div className="inspector-content">
                 {droneLinkState.error && <Alert variant="danger">{droneLinkState.error}</Alert>}
+                {!!droneLinkState.unavailableObservationParts && <Alert variant="warning">{droneLinkState.unavailableObservationParts} observation parts are unavailable because packet validation failed.</Alert>}
                 {resetError && <Alert variant="danger">{resetError}</Alert>}
                 {canReset && selectedNode && <Button variant="outline-warning" size="sm" disabled={resetting} onClick={resetSelected}>Reset node observations</Button>}
 

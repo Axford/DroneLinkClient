@@ -1,3 +1,4 @@
+import { encodeLinkPacket, ProtocolValidationError, PacketBytes } from '@dronelink/protocol';
 import { CloudObservations, ObservationView } from './CloudObservations';
 /**
  * DroneLink State Management - React/TypeScript Port
@@ -21,6 +22,7 @@ export interface ParameterState {
   source?: string;
   nameLastHeard?: number;
   nameSource?: string;
+  unavailable?: { value?: string; name?: string };
 }
 
 export interface ChannelState {
@@ -84,6 +86,9 @@ export class DroneLinkState {
   private queueProcessInterval?: NodeJS.Timeout;
   private pollingActive: boolean = false;
 
+  unavailableObservationParts = 0;
+  rejectedMessages = 0;
+
   private cloud = new CloudObservations(view => this.applyCloudView(view));
 
   get observationStatus() { return this.cloud.status; }
@@ -118,6 +123,7 @@ export class DroneLinkState {
   reset(): void {
     this.stopStreaming();
     this.state = {};
+    this.unavailableObservationParts = 0;
     this.received = 0;
     this.discoveryQueue = [];
   }
@@ -189,6 +195,10 @@ export class DroneLinkState {
    */
   handleLinkMsg(msg: DroneLinkMsg, queryNames: boolean = true, interfaceName: string = 'socket'): void {
     if (!this.liveMode) return;
+    try { msg.encodeUnframed(); } catch (error) {
+      if (!(error instanceof ProtocolValidationError)) throw error;
+      this.rejectedMessages++; return;
+    }
 
     const now = Date.now();
     this.received++;
@@ -249,44 +259,39 @@ export class DroneLinkState {
     
     for (const packet of packets) {
       try {
+        if (!packet || typeof packet !== 'object') throw new ProtocolValidationError('invalid-input', 'packet');
         const msg = new DroneLinkMsg();
         
         // Convert MongoDB packet to ArrayBuffer
         // Packets are stored as base64 encoded strings from encodeUnframed() output
-        let buffer: Uint8Array;
+        let buffer: PacketBytes;
         
         if (!packet.packet) {
-          console.warn('Packet missing packet data, skipping');
-          continue;
+          throw new ProtocolValidationError('invalid-input', 'packet');
         }
         
         if (typeof packet.packet === 'string') {
           // Base64 encoded string - decode it
           try {
             const binaryString = atob(packet.packet);
-            buffer = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              buffer[i] = binaryString.charCodeAt(i);
-            }
+            buffer = Uint8Array.from(binaryString, c => c.charCodeAt(0));
           } catch (error) {
-            console.warn('Failed to decode base64 packet:', packet.packet, error);
-            continue;
+            throw new ProtocolValidationError('invalid-input', 'base64');
           }
         } else if (packet.packet.type === 'Buffer' && Array.isArray(packet.packet.data)) {
           // MongoDB buffer serialized as { type: 'Buffer', data: [1,2,3...] }
-          buffer = new Uint8Array(packet.packet.data);
+          buffer = packet.packet.data;
         } else if (packet.packet.buffer) {
           // Direct buffer object
-          buffer = new Uint8Array(packet.packet.buffer);
+          buffer = ArrayBuffer.isView(packet.packet) ? packet.packet : packet.packet.buffer;
         } else if (Array.isArray(packet.packet)) {
           // Direct array
-          buffer = new Uint8Array(packet.packet);
+          buffer = packet.packet;
         } else {
-          console.warn('Unknown packet format, skipping:', typeof packet.packet, packet.packet);
-          continue;
+          throw new ProtocolValidationError('invalid-input', 'packet');
         }
         
-        msg.parse(buffer.buffer);
+        msg.parse(buffer);
         
         // Handle different time formats from MongoDB
         if (packet.time) {
@@ -307,10 +312,9 @@ export class DroneLinkState {
         processedCount++;
         
       } catch (error) {
-        errorCount++;
-        if (errorCount < 5) { // Only log first few errors to avoid spam
-          console.error('Error processing historical message:', error, packet);
-        }
+        if (!(error instanceof ProtocolValidationError)) throw error;
+        errorCount++; this.rejectedMessages++;
+        if (errorCount < 5) console.warn('Rejected historical message:', error.code);
       }
     }
     
@@ -595,6 +599,7 @@ export class DroneLinkState {
 
   private applyCloudView(view: ObservationView): void {
     const state: GlobalState = {};
+    let unavailable = 0;
     for (const row of view.nodes) state[row.nodeAddress] = { id: row.nodeAddress, observationGeneration: row.generation, droneId: row.droneId,
       channels: {}, lastHeard: row.lastReceivedAt ? Date.parse(row.lastReceivedAt) : 0, interface: 'cloud' };
     for (const row of view.channels) {
@@ -604,9 +609,15 @@ export class DroneLinkState {
         const parameter: ParameterState = { param: Number(id), msgType: 0, bytesPerValue: 0, numValues: 0, values: [], writable: false };
         for (const kind of ['value', 'name'] as const) {
           const facet = facets[kind]; if (!facet) continue;
-          const payload = Uint8Array.from(atob(facet.payload), c => c.charCodeAt(0));
+          try {
+          let payload: Uint8Array;
+          try {
+            if (typeof facet.payload !== 'string') throw new ProtocolValidationError('invalid-input', 'base64');
+            payload = Uint8Array.from(atob(facet.payload), c => c.charCodeAt(0));
+          }
+          catch { throw new ProtocolValidationError('invalid-input', 'base64'); }
           const type = kind === 'name' ? DRONE_LINK_MSG_TYPE_NAME : facet.msgType!;
-          const bytes = Uint8Array.from([facet.origin.sourceAddress, row.nodeAddress, row.channel, Number(id), (type << 4) | (payload.length - 1) | (kind === 'value' && facet.writable ? 128 : 0), ...Array.from(payload)]);
+          const bytes = encodeLinkPacket({ source: facet.origin.sourceAddress, node: row.nodeAddress, channel: row.channel, param: Number(id), priority: 0, msgType: type, msgLength: payload.length, writable: kind === 'value' ? facet.writable ?? false : false }, payload);
           const msg = new DroneLinkMsg(); msg.parse(bytes.buffer);
           if (kind === 'name') { parameter.name = msg.payloadToString(); parameter.nameLastHeard = Date.parse(facet.lastReceivedAt); parameter.nameSource = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP'; }
           else {
@@ -618,11 +629,17 @@ export class DroneLinkState {
             if (Number(id) === DRONE_MODULE_PARAM_NAME && type === DRONE_LINK_MSG_TYPE_CHAR) channel.name = msg.payloadToString();
             if (row.channel === 1 && Number(id) === 8 && type === DRONE_LINK_MSG_TYPE_CHAR) node.name = msg.payloadToString();
           }
+          } catch (error) {
+            if (!(error instanceof ProtocolValidationError)) throw error;
+            parameter.unavailable = { ...parameter.unavailable, [kind]: error.code };
+            unavailable++;
+          }
         }
         channel.params[Number(id)] = parameter;
       }
       node.channels[row.channel] = channel;
     }
+    this.unavailableObservationParts = unavailable;
     this.state = state; this.received = view.channels.reduce((count, row) => count + Object.keys(row.params).length, 0); this.trigger('state.changed');
   }
 

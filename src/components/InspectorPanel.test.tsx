@@ -36,3 +36,8 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   view.rerender(<InspectorPanel {...props} canReset={false} />);
   expect(screen.queryByRole('button', { name: 'Reset node observations' })).not.toBeInTheDocument();
 });
+
+test('degraded snapshot warning reports current unavailable parts',()=>{
+ render(<InspectorPanel domainId="fleet" droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} onNodeSelect={jest.fn()} />);
+ expect(screen.getByRole('alert')).toHaveTextContent('2 observation parts are unavailable because packet validation failed.');
+});

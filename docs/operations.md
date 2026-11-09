@@ -120,3 +120,9 @@ M1-D final local browser acceptance passes against the native owned emulator: bo
 ## M1.2 codec software checks — 2026-11-08
 
 The Client now pins immutable protocol0.1.2 under vendor with exact lock integrity; retain0.1.1 for historical releases. `npm run test:protocol` passes24 cases, including exact framed CRC/limits, complete address arrays with mutation-safe rejection and unsigned timestamp boundaries. Strict TypeScript,40 React/12 release checks and production build pass. Datastore's coordinated suite additionally proves JS↔TS interchange and an independent archive install/build/repack/C++ host run. This is software acceptance only; firmware serial and physical validation are a separate slice. No cloud activation occurs.
+
+## M1-F strict codec and degraded observations — 2026-11-09
+
+Client now pins protocol0.2.0. Actual TS decode/set/serialize paths enforce exact packet/log boundaries, alignment and representable typed inputs before mutation. Valid wire bytes, single-byte NUL behavior and low32 log timestamps remain unchanged. History rejects invalid records individually; cloud replacement isolates value/name facets, retains valid companions and marks only failed parts unavailable. Inspector displays the current unavailable-part count; reset/removal/domain replacement discards stale facets and warnings. This does not change cloud admission, identity, role, reset or mapping policy.
+
+Local acceptance: locked install, strict typecheck,23 codec tests,12 release tests,46 React/state tests and production build pass. Native hosted real-Chrome tests pass the existing two-context observation/map/reset/reload and access-role flows. Central M1-F owns final matched release identities and staged/physical acceptance; this source checkpoint does not claim a managed deployment.

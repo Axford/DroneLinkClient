@@ -15,6 +15,7 @@ export interface DroneLinkStateHook {
   error: string | null;
   observationStatus: string;
   snapshotWriteFailures: number;
+  unavailableObservationParts?: number;
   resetNodeObservations: (nodeId: number) => Promise<void>;
   stats: {
     nodes: number;
@@ -40,6 +41,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
   const [error, setError] = useState<string | null>(null);
   const [observationStatus, setObservationStatus] = useState('idle');
   const [snapshotWriteFailures, setSnapshotWriteFailures] = useState(0);
+  const [unavailableObservationParts, setUnavailableObservationParts] = useState(0);
   const [stats, setStats] = useState({ nodes: 0, channels: 0, parameters: 0, received: 0 });
   
   const droneLinkStateRef = useRef<DroneLinkState | null>(null);
@@ -62,6 +64,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
             setState({ ...droneLinkStateRef.current.getState() });
             setObservationStatus(droneLinkStateRef.current.observationStatus);
             setSnapshotWriteFailures(droneLinkStateRef.current.snapshotWriteFailures);
+            setUnavailableObservationParts(droneLinkStateRef.current.unavailableObservationParts);
             setStats(droneLinkStateRef.current.getStats());
           }
         }, 100); // Debounce updates by 100ms
@@ -107,6 +110,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
       await droneLinkStateRef.current.loadObservations(domainId, live);
       setState({ ...droneLinkStateRef.current.getState() });
       setStats(droneLinkStateRef.current.getStats());
+      setUnavailableObservationParts(droneLinkStateRef.current.unavailableObservationParts);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load shared observations';
       setError(errorMessage);
@@ -131,6 +135,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     if (droneLinkStateRef.current) {
       droneLinkStateRef.current.reset();
       setState({});
+      setUnavailableObservationParts(0);
       setStats({ nodes: 0, channels: 0, parameters: 0, received: 0 });
       setError(null);
     }
@@ -162,6 +167,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     error,
     observationStatus,
     snapshotWriteFailures,
+    unavailableObservationParts,
     resetNodeObservations: (nodeId: number) => droneLinkStateRef.current!.resetNodeObservations(nodeId),
     stats,
     getNodeState,
