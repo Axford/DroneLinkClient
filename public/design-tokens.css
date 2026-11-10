@@ -51,7 +51,7 @@
   --dw-avatar-size: calc(var(--dw-grid) * 6);
   --dw-header-height: calc(var(--dw-grid) * 14);
   --dw-rail-width: calc(var(--dw-grid) * 14);
-  --dw-sidebar-width: calc(var(--dw-grid) * 56);
+  --dw-primary-nav-width: calc(var(--dw-grid) * 56);
   --dw-dialog-width: calc(var(--dw-grid) * 224);
   --dw-auth-width: calc(var(--dw-grid) * 112);
   --dw-border-width: 1px;

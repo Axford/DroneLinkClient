@@ -6,7 +6,7 @@ import App from './App';
 jest.mock('./HomePage', () => () => <div>Domain list</div>);
 jest.mock('./DomainDetailPage', () => () => <div>Domain detail</div>);
 jest.mock('./InvitePage', () => () => <div>Invitation</div>);
-jest.mock('./Sidebar', () => () => <nav>Navigation</nav>);
+jest.mock('./PrimaryNavBar', () => () => <nav>Navigation</nav>);
 
 afterEach(() => { jest.restoreAllMocks(); });
 

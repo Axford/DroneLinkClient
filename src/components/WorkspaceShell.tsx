@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Domain, User } from '../App';
 import { accessEvent, authenticatedFetchJson } from '../utils/api';
-import Sidebar from '../Sidebar';
-import useNarrowLayout from './ui/useNarrowLayout';
+import PrimaryNavBar from '../PrimaryNavBar';
 
 export interface WorkspaceShellProps {
   user: User;
@@ -12,10 +11,6 @@ export interface WorkspaceShellProps {
 }
 export default function WorkspaceShell({ user, activeDomain, shortcuts, children }: WorkspaceShellProps) {
   const [domains, setDomains] = useState<Domain[]>([]);
-  const [expanded, setExpanded] = useState(false);
-  const [homeCollapsed, setHomeCollapsed] = useState(false);
-  const narrow = useNarrowLayout();
-  useEffect(() => setExpanded(false), [activeDomain?._id]);
   useEffect(() => {
     if (shortcuts) { setDomains(shortcuts); return; }
     const controller = new AbortController(); let generation = 0;
@@ -36,9 +31,8 @@ export default function WorkspaceShell({ user, activeDomain, shortcuts, children
     void refresh(); window.addEventListener('focus', changed); window.addEventListener(accessEvent, changed);
     return () => { generation++; clearInterval(timer); controller.abort(); window.removeEventListener('focus', changed); window.removeEventListener(accessEvent, changed); };
   }, [shortcuts]);
-  const collapsed = narrow || (activeDomain ? !expanded : homeCollapsed);
   return <div className="dw-workspace" data-bs-theme="dark">
-    <Sidebar user={user} domains={domains} activeDomainId={activeDomain?._id} isCollapsed={collapsed} canExpand={!narrow} toggleSidebar={() => activeDomain ? setExpanded(value => !value) : setHomeCollapsed(value => !value)} />
+    <PrimaryNavBar user={user} domains={domains} activeDomainId={activeDomain?._id} />
     <main className={`content-wrapper ${activeDomain ? 'workspace-operations' : ''}`}>{children}</main>
   </div>;
 }
