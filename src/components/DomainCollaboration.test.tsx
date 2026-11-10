@@ -25,7 +25,7 @@ function setup() {
   return requests;
 }
 afterEach(() => jest.restoreAllMocks());
-const open = () => fireEvent.click(screen.getByRole('button', { name: /Collaboration/ }));
+const open = () => fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
 test('Viewer reads members but never requests keys or renders administration controls', async () => {
   const requests = setup(); render(<DomainCollaboration domain={viewer} user={person} onRefresh={async () => {}} />); open();
   await screen.findByText(person.email);

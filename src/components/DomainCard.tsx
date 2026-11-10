@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Card, Button, Badge } from 'react-bootstrap';
+import { ArrowClockwise } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
 import { Domain, User } from '../App';
 import { authenticatedFetchJson } from '../utils/api';
@@ -34,17 +35,22 @@ export default function DomainCard({ domain, user, onRefresh, onExpansionChange 
     catch { setPackets('Retry packet count'); }
   };
   return <Card className="shadow-sm"><Card.Body>
-    <Card.Title><Link to={`/private/domain/${domain._id}`}>{domain.name}</Link></Card.Title>
-    <Badge bg="secondary">{domain.myRole || 'Platform Admin'}</Badge> <Badge bg={domain.status === 'archived' ? 'warning' : 'success'}>{domain.status}</Badge>
-    <div className="d-flex flex-wrap gap-4 mt-3" aria-label="Domain totals">
+    <div className="d-flex align-items-start justify-content-between gap-3">
+      <Card.Title className="domain-card-title mb-0"><Link to={`/private/domain/${domain._id}`}>{domain.name}</Link></Card.Title>
+      <div className="d-flex flex-wrap justify-content-end gap-1 flex-shrink-0" aria-label="Domain role and status">
+        <Badge bg="secondary">{domain.myRole || 'Platform Admin'}</Badge>
+        <Badge bg={domain.status === 'archived' ? 'warning' : 'success'}>{domain.status}</Badge>
+      </div>
+    </div>
+    <div className="d-flex align-items-center flex-wrap gap-3 mt-3" aria-label="Domain totals">
       <div><strong>{counts?.users ?? '—'}</strong> {counts?.users === 1 ? 'user' : 'users'}</div>
       <div><strong>{counts?.drones ?? '—'}</strong> {counts?.drones === 1 ? 'Drone' : 'Drones'}</div>
       <div><strong>{counts?.nodes ?? '—'}</strong> {counts?.nodes === 1 ? 'node' : 'nodes'}</div>
+      <Button variant="link" size="sm" className="ms-auto p-1" aria-label="Refresh totals" title="Refresh totals" onClick={() => setReload(value => value + 1)}><ArrowClockwise size={18} aria-hidden="true" /></Button>
     </div>
     <small className="text-muted">Accepted members and retained device identities</small>
     {countsError && <Alert variant="warning" className="mt-2">Domain totals unavailable.</Alert>}
-    <div><Button variant="link" size="sm" onClick={() => setReload(value => value + 1)}>Refresh totals</Button><Button variant="link" size="sm" onClick={loadPackets}>{packets}</Button></div>
-    <p className="mt-2"><Link className="btn btn-primary" to={`/private/domain/${domain._id}`}>Open map and inspector</Link></p>
+    <div className="mt-1 mb-3"><Button variant="link" size="sm" className="p-0" onClick={loadPackets}>{packets}</Button></div>
     <p className="text-muted"><small>Domain {domain._id}</small></p>
     <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={onRefresh} onExpansionChange={onExpansionChange} />
   </Card.Body></Card>;

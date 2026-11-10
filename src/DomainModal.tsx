@@ -86,7 +86,7 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
     };
 
     return (
-        <Modal show={show} onHide={handleClose}>
+        <Modal data-bs-theme="dark" show={show} onHide={handleClose}>
             <Modal.Header closeButton>
                 <Modal.Title>{domain ? 'Edit Domain' : 'Create Domain'}</Modal.Title>
             </Modal.Header>

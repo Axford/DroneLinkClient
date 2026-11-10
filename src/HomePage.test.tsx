@@ -18,8 +18,9 @@ function setup(domain = owner) {
     return reply({ data: domain });
   });
   const refresh = jest.fn().mockResolvedValue(undefined);
-  const view = render(<ToastProvider><MemoryRouter><HomePage user={user} domains={[domain]} onRefresh={refresh} onDomainUpdate={jest.fn()} onDomainDelete={jest.fn()} pagination={{ limit: 10, nextCursor: null, hasPrev: false }} onPageChange={jest.fn()} loading={false} canCreate={false} status={domain.status} onStatusChange={jest.fn()} /></MemoryRouter></ToastProvider>);
-  return { ...view, refresh };
+  const statusChange = jest.fn();
+  const view = render(<ToastProvider><MemoryRouter><HomePage user={user} domains={[domain]} onRefresh={refresh} onDomainUpdate={jest.fn()} onDomainDelete={jest.fn()} pagination={{ limit: 10, nextCursor: null, hasPrev: false }} onPageChange={jest.fn()} loading={false} canCreate={false} status={domain.status} onStatusChange={statusChange} /></MemoryRouter></ToastProvider>);
+  return { ...view, refresh, statusChange };
 }
 afterEach(() => jest.restoreAllMocks());
 test('homepage cards count all member pages and separate operations from collapsed administration', async () => {
@@ -27,20 +28,21 @@ test('homepage cards count all member pages and separate operations from collaps
   const totals = screen.getByLabelText('Domain totals');
   await waitFor(() => expect(totals).toHaveTextContent('2 users'));
   expect(totals).toHaveTextContent('1 Drone'); expect(totals).toHaveTextContent('1 node');
-  expect(screen.getByRole('link', { name: 'Open map and inspector' })).toHaveAttribute('href', '/private/domain/fleet');
-  expect(screen.getByRole('button', { name: /Collaboration/ })).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.getByRole('link', { name: 'Fleet' })).toHaveAttribute('href', '/private/domain/fleet');
+  expect(screen.queryByRole('link', { name: 'Open map and inspector' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Domain settings' })).toHaveAttribute('aria-expanded', 'false');
   expect((fetch as jest.Mock).mock.calls.some(([url]) => url.includes('/invitations') || url.endsWith('/key'))).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: /Collaboration/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
   await screen.findByText(user.email);
   expect(screen.getByRole('button', { name: 'Create invitation' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Show key' }));
   await screen.findByText('shown-key');
-  fireEvent.click(screen.getByRole('button', { name: /Collaboration/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
   await waitFor(() => expect(screen.queryByText('shown-key')).not.toBeInTheDocument());
 });
 test('Viewer homepage cards retain member visibility without key or invitation access', async () => {
   setup({ ...owner, myRole: 'viewer', canManageMembers: false, canManageKeys: false, canEdit: false, canArchive: false });
-  fireEvent.click(screen.getByRole('button', { name: /Collaboration/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
   await screen.findByText(user.email);
   expect(screen.queryByRole('button', { name: 'Show key' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Create invitation' })).not.toBeInTheDocument();
@@ -55,9 +57,20 @@ test('unavailable totals are reported with retry and do not masquerade as zero',
 });
 test('archiving from a homepage card refreshes its owning list', async () => {
   const { refresh } = setup(); jest.spyOn(window, 'confirm').mockReturnValue(true);
-  fireEvent.click(screen.getByRole('button', { name: /Collaboration/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
   await screen.findByText(user.email);
   fireEvent.click(screen.getByRole('button', { name: 'Archive domain' }));
   await waitFor(() => expect(refresh).toHaveBeenCalled());
   expect(fetch).toHaveBeenCalledWith('/api/domains/fleet/archive', expect.objectContaining({ method: 'POST', body: JSON.stringify({ revision: 7 }) }));
+});
+
+test('domain status uses selected tabs and keeps refresh beside totals', async () => {
+  const { statusChange } = setup();
+  expect(screen.getByRole('tab', { name: 'Active domains' })).toHaveAttribute('aria-selected', 'true');
+  const archived = screen.getByRole('tab', { name: 'Archived domains' });
+  expect(archived).toHaveAttribute('aria-selected', 'false');
+  fireEvent.click(archived);
+  expect(statusChange).toHaveBeenCalledWith('archived');
+  expect(within(screen.getByLabelText('Domain totals')).getByRole('button', { name: 'Refresh totals' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByLabelText('Domain totals')).toHaveTextContent('2 users'));
 });

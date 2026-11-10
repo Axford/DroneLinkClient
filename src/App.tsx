@@ -174,7 +174,7 @@ function AppContent() {
 
   return (
     user && (
-      <div className="d-flex">
+      <div className="d-flex" data-bs-theme="dark">
         <Sidebar 
           user={user} 
           isCollapsed={isSidebarCollapsed} 
