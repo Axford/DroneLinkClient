@@ -32,7 +32,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const positions = React.useMemo(() => observedPositions(state), [state]);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 

@@ -1,16 +1,20 @@
-.dw-node-list { position: absolute; top: var(--dw-space-3); left: var(--dw-space-3); width: min(280px, calc(100% - var(--dw-space-8) - var(--dw-space-6))); max-height: calc(100% - 160px); display: flex; flex-direction: column; background: var(--dw-color-panel); border-radius: var(--dw-radius); box-shadow: var(--dw-shadow); }
-.dw-node-list-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-2); padding: var(--dw-space-2); flex-shrink: 0; }
+.dw-node-list { position: absolute; top: var(--dw-space-3); left: var(--dw-space-3); width: min(224px, calc(100% - var(--dw-space-12) - var(--dw-space-12))); max-height: calc(100% - 160px); display: flex; flex-direction: column; }
+.dw-node-list.collapsed { width: var(--dw-control-size); }
+.dw-node-list-toggle { position: absolute; top: 0; left: calc(100% + var(--dw-space-1)); }
+.dw-node-list.collapsed .dw-node-list-toggle { position: static; }
+.dw-node-list-toggle > button { background: var(--dw-color-surface); }
+.dw-node-list-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-2); padding: var(--dw-space-2); flex-shrink: 0; background: var(--dw-color-surface); border-radius: var(--dw-radius); }
 .dw-node-list-header > div { min-width: 0; overflow-wrap: anywhere; }
-.dw-node-items { list-style: none; margin: 0; padding: 0 var(--dw-space-2) var(--dw-space-2); overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
-.dw-node-items li { display: flex; align-items: center; gap: var(--dw-space-1); margin-top: var(--dw-space-1); }
-.dw-node-select { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; overflow-wrap: anywhere; border: 0; border-radius: var(--dw-radius-small); background: var(--dw-color-surface); color: var(--dw-color-text); padding: var(--dw-space-2); }
+.dw-node-items { list-style: none; margin: 0; padding: var(--dw-space-1); overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.dw-node-items li { display: flex; align-items: center; background: var(--dw-color-surface); color: var(--dw-color-text); border-radius: var(--dw-radius-small); box-shadow: var(--dw-shadow); }
+.dw-node-items li + li { margin-top: var(--dw-space-2); }
+.dw-node-items li[data-selected="true"] { background: var(--dw-color-primary); }
+.dw-node-select { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--dw-space-1); min-height: var(--dw-control-size); text-align: left; border: 0; border-radius: var(--dw-radius-small); background: transparent; color: inherit; padding: var(--dw-space-1) var(--dw-space-2); }
 .dw-node-select:hover { background: var(--dw-color-hover); }
-.dw-node-select[aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
-.dw-node-select:focus-visible { outline: 2px solid var(--dw-color-text); outline-offset: 2px; }
+.dw-node-select[aria-pressed="true"]:hover { background: var(--dw-color-primary-hover); }
+.dw-node-select:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: 2px; }
+.dw-node-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dw-node-age { flex-shrink: 0; margin-left: auto; padding-inline: var(--dw-space-1); border-radius: var(--dw-radius-small); background: var(--dw-color-control); color: var(--dw-color-text); font-size: var(--dw-font-size-meta); font-weight: normal; }
 .dw-node-list-empty { padding: var(--dw-space-2); }
 .dw-map-marker[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--dw-color-text); }
-@media (max-width: 767px) { .dw-node-list { max-height: calc(100% - 112px); } .dw-node-list-header .dw-meta { max-height: 40px; overflow: auto; } }
-
-.dw-node-select[aria-pressed="true"] .dw-meta { color: inherit; }
-
-[role="dialog"] .dw-node-items { padding: 0; }
+@media (max-width: 767px) { .dw-node-list { width: min(224px, calc(100% - var(--dw-space-8) - var(--dw-space-6))); max-height: calc(100% - 112px); } .dw-node-list-header .dw-meta { max-height: 40px; overflow: auto; } }

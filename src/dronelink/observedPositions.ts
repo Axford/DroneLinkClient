@@ -36,3 +36,13 @@ export function receiptLabel(receivedAt: number | undefined, now = Date.now()): 
   if (!receivedAt) return 'No saved receipt';
   return `${new Date(receivedAt).toLocaleString()} (${receiptAgeLabel(receivedAt, now)})`;
 }
+
+
+/** Short visual label; the full Server receipt remains available separately. */
+export function compactReceiptAge(receivedAt: number | undefined, now = Date.now()): string {
+  if (!receivedAt) return '—';
+  const seconds = Math.floor(Math.max(0, now - receivedAt) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  return `${Math.floor(seconds / 3600)}h`;
+}
