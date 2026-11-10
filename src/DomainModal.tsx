@@ -3,6 +3,7 @@ import { Form, Alert } from 'react-bootstrap';
 import { CheckLg, Plus } from 'react-bootstrap-icons';
 import SettingsDialog from './components/ui/SettingsDialog';
 import IconButton from './components/ui/IconButton';
+import SurfacePanel from './components/ui/SurfacePanel';
 import { Domain } from './App';
 import { authenticatedFetch } from './utils/api';
 import { useToast } from './contexts/ToastContext';
@@ -100,6 +101,7 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
                     </Alert>
                 )}
                 
+            <SurfacePanel>
                 <Form>
                     <Form.Group className="mb-3" controlId="domainName">
                         <Form.Label>Domain Name</Form.Label>
@@ -118,6 +120,7 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
             <div className="dw-toolbar justify-content-end">
                 <IconButton label={domain ? 'Update Domain' : 'Create Domain'} variant="primary" icon={domain ? <CheckLg /> : <Plus />} onClick={onSave} disabled={loading || !name.trim()} />
             </div>
+            </SurfacePanel>
         </SettingsDialog>
     );
 };

@@ -35,9 +35,9 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
     };
 
     return (
-        <Card className="channel-card bg-dark border-secondary">
+        <Card className="channel-card">
             <Card.Header 
-                className="bg-dark border-secondary"
+                className="dw-channel-toggle"
                 as="button" type="button" aria-expanded={expanded} onClick={onToggleExpand}
             >
                 <div className="d-flex justify-content-between align-items-center">
@@ -76,7 +76,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
             
             <Collapse in={expanded}>
                 <div>
-                    <Card.Body className="py-2 bg-dark">
+                    <Card.Body className="py-2">
                         {parameterCount === 0 ? (
                             <div className="text-center py-2">
                                 <small className="text-secondary">No parameters discovered</small>

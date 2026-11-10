@@ -4,6 +4,7 @@ import { ParameterState } from '../dronelink/DroneLinkState';
 import { receiptLabel } from '../dronelink/observedPositions';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
+import SurfacePanel from './ui/SurfacePanel';
 export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState; onParameterEdit?: (value: number[]) => void }
 export default function ParameterRow({ nodeId, channelId, parameterId, parameter }: ParameterRowProps) {
   const [details, setDetails] = useState(false);
@@ -16,11 +17,13 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     <span className="dw-parameter-value font-monospace">{value}</span>
     <IconButton label={`Parameter details: ${name}`} icon={<InfoCircle />} variant="link" onClick={() => setDetails(true)} />
     <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
-      <dl><dt>Address</dt><dd>{nodeId}&gt;{channelId}.{parameterId}</dd><dt>Observed value</dt><dd className="font-monospace">{value}</dd></dl>
+      <SurfacePanel title="Observation"><dl><dt>Address</dt><dd>{nodeId}&gt;{channelId}.{parameterId}</dd><dt>Observed value</dt><dd className="font-monospace">{value}</dd></dl>
       {parameter.lastHeard && <p>Received {new Date(parameter.lastHeard).toLocaleString()} · {parameter.source || 'Unknown source'}</p>}
+      </SurfacePanel><SurfacePanel title="Provenance">
       {parameter.timestamp && <p>Value last changed {new Date(parameter.timestamp).toLocaleString()}</p>}
       {parameter.nameLastHeard && <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource}</p>}
       <p className="dw-meta">Observation only · Parameter commands unavailable until M2.</p>
+      </SurfacePanel>
     </SettingsDialog>
   </div>;
 }

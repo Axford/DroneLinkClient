@@ -3,10 +3,10 @@ import { Alert } from 'react-bootstrap';
 import { Gear } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
+import SurfacePanel from './ui/SurfacePanel';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
-import MapBindings from './MapBindings';
 import ChannelList from './ChannelList';
 import './InspectorPanel.css';
 
@@ -40,9 +40,10 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                 <IconButton label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
             </header>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
-                <p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
+                <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
                 {canReset && selectedNode && <IconButton label="Reset node observations" icon={<Gear />} variant="outline-warning" disabled={resetting} onClick={resetSelected} />}
                 {resetError && <Alert variant="danger">{resetError}</Alert>}
+                </SurfacePanel>
             </SettingsDialog>
             <div className="inspector-content">
                 {droneLinkState.error && <Alert variant="danger">{droneLinkState.error}</Alert>}
@@ -61,7 +62,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         />
 
                         {selectedNode && (
-                            <><NodeInfo node={selectedNode} /><div className="mb-3"><MapBindings node={selectedNode} /></div></>
+                            <NodeInfo node={selectedNode} />
                         )}
 
                         {selectedNode && (

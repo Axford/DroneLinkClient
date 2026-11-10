@@ -3,6 +3,8 @@ import { Card, Badge, Row, Col } from 'react-bootstrap';
 import { Wifi, WifiOff, Cpu, Hash, InfoCircle } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
+import SurfacePanel from './ui/SurfacePanel';
+import MapBindings from './MapBindings';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 
@@ -47,8 +49,8 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     };
 
     return (
-        <div className="mb-3">
-            <div className="dw-toolbar"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge><IconButton label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /></div>
+        <SurfacePanel className="mb-3">
+            <div className="dw-toolbar"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge><IconButton label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /></div>
             <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
             <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>
         <Card className="bg-dark border-secondary">
@@ -100,7 +102,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
             </Card.Body>
         </Card>
             </SettingsDialog>
-        </div>
+        </SurfacePanel>
     );
 };
 

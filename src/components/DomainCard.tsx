@@ -35,7 +35,7 @@ export default function DomainCard({ domain, user, onRefresh }: { domain: Domain
     try { const value = await authenticatedFetchJson(`/api/domains/${domain._id}/packet-count`); setPackets(`${value.data.retainedPacketCount} retained packets · Refresh`); }
     catch { setPackets('Retry packet count'); }
   };
-  return <Card className="shadow-sm"><Card.Body>
+  return <Card><Card.Body>
     <div className="dw-domain-header">
       <Card.Title className="domain-card-title mb-0"><Link to={`/private/domain/${domain._id}`}>{domain.name}</Link></Card.Title>
       <div className="dw-domain-badges" aria-label="Domain role and status">

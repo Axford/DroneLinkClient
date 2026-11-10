@@ -1,13 +1,17 @@
 .inspector-panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; font-size: 1rem; background: var(--dw-color-canvas); }
-.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: var(--dw-space-3); border-bottom: var(--dw-border-width) solid var(--dw-color-border); }
+.inspector-header { display: flex; justify-content: space-between; align-items: center; padding: var(--dw-space-3); background: var(--dw-color-panel); }
 .inspector-header h2 { margin: 0; font-size: var(--dw-font-size-heading); }
 .inspector-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); scrollbar-color: var(--dw-color-border) var(--dw-color-canvas); scrollbar-width: thin; }
 .channel-card { margin-bottom: var(--dw-space-2); }
-.channel-card .card-header { text-align: left; padding: var(--dw-space-2); cursor: pointer; color: var(--dw-color-text); }
+.channel-card .card-header { text-align: left; padding: var(--dw-space-2); cursor: pointer; background: transparent; color: var(--dw-color-text); }
 .channel-card .card-header:hover { background: var(--dw-color-hover); }
 .channel-card .card-header > div { flex-wrap: wrap; gap: var(--dw-space-2); }
 .channel-card .card-body { padding: var(--dw-space-2); }
-.parameter-row { padding: var(--dw-space-2) 0; border-bottom: var(--dw-border-width) solid var(--dw-color-border); }
-.parameter-row:last-child { border-bottom: none; }
+.parameter-row { padding: var(--dw-space-2) 0;  }
+.parameter-row + .parameter-row { margin-top: var(--dw-space-2); }
+.parameter-row { background: var(--dw-color-raised); padding: var(--dw-space-2); border-radius: var(--dw-radius-small); }
+.node-selector { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
 .node-selector { margin-bottom: var(--dw-space-3); }
 .node-badges { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); margin-top: var(--dw-space-2); }
+
+.channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
