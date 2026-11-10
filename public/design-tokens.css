@@ -2,18 +2,24 @@
 :root {
   color-scheme: dark;
   --dw-color-canvas: #171b20;
-  --dw-color-surface: #21262d;
+  --dw-color-surface-rgb: 33, 38, 45;
+  --dw-color-surface: rgb(var(--dw-color-surface-rgb));
   --dw-color-raised: #292f38;
   --dw-color-hover: #323b47;
   --dw-color-text: #e6edf3;
   --dw-color-muted: #a8b3c2;
-  --dw-color-border: #414c5a;
+  --dw-color-border-rgb: 65, 76, 90;
+  --dw-color-border: rgb(var(--dw-color-border-rgb));
+  --dw-color-info-bg-rgb: 47, 93, 112;
   --dw-color-accent: #82b7ff;
   --dw-color-primary: #235dba;
   --dw-color-primary-hover: #2c6ed3;
   --dw-color-success: #79d5a4;
+  --dw-color-success-bg-rgb: 32, 107, 72;
   --dw-color-warning: #f1c76b;
+  --dw-color-warning-bg-rgb: 115, 86, 20;
   --dw-color-danger: #ff9696;
+  --dw-color-danger-bg-rgb: 147, 54, 62;
   --dw-color-focus: #82b7ff;
   --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --dw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Button, Spinner, Alert, Badge } from 'react-bootstrap';
-import { ArrowLeft } from 'react-bootstrap-icons';
+import { useParams, Link } from 'react-router-dom';
+import { Spinner, Alert, Badge } from 'react-bootstrap';
+import WorkspaceShell from './components/WorkspaceShell';
+import PageFeedback from './components/ui/PageFeedback';
+import useNarrowLayout from './components/ui/useNarrowLayout';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import ObservedMap from './components/ObservedMap';
 import { Domain, User } from './App';
@@ -14,7 +16,7 @@ interface DomainDetailPageProps {}
 
 const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const { domainId } = useParams<{ domainId: string }>();
-    const navigate = useNavigate();
+    const narrow = useNarrowLayout();
     const refreshGeneration = useRef(0);
     const statusRef = useRef<string | undefined>(undefined);
     const selectedDomain = useRef(domainId); selectedDomain.current = domainId;
@@ -106,94 +108,35 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
     }, [domainId, refreshDomain, stopStreaming, reset]);
 
-    if (loading) {
-        return (
-            <Container className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-                <Spinner animation="border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </Spinner>
-            </Container>
-        );
-    }
+    if (loading) return <PageFeedback loading message="Loading observations…" />;
+    if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
-    if (error || !domain) {
-        return (
-            <Container className="mt-5">
-                <Alert variant="danger">
-                    <Alert.Heading>Error</Alert.Heading>
-                    <p>{error || 'Domain not found'}</p>
-                    <Button variant="outline-danger" onClick={() => navigate('/private')}>
-                        <ArrowLeft className="me-2" />
-                        Back to Domains
-                    </Button>
-                </Alert>
-            </Container>
-        );
-    }
-
-    return (
-        <div className="bg-dark text-light" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Header */}
-            <div className="bg-dark border-secondary px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
-                <div className="d-flex align-items-center">
-                    <Button 
-                        variant="outline-secondary" 
-                        size="sm" 
-                        onClick={() => navigate('/private')}
-                        className="me-3"
-                    >
-                        <ArrowLeft size={16} /> Domains
-                    </Button>
-                    <h5 className="mb-0 me-3">{domain.name}</h5>
+    return <WorkspaceShell user={user} activeDomain={domain}>
+        <div className="dw-operations">
+            <header className="dw-operations-header">
+                <h1>{domain.name}</h1>
+                <div className="dw-toolbar">
+                    <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
+                    <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
+                    <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
+                    <Badge bg="secondary" title="Parameter commands unavailable until M2">Observation only</Badge>
+                    {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
                 </div>
-                
-                <div className="d-flex align-items-center gap-2">
-                    {/* DroneLink Status */}
-                    <div className="d-flex align-items-center gap-2">
-                        <Badge bg="secondary">{droneLinkState.nodeCount} singleton Drones</Badge>
-                        <small role="status">Shared updates: {droneLinkState.observationStatus}</small>
-                        <small className="text-white">
-                            {droneLinkState.stats.received} observed parameters
-                        </small>
-                    </div>
-                    
-                    {droneLinkState.isLoading && (
-                        <Spinner animation="border" size="sm" />
-                    )}
-                </div>
-            </div>
-
-            {domain.status === 'archived' && <Alert variant="warning" className="mb-0">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
-            <small className="px-3 py-1 text-white">Observation only · Parameter commands unavailable.</small>
-            {/* Resizable Panels */}
-            <div style={{ flex: 1, minHeight: 0 }}>
-                <PanelGroup direction="horizontal">
-                    {/* Map Panel */}
-                    <Panel defaultSize={70} minSize={50}>
+            </header>
+            {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
+            <div className="dw-operation-panels">
+                <PanelGroup direction={narrow ? 'vertical' : 'horizontal'}>
+                    <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
                         <ObservedMap key={domain._id} token={mapboxToken} user={user} state={droneLinkState.state} onNodeSelect={setSelectedNodeId} />
                     </Panel>
-
-                    {/* Resize Handle */}
-                    <PanelResizeHandle 
-                        style={{
-                            width: '4px',
-                            backgroundColor: '#495057',
-                            cursor: 'col-resize',
-                            borderLeft: '1px solid #343a40',
-                            borderRight: '1px solid #343a40'
-                        }}
-                    />
-
-                    {/* Inspector Panel */}
-                    <Panel defaultSize={30} minSize={20} maxSize={50}>
-                        <div className="h-100 bg-dark">
-                            <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
-                        </div>
+                    <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
+                    <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
+                        <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
                     </Panel>
                 </PanelGroup>
             </div>
         </div>
-    );
+    </WorkspaceShell>;
 };
 
 export default DomainDetailPage;

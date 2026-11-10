@@ -1,4 +1,5 @@
 /* Framework bridge and common surfaces consume the same semantic tokens. */
+*, *::before, *::after { box-sizing: border-box; }
 html { font-size: var(--dw-font-size-base); }
 [data-bs-theme="dark"] {
   --bs-body-bg: var(--dw-color-canvas);
@@ -13,15 +14,19 @@ html { font-size: var(--dw-font-size-base); }
   --bs-border-radius: var(--dw-radius);
   --bs-link-color: var(--dw-color-accent);
   --bs-link-hover-color: var(--dw-color-text);
-  --bs-dark-rgb: 33, 38, 45;
-  --bs-secondary-rgb: 65, 76, 90;
+  --bs-dark-rgb: var(--dw-color-surface-rgb);
+  --bs-secondary-rgb: var(--dw-color-border-rgb);
+  --bs-success-rgb: var(--dw-color-success-bg-rgb);
+  --bs-warning-rgb: var(--dw-color-warning-bg-rgb);
+  --bs-danger-rgb: var(--dw-color-danger-bg-rgb);
+  --bs-info-rgb: var(--dw-color-info-bg-rgb);
   background: var(--dw-color-canvas);
   color: var(--dw-color-text);
   font-family: var(--dw-font-family);
 }
 body { margin: 0; font-size: 1rem; line-height: var(--dw-line-height); }
-[data-bs-theme] h1, [data-bs-theme] h2 { font-size: var(--dw-font-size-title); }
-[data-bs-theme] h3, [data-bs-theme] h4, [data-bs-theme] h5, [data-bs-theme] h6 { font-size: var(--dw-font-size-heading); }
+[data-bs-theme] h1, [data-bs-theme] h2, [data-bs-theme] .h1, [data-bs-theme] .h2 { font-size: var(--dw-font-size-title); }
+[data-bs-theme] h3, [data-bs-theme] h4, [data-bs-theme] h5, [data-bs-theme] h6, [data-bs-theme] .h3, [data-bs-theme] .h4, [data-bs-theme] .h5, [data-bs-theme] .h6, [data-bs-theme] .modal-title { font-size: var(--dw-font-size-heading); }
 [data-bs-theme] small, [data-bs-theme] .small { font-size: inherit; }
 [data-bs-theme] code, [data-bs-theme] .font-monospace { font-family: var(--dw-font-mono) !important; color: var(--dw-color-text); }
 [data-bs-theme] .card { --bs-card-bg: var(--dw-color-surface); --bs-card-cap-bg: var(--dw-color-raised); min-height: 0; }
@@ -57,3 +62,10 @@ body { margin: 0; font-size: 1rem; line-height: var(--dw-line-height); }
 .dw-alert { margin: 0; }
 :root { --toastify-color-dark: var(--dw-color-raised); --toastify-font-family: var(--dw-font-family); --toastify-text-color-dark: var(--dw-color-text); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }
+
+[data-bs-theme] .text-white, [data-bs-theme] .text-light { color: var(--dw-color-text) !important; }
+
+[data-bs-theme] .btn-outline-warning { --bs-btn-color: var(--dw-color-warning); --bs-btn-border-color: var(--dw-color-warning); --bs-btn-hover-bg: var(--dw-color-warning); }
+[data-bs-theme] .btn-outline-danger { --bs-btn-color: var(--dw-color-danger); --bs-btn-border-color: var(--dw-color-danger); --bs-btn-hover-bg: var(--dw-color-danger); }
+[data-bs-theme] .text-success { color: var(--dw-color-success) !important; }
+[data-bs-theme] .text-warning { color: var(--dw-color-warning) !important; }

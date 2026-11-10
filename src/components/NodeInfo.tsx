@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Badge, Row, Col } from 'react-bootstrap';
-import { Wifi, WifiOff, Cpu, Hash } from 'react-bootstrap-icons';
+import { Wifi, WifiOff, Cpu, Hash, InfoCircle } from 'react-bootstrap-icons';
+import IconButton from './ui/IconButton';
+import SettingsDialog from './ui/SettingsDialog';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 
@@ -9,6 +11,7 @@ interface NodeInfoProps {
 }
 
 const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
+    const [details, setDetails] = useState(false);
     const [currentTime, setCurrentTime] = useState(Date.now());
     
     const channelCount = Object.keys(node.channels).length;
@@ -44,7 +47,11 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     };
 
     return (
-        <Card className="mb-3 bg-dark border-secondary">
+        <div className="mb-3">
+            <div className="dw-toolbar"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge><IconButton label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /></div>
+            <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
+            <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>
+        <Card className="bg-dark border-secondary">
             <Card.Header className="py-2 bg-dark border-secondary">
                 <div className="d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
@@ -92,6 +99,8 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
                 </Row>
             </Card.Body>
         </Card>
+            </SettingsDialog>
+        </div>
     );
 };
 

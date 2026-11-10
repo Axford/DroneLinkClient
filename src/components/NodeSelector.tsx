@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Badge } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 import { NodeState } from '../dronelink/DroneLinkState';
 
 interface NodeSelectorProps {
@@ -11,8 +11,8 @@ interface NodeSelectorProps {
 const NodeSelector: React.FC<NodeSelectorProps> = ({ nodes, selectedNodeId, onNodeSelect }) => {
     return (
         <div className="node-selector">
-            <Form.Label htmlFor="cloud-node-selector" className="small text-white">Select Drone / Node:</Form.Label>
-            <Form.Select 
+            <Form.Label htmlFor="cloud-node-selector" className="visually-hidden">Drone / Node</Form.Label>
+            <Form.Select
                 id="cloud-node-selector"
                 size="sm"
                 className="bg-dark text-white border-secondary"
@@ -26,19 +26,19 @@ const NodeSelector: React.FC<NodeSelectorProps> = ({ nodes, selectedNodeId, onNo
                     </option>
                 ))}
             </Form.Select>
-            
+
             {nodes.length > 0 && (
                 <div className="node-badges">
                     {nodes.map(node => (
-                        <Badge 
+                        <Button type="button" size="sm"
                             key={node.id}
-                            bg={selectedNodeId === node.id ? 'primary' : 'outline-secondary'}
+                            variant={selectedNodeId === node.id ? 'primary' : 'outline-secondary'} aria-pressed={selectedNodeId === node.id}
                             className="node-badge small"
                             onClick={() => onNodeSelect(node.id)}
                         >
                             {node.name || `Node ${node.id}`}
                             <span className="ms-1 text-secondary">({Object.keys(node.channels).length})</span>
-                        </Badge>
+                        </Button>
                     ))}
                 </div>
             )}

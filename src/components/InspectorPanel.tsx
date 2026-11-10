@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Card, Button, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
+import { Gear } from 'react-bootstrap-icons';
+import IconButton from './ui/IconButton';
+import SettingsDialog from './ui/SettingsDialog';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
@@ -16,6 +19,7 @@ interface InspectorPanelProps {
 }
 
 const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false, selectedNodeId, onNodeSelect }) => {
+    const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
     const resetSelected = async () => {
@@ -31,54 +35,23 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
 
     return (
         <div className="inspector-panel text-white">
-            <div className="inspector-header border-secondary">
-                <h5 className="mb-0 text-white">Drone / Node Inspector</h5>
-                <small className="text-secondary">Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</small>
-            </div>
-
+            <header className="inspector-header">
+                <h2>Inspector</h2>
+                <IconButton label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+            </header>
+            <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
+                <p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
+                {canReset && selectedNode && <IconButton label="Reset node observations" icon={<Gear />} variant="outline-warning" disabled={resetting} onClick={resetSelected} />}
+                {resetError && <Alert variant="danger">{resetError}</Alert>}
+            </SettingsDialog>
             <div className="inspector-content">
                 {droneLinkState.error && <Alert variant="danger">{droneLinkState.error}</Alert>}
                 {!!droneLinkState.unavailableObservationParts && <Alert variant="warning">{droneLinkState.unavailableObservationParts} observation parts are unavailable because packet validation failed.</Alert>}
-                {resetError && <Alert variant="danger">{resetError}</Alert>}
-                {canReset && selectedNode && <Button variant="outline-warning" size="sm" disabled={resetting} onClick={resetSelected}>Reset node observations</Button>}
-
-
+                {!!droneLinkState.snapshotWriteFailures && <Alert variant="warning">{droneLinkState.snapshotWriteFailures} saved snapshot write failures</Alert>}
                 {nodes.length === 0 && droneLinkState.nodeCount === 0 ? (
-                    <Card className="text-center bg-dark border-secondary">
-                        <Card.Body>
-                            <p className="text-white mb-2">No nodes discovered</p>
-                            <small className="text-secondary d-block mb-3">
-                                {droneLinkState.isLoading
-                                    ? 'Loading shared observations...'
-                                    : 'Waiting for DroneLink nodes...'
-                                }
-                            </small>
-
-                            {process.env.NODE_ENV === 'development' && (
-                                <div>
-                                    <small className="text-secondary d-block mb-2">
-                                        This is normal if no DroneLink messages have been received yet.
-                                    </small>
-                                    <Button
-                                        variant="outline-primary"
-                                        size="sm"
-                                        onClick={() => window.location.reload()}
-                                    >
-                                        Refresh Page
-                                    </Button>
-                                </div>
-                            )}
-                        </Card.Body>
-                    </Card>
+                    <p className="dw-status">No nodes discovered</p>
                 ) : nodes.length === 0 && droneLinkState.nodeCount > 0 ? (
-                    <Alert variant="warning" className="bg-dark border-warning">
-                        <Alert.Heading className="text-warning">Data Loading Issue</Alert.Heading>
-                        <p className="text-white">Node count shows {droneLinkState.nodeCount} nodes, but nodes array is empty.</p>
-                        <p className="text-white">This suggests a state synchronization issue.</p>
-                        <Button variant="outline-warning" onClick={() => window.location.reload()}>
-                            Refresh Page
-                        </Button>
-                    </Alert>
+                    <Alert variant="warning">Node observations unavailable. Refresh to retry.</Alert>
                 ) : (
                     <div>
                         <NodeSelector
@@ -88,7 +61,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         />
 
                         {selectedNode && (
-                            <><NodeInfo node={selectedNode} /><MapBindings node={selectedNode} /></>
+                            <><NodeInfo node={selectedNode} /><div className="mb-3"><MapBindings node={selectedNode} /></div></>
                         )}
 
                         {selectedNode && (

@@ -38,7 +38,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
         <Card className="channel-card bg-dark border-secondary">
             <Card.Header 
                 className="bg-dark border-secondary"
-                onClick={onToggleExpand}
+                as="button" type="button" aria-expanded={expanded} onClick={onToggleExpand}
             >
                 <div className="d-flex justify-content-between align-items-center">
                     <div className="d-flex align-items-center gap-2">
@@ -66,8 +66,8 @@ const ChannelCard: React.FC<ChannelCardProps> = ({
                             </Badge>
                         )}
                         
-                        <Badge bg="outline-secondary" className="small">
-                            {parameterCount} params
+                        <Badge bg="secondary" className="small">
+                            {parameterCount} {parameterCount === 1 ? 'param' : 'params'}
                         </Badge>
                         
                     </div>

@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { ArrowsFullscreen, InfoCircle } from 'react-bootstrap-icons';
+import IconButton from './ui/IconButton';
+import SettingsDialog from './ui/SettingsDialog';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { observedPositions, receiptLabel } from '../dronelink/observedPositions';
@@ -18,6 +21,7 @@ export default function ObservedMap({ token, user, state, onNodeSelect }: Observ
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
+  const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [now, setNow] = useState(Date.now());
   const positions = React.useMemo(() => observedPositions(state), [state]);
@@ -94,12 +98,16 @@ export default function ObservedMap({ token, user, state, onNodeSelect }: Observ
     map.current.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 0 });
   };
 
-  return <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#212529' }}>
-    <div ref={container} aria-label="Observed Drone map" style={{ width: '100%', height: '100%' }} />
-    <div className="bg-dark text-light p-2" style={{ position: 'absolute', bottom: 0, left: 0 }} role="status">
-      {!token ? 'Map unavailable. Observations remain available in the inspector.' : mapError ? 'Map could not load. Observations remain available in the inspector.' : `${positions.length} last-known positions · Select a marker to inspect`}
-      {token && positions.length > 0 && <button type="button" className="btn btn-outline-light btn-sm ms-2" onClick={fitPositions}>Fit observed positions</button>}
-      <small className="d-block">Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</small>
+  return <div className="dw-map">
+    <div ref={container} aria-label="Observed Drone map" className="dw-map-canvas" />
+    <div className="dw-map-toolbar">
+      <span role="status">{!token ? 'Map unavailable' : mapError ? 'Map failed' : `${positions.length} last-known positions`}</span>
+      {token && positions.length > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} onClick={fitPositions} />}
+      <IconButton label="Map details" icon={<InfoCircle />} onClick={() => setDetails(true)} />
     </div>
+    <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}>
+      <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
+      <p>Select a marker to inspect its node. Observations remain available in the inspector when the map is unavailable.</p>
+    </SettingsDialog>
   </div>;
 }

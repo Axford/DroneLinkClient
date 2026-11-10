@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Card, Button } from 'react-bootstrap';
+import { Card } from 'react-bootstrap';
 import { ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
 import { ChannelState } from '../dronelink/DroneLinkState';
+import IconButton from './ui/IconButton';
 import ChannelCard from './ChannelCard';
 
 interface ChannelListProps {
@@ -46,7 +47,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
             <Card className="bg-dark border-secondary">
                 <Card.Body className="text-center py-3">
                     <div className="text-white">No channels discovered for this node</div>
-                    <small className="text-secondary">Channels will appear as they are detected</small>
+
                 </Card.Body>
             </Card>
         );
@@ -56,24 +57,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
         <div>
             <div className="channel-list-header d-flex justify-content-between align-items-center mb-2">
                 <h6 className="mb-0 text-white">Channels ({channelEntries.length})</h6>
-                <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={handleExpandAll}
-                    className="d-flex align-items-center gap-1"
-                >
-                    {allExpanded ? (
-                        <>
-                            <ArrowsCollapse size={14} />
-                            Collapse All
-                        </>
-                    ) : (
-                        <>
-                            <ArrowsExpand size={14} />
-                            Expand All
-                        </>
-                    )}
-                </Button>
+                <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />} onClick={handleExpandAll} />
             </div>
             
             <div>

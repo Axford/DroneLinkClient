@@ -14,6 +14,7 @@ function Harness() {
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 const sharedSnapshot = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { schemaVersion: 1, activationEpoch: 'm1-c-1', nodes: [], channels: [], startCursor: 'start', catchUpCursor: 'final' }, pagination: { nextCursor: null } }) });
 function observationReply(url: string): any {
+  if (url.startsWith('/api/domains?')) return { ok: true, status: 200, json: async () => ({ data: [], pagination: { nextCursor: null } }) };
   if (url.endsWith('/observations')) return sharedSnapshot();
   if (url.includes('/observations/updates?')) return { ok: true, status: 200, json: async () => ({ success: true, data: { events: [], cursor: 'final', caughtUp: true }, pagination: { nextCursor: null } }) };
   if (url.endsWith('/observation-diagnostics')) return { ok: true, status: 200, json: async () => ({ success: true, data: { snapshotWriteFailures: 0, countedThrough: null } }) };
@@ -105,7 +106,7 @@ test('a transient access refresh failure retains the Domain and shared observati
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
   await screen.findByText('Alpha');
   expect(screen.queryByText('Collaboration')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Domains' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
   offline = true;
   await act(async () => window.dispatchEvent(new Event('focus')));
   expect(screen.getByText('Alpha')).toBeInTheDocument(); expect(screen.getByText('Inspector')).toBeInTheDocument();

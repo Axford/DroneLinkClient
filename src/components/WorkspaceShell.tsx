@@ -32,8 +32,9 @@ export default function WorkspaceShell({ user, activeDomain, shortcuts, children
       } catch { /* Existing workspace feedback owns access/network failures. */ }
     };
     const changed = () => { generation++; setDomains([]); void refresh(); };
+    const timer = setInterval(() => { void refresh(); }, 15000);
     void refresh(); window.addEventListener('focus', changed); window.addEventListener(accessEvent, changed);
-    return () => { generation++; controller.abort(); window.removeEventListener('focus', changed); window.removeEventListener(accessEvent, changed); };
+    return () => { generation++; clearInterval(timer); controller.abort(); window.removeEventListener('focus', changed); window.removeEventListener(accessEvent, changed); };
   }, [shortcuts]);
   const collapsed = narrow || (activeDomain ? !expanded : homeCollapsed);
   return <div className="dw-workspace" data-bs-theme="dark">
