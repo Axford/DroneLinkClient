@@ -5,7 +5,7 @@ import { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
 import { receiptLabel } from '../dronelink/observedPositions';
 import ParameterList from './ParameterList';
-import ChannelSummary from './ChannelSummary';
+import ChannelSummary, { ChannelSummaryDetails } from './ChannelSummary';
 import { channelVisualization } from '../dronelink/moduleVisualizations';
 
 interface ChannelCardProps {
@@ -28,6 +28,7 @@ function observedByte(reading: ParameterState | undefined): number | undefined {
 export default function ChannelCard({ nodeId, channelId, channel, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
     const bodyId = useId();
     const renderSummary = channelVisualization(channel)?.inspector;
+    const summary = showParameters ? undefined : renderSummary?.(channel);
     const parameterCount = Object.keys(channel.params).length;
     const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
     const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
@@ -45,11 +46,14 @@ export default function ChannelCard({ nodeId, channelId, channel, expanded, onTo
             <span className="visually-hidden">Channel receipt: {receiptLabel(channel.lastHeard)}</span>
         </Card.Header>{actions}</div>
         <Collapse in={expanded}><div id={bodyId}><Card.Body>
-            {renderSummary && <div className="dw-channel-views" role="group" aria-label={`View for channel ${channelId}`}>
-                <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
-                <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
+            {renderSummary && <div className="dw-channel-summary-toolbar">
+                <div className="dw-channel-views" role="group" aria-label={`View for channel ${channelId}`}>
+                    <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
+                    <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
+                </div>
+                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} />}
             </div>}
-            {renderSummary && !showParameters ? <ChannelSummary nodeId={nodeId} channelId={channelId} summaries={renderSummary(channel)} /> :
+            {summary ? <ChannelSummary channelId={channelId} summary={summary} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>

@@ -12,11 +12,17 @@ export interface ObservedSummary {
     status?: string;
     binding?: MapBinding;
     bearing?: number;
+    lines?: string[];
+}
+
+export interface InspectorSummary {
+    primary: ObservedSummary[];
+    supporting: ObservedSummary[];
 }
 
 interface ModuleVisualization {
     overlay?: (channel: ChannelState) => ObservedSummary;
-    inspector?: (channel: ChannelState) => ObservedSummary[];
+    inspector?: (channel: ChannelState) => InspectorSummary;
 }
 
 function hasReading(reading: ParameterState | undefined): reading is ParameterState {
@@ -84,12 +90,11 @@ const visualizations = new Map<string, ModuleVisualization>([
             const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
             const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
             const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            return [
-                field(channel, 8, 'Position', positionText(channel.params[8])),
-                satelliteCount(channel),
-                field(channel, 11, 'Speed', speed !== undefined && speed >= 0 ? `${speed.toFixed(1)} kn` : undefined),
-                { ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }
-            ];
+            return {
+                primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+                supporting: [field(channel, 8, 'Position', positionText(channel.params[8])), satelliteCount(channel),
+                    field(channel, 11, 'Speed', speed !== undefined && speed >= 0 ? `${speed.toFixed(1)} kn` : undefined)]
+            };
         }
     }],
     ['INA219', {
@@ -98,24 +103,23 @@ const visualizations = new Map<string, ModuleVisualization>([
             return { ...cell, text: `Cell ${cell.text}` };
         },
         inspector(channel) {
-            return [
-                quantity(channel, 15, 'Cell voltage', 'V', 2),
-                quantity(channel, 14, 'Load voltage', 'V', 2),
-                quantity(channel, 12, 'Current', 'A', 2),
-                quantity(channel, 13, 'Power', 'W', 2)
-            ];
+            return {
+                primary: [quantity(channel, 15, 'Cell voltage', 'V', 2)],
+                supporting: [quantity(channel, 14, 'Load voltage', 'V', 2), quantity(channel, 12, 'Current', 'A', 2),
+                    quantity(channel, 13, 'Power', 'W', 2)]
+            };
         }
     }],
     ['Management', {
         inspector(channel) {
             const reset = byteArray(channel.params[10], 3);
-            const reasons = reset?.slice(1).map((code, core) => `Core ${core}: ${resetReasons[code] ?? `Code ${code}`}`).join(' · ');
+            const reasons = reset?.slice(1).map((code, core) => `Core ${core}: ${resetReasons[code] ?? `Code ${code}`}`);
             const ip = byteArray(channel.params[12], 4);
-            return [
-                field(channel, 13, 'Last reported uptime', uptimeText(numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_UINT32_T]))),
-                field(channel, 12, 'IP address', ip?.join('.')),
-                field(channel, 10, 'Reset reasons', reasons)
-            ];
+            return {
+                primary: [field(channel, 13, 'Last reported uptime', uptimeText(numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_UINT32_T]))),
+                    field(channel, 12, 'IP address', ip?.join('.'))],
+                supporting: [{ ...field(channel, 10, 'Reset reasons', reasons?.join(' · ')), lines: reasons }]
+            };
         }
     }]
 ]);

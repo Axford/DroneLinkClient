@@ -136,12 +136,15 @@ test('supported channels open to their own observed readings and expose the save
         })
     })));
     const summary = (id: number) => within(screen.getByLabelText(`Observed readings for channel ${id}`));
-    for (const value of ['1d 1h 1m 1s', '192.168.1.4', 'Core 0: Brownout · Core 1: Code 42']) expect(summary(1).getByText(value)).toBeVisible();
+    for (const value of ['1d 1h 1m 1s', '192.168.1.4', 'Core 0: Brownout', 'Core 1: Code 42']) expect(summary(1).getByText(value)).toBeVisible();
+    expect(summary(1).getAllByRole('term').map(term => term.textContent)).toEqual(['Last reported uptime', 'IP address', 'Reset reasons']);
     for (const value of ['51.00000°, -1.00000°', '82.5°', '0.0 kn']) expect(summary(4).getByText(value)).toBeVisible();
     expect(summary(4).getByText('3 sats').closest('[data-severity]')).toHaveAttribute('data-severity', 'danger');
     expect(summary(5).getByText('0.0°')).toBeVisible();
     expect(summary(5).getByText('— sats')).toBeVisible();
+    expect(summary(4).getAllByRole('term')[0]).toHaveTextContent('Heading');
     for (const value of ['3.75 V', '7.50 V', '-0.25 A', '2.00 W']) expect(summary(6).getByText(value)).toBeVisible();
+    expect(summary(6).getAllByRole('term')[0]).toHaveTextContent('Cell voltage');
     fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
     const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
     expect(details.getByText(/^7>4\.10 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
