@@ -180,3 +180,9 @@ Each parameter exposes its address, protocol type and observed writability, with
 Use **Reorder channels** in the channel list header to reveal earlier/later buttons. They change the reading order, including in a multi-column Inspector. Keyboard activation keeps focus and announces the new position. Collapse All/Expand All still apply to channels, and System parameters disclosures are remembered independently for each node.
 
 Context lasts for the current authorised Domain visit. Switching nodes, resizing or resynchronising the same observation generation preserves the choices for existing channels. New channels append in numeric order after a custom order; removed channels lose their choices, and Reset invalidates the old generation. Leaving the Domain, access loss, sign-out or reload starts from defaults on the next visit. On resizing, an open Inspector dialog closes and returns focus to its opener if that control still exists. No preferences are sent to the Server.
+
+## UI.4 operational summaries
+
+Node cards show one chip for each observed NMEA or INA219 channel. Satellite counts below 4 are red, 4–8 are amber, and 9 or higher use the neutral style. Cell voltage uses neutral styling. A dash indicates an unavailable reading.
+
+The selected node's Inspector shows the same chips with bound position and heading when available. Open **Node details** for the source, exact Server receipt, available change and name attribution, and selected spatial binding. The compact node age still refers to the node's latest Server receipt. Each chip keeps its own reading's receipt.

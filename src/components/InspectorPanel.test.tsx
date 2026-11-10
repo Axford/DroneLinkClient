@@ -55,3 +55,23 @@ test('degraded snapshot warning reports current unavailable parts',()=>{
  render(<Fixture droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} />);
  expect(screen.getByRole('alert')).toHaveTextContent('2 observation parts are unavailable because packet validation failed.');
 });
+
+test('Viewer can inspect observed voltage and bound position with independent provenance', () => {
+  const voltageReceipt = receivedAt - 120000;
+  const node = { ...state[7], channels: { ...state[7].channels,
+    12: { channel: 12, lastHeard: receivedAt, params: {
+      5: { param: 5, values: ['INA219'], msgType: DRONE_LINK_MSG_TYPE_CHAR, bytesPerValue: 1, numValues: 6, writable: false },
+      15: { param: 15, values: [3.125], msgType: DRONE_LINK_MSG_TYPE_FLOAT, bytesPerValue: 4, numValues: 1,
+        writable: false, lastHeard: voltageReceipt, timestamp: voltageReceipt - 1000, source: 'HTTP' }
+    } }
+  } };
+  render(<Fixture droneLinkState={{ ...hook, state: { 7: node } }} selectedNodeId={7} />);
+  expect(screen.getByText('Cell 3.13 V').closest('[data-severity]')).toHaveAttribute('data-severity', 'neutral');
+  expect(screen.getByText('51.00000°, -1.00000°')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Node details' }));
+  expect(screen.getByText(/^7>12\.15 · HTTP/)).toHaveTextContent(new Date(voltageReceipt).toLocaleString());
+  expect(screen.getByText(/^7>4\.8 · Gateway 254/)).toHaveTextContent(new Date(receivedAt).toLocaleString());
+  expect(screen.getByText('Map binding: GPS.location · Priority 3')).toBeVisible();
+  expect(screen.getByText(/Name received/)).toHaveTextContent('via HTTP');
+  expect(screen.getByText(`Value last changed ${new Date(voltageReceipt - 1000).toLocaleString()}`)).toBeVisible();
+});

@@ -1,0 +1,22 @@
+.dw-summary-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dw-space-1);
+    margin-top: var(--dw-space-1);
+}
+.dw-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--dw-space-1);
+    max-width: 100%;
+    padding: 2px var(--dw-space-1);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-control);
+    color: var(--dw-color-text);
+    font-size: var(--dw-font-size-meta);
+    line-height: var(--dw-line-height-meta);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.dw-summary-chip[data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
+.dw-summary-chip[data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }

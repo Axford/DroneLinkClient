@@ -6,7 +6,8 @@
 .dw-node-list-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-2); padding: var(--dw-space-2); flex-shrink: 0; background: var(--dw-color-surface); border-radius: var(--dw-radius); }
 .dw-node-list-header > div { min-width: 0; overflow-wrap: anywhere; }
 .dw-node-items { list-style: none; margin: 0; padding: var(--dw-space-1); overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
-.dw-node-items li { display: flex; align-items: center; background: var(--dw-color-surface); color: var(--dw-color-text); border-radius: var(--dw-radius-small); box-shadow: var(--dw-shadow); }
+.dw-node-items li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; background: var(--dw-color-surface); color: var(--dw-color-text); border-radius: var(--dw-radius-small); box-shadow: var(--dw-shadow); }
+.dw-node-items .dw-summary-chips { grid-column: 1 / -1; margin-top: 0; padding: 0 var(--dw-space-2) var(--dw-space-2); }
 .dw-node-items li + li { margin-top: var(--dw-space-2); }
 .dw-node-items li[data-selected="true"] { background: var(--dw-color-primary); }
 .dw-node-select { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--dw-space-1); min-height: var(--dw-control-size); text-align: left; border: 0; border-radius: var(--dw-radius-small); background: transparent; color: inherit; padding: var(--dw-space-1) var(--dw-space-2); }
