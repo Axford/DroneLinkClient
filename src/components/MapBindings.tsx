@@ -11,7 +11,7 @@ export interface MapBindingsProps { node: NodeState }
 export default function MapBindings({ node }: MapBindingsProps) {
   const [show, setShow] = useState(false);
   const bindings = mapBindings(node);
-  return <><IconButton label="Map source bindings" icon={<Compass />} onClick={() => setShow(true)} /><SettingsDialog title="Map source bindings" show={show} onHide={() => setShow(false)}><SurfacePanel>
+  return <><IconButton data-inspector-focus="map-bindings" label="Map source bindings" icon={<Compass />} onClick={() => setShow(true)} /><SettingsDialog title="Map source bindings" show={show} onHide={() => setShow(false)}><SurfacePanel>
     <p>Higher mapping priority wins, then lower channel number. Receipt age does not change the selected source.</p>
     {Object.keys(bindings).length === 0 ? <p>No recognised map bindings received.</p> :
       <div className="table-responsive"><table className="table table-sm"><thead><tr><th>Role</th><th>Priority</th><th>Address / path</th><th>Observation</th></tr></thead>

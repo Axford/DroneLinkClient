@@ -50,7 +50,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
 
     return (
         <SurfacePanel className="mb-3">
-            <div className="dw-item-row"><div className="dw-toolbar dw-item-content"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge></div><div className="dw-row-actions"><IconButton label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /></div></div>
+            <div className="dw-item-row"><div className="dw-toolbar dw-item-content"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge></div><div className="dw-row-actions"><IconButton data-inspector-focus="node-details" label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /></div></div>
             <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
             <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>
         <Card className="bg-dark border-secondary">

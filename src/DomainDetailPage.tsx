@@ -10,6 +10,7 @@ import { Domain, User } from './App';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import InspectorPanel from './components/InspectorPanel';
+import { InspectorSessionProvider } from './components/InspectorSession';
 
 
 interface DomainDetailPageProps {}
@@ -126,15 +127,17 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </header>
             {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
             <div className="dw-operation-panels">
-                <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
-                    <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                        <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
-                    </Panel>
-                    <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
-                    <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                        <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
-                    </Panel>
-                </PanelGroup>
+                <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={droneLinkState.state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
+                    <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
+                        <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
+                            <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+                        </Panel>
+                        <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
+                        <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
+                            <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
+                        </Panel>
+                    </PanelGroup>
+                </InspectorSessionProvider>
             </div>
         </div>
     </WorkspaceShell>;

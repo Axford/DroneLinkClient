@@ -1,86 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Card } from 'react-bootstrap';
-import { ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
-import { ChannelState } from '../dronelink/DroneLinkState';
+import { ArrowDown, ArrowDownUp, ArrowUp, ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
+import type { NodeState } from '../dronelink/DroneLinkState';
 import IconButton from './ui/IconButton';
 import ChannelCard from './ChannelCard';
+import { useChannelPresentation } from './InspectorSession';
 
-interface ChannelListProps {
-    nodeId: number;
-    channels: { [channelId: number]: ChannelState };
-}
+export default function ChannelList({ node }: { node: NodeState }) {
+    const view = useChannelPresentation(node);
+    const allExpanded = view.ids.every(id => !view.collapsed.includes(id));
+    const [announcement, setAnnouncement] = useState('');
+    const movedControl = useRef<HTMLButtonElement | null>(null);
+    useLayoutEffect(() => {
+        movedControl.current?.focus();
+        movedControl.current = null;
+    });
 
-const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
-    const [collapsedChannels, setCollapsedChannels] = useState<Set<number>>(new Set());
-    
-    const channelEntries = Object.entries(channels).map(([channelId, channel]) => ({
-        id: parseInt(channelId),
-        ...channel
-    }));
+    if (!view.ids.length) return <Card><Card.Body>No channels discovered for this node</Card.Body></Card>;
 
-    // Sort channels by ID for consistent display
-    channelEntries.sort((a, b) => a.id - b.id);
-    
-    // Calculate if all channels are expanded
-    const allExpanded = channelEntries.length > 0 && channelEntries.every(channel => !collapsedChannels.has(channel.id));
-
-    const handleToggleExpand = (channelId: number) => {
-        const nextCollapsed = new Set(collapsedChannels);
-        if (nextCollapsed.has(channelId)) {
-            nextCollapsed.delete(channelId);
-        } else {
-            nextCollapsed.add(channelId);
-        }
-        setCollapsedChannels(nextCollapsed);
-    };
-
-    const handleExpandAll = () => {
-        if (allExpanded) {
-            setCollapsedChannels(new Set(channelEntries.map(c => c.id)));
-        } else {
-            setCollapsedChannels(new Set());
-        }
-    };
-
-    useEffect(() => {
-        setCollapsedChannels(previous => {
-            const remaining = new Set(Array.from(previous).filter(id => channels[id]));
-            return remaining.size === previous.size ? previous : remaining;
-        });
-    }, [channels]);
-
-    if (channelEntries.length === 0) {
-        return (
-            <Card className="bg-dark border-secondary">
-                <Card.Body className="text-center py-3">
-                    <div className="text-white">No channels discovered for this node</div>
-
-                </Card.Body>
-            </Card>
-        );
-    }
-
-    return (
-        <div>
-            <div className="channel-list-header d-flex justify-content-between align-items-center mb-2">
-                <h6 className="mb-0 text-white">Channels ({channelEntries.length})</h6>
-                <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />} onClick={handleExpandAll} />
-            </div>
-            
-            <div className="dw-channel-grid">
-                {channelEntries.map(channel => (
-                    <ChannelCard
-                        key={channel.id}
-                        nodeId={nodeId}
-                        channelId={channel.id}
-                        channel={channel}
-                        expanded={!collapsedChannels.has(channel.id)}
-                        onToggleExpand={() => handleToggleExpand(channel.id)}
-                    />
-                ))}
+    return <div>
+        <div className="channel-list-header d-flex justify-content-between align-items-center mb-2">
+            <h6 className="mb-0 text-white">Channels ({view.ids.length})</h6>
+            <div className="dw-row-actions">
+                {view.ids.length > 1 && <IconButton label="Reorder channels" icon={<ArrowDownUp />} aria-pressed={view.reordering} data-inspector-focus="reorder" onClick={view.toggleReordering} />}
+                <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />} data-inspector-focus="bulk" onClick={() => view.setAllCollapsed(allExpanded)} />
             </div>
         </div>
-    );
-};
-
-export default ChannelList;
+        <span role="status" className="visually-hidden">{announcement}</span>
+        <div className="dw-channel-grid">
+            {view.ids.map((id, index) => {
+                const channel = node.channels[id];
+                const name = channel.name || `Channel ${id}`;
+                const actions = view.reordering && <div className="dw-channel-reorder" role="group" aria-label={`Reorder ${name}, channel ${id}`}>
+                    {([-1, 1] as const).map(direction => {
+                        const unavailable = index + direction < 0 || index + direction >= view.ids.length;
+                        return <IconButton key={direction} type="button" label={`Move channel ${id} ${direction < 0 ? 'earlier' : 'later'}`} icon={direction < 0 ? <ArrowUp /> : <ArrowDown />}
+                            aria-disabled={unavailable} data-inspector-focus={`move-${id}-${direction}`} onClick={event => {
+                                const position = view.move(id, direction);
+                                if (position === undefined) return;
+                                movedControl.current = event.currentTarget;
+                                setAnnouncement(`${name}, channel ${id}, moved to position ${position} of ${view.ids.length}.`);
+                            }} />;
+                    })}
+                </div>;
+                return <ChannelCard key={id} nodeId={node.id} channelId={id} channel={channel}
+                    expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
+                    systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} />;
+            })}
+        </div>
+    </div>;
+}

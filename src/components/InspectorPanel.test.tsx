@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import InspectorPanel from './InspectorPanel';
+import { InspectorSessionProvider } from './InspectorSession';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import { DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_CHAR } from '../dronelink/DroneLinkMsg';
 
@@ -14,6 +15,9 @@ const state = {
     } }
   } }
 };
+function Fixture(props: React.ComponentProps<typeof InspectorPanel>) {
+    return <InspectorSessionProvider nodes={props.droneLinkState.state} inventoryComplete><InspectorPanel {...props} /></InspectorSessionProvider>;
+}
 const hook = { state, nodeCount: 1, isLoading: false, error: null, observationStatus: 'ready', snapshotWriteFailures: 0, stats: { nodes: 1, channels: 1, parameters: 2, received: 2 },
   resetNodeObservations: jest.fn(), getNodeState: jest.fn(), getParamValues: jest.fn(), loadSharedObservations: jest.fn(),
   startStreaming: jest.fn(), stopStreaming: jest.fn(), reset: jest.fn(), on: jest.fn(), off: jest.fn() } as DroneLinkStateHook;
@@ -21,7 +25,7 @@ afterEach(() => jest.restoreAllMocks());
 test('Viewer can inspect singleton identity and binding provenance without command/reset controls; role changes remove reset', async () => {
   const reset = jest.fn().mockResolvedValue(undefined); jest.spyOn(window, 'confirm').mockReturnValue(true);
   const props = { domainId: 'fleet', droneLinkState: { ...hook, resetNodeObservations: reset }, selectedNodeId: 7, onNodeSelect: jest.fn() };
-  const view = render(<InspectorPanel {...props} />);
+  const view = render(<Fixture {...props} />);
   fireEvent.click(screen.getByRole('button', { name: 'Node details' }));
   expect(screen.getByText(/Drone: drone-seven/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Close Node details' }));
@@ -38,16 +42,16 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   expect(screen.queryByTitle('Enable Channel')).not.toBeInTheDocument(); expect(screen.queryByTitle('Channel Settings')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Close Parameter details: location' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  view.rerender(<InspectorPanel {...props} canReset />);
+  view.rerender(<Fixture {...props} canReset />);
   fireEvent.click(screen.getByRole('button', { name: 'Inspector tools' }));
   expect(screen.getByRole('button', { name: 'Reset node observations' })).toHaveAccessibleDescription('Clears shared observations for everyone. Identity and history stay.');
   fireEvent.click(screen.getByRole('button', { name: 'Reset node observations' }));
   await waitFor(() => expect(reset).toHaveBeenCalledWith(7));
-  view.rerender(<InspectorPanel {...props} canReset={false} />);
+  view.rerender(<Fixture {...props} canReset={false} />);
   expect(screen.queryByRole('button', { name: 'Reset node observations' })).not.toBeInTheDocument();
 });
 
 test('degraded snapshot warning reports current unavailable parts',()=>{
- render(<InspectorPanel domainId="fleet" droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} />);
+ render(<Fixture droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} />);
  expect(screen.getByRole('alert')).toHaveTextContent('2 observation parts are unavailable because packet validation failed.');
 });

@@ -9,16 +9,16 @@ import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeInfo from './NodeInfo';
 import { ObservationNamesContext } from './parameterPresentation';
 import ChannelList from './ChannelList';
+import { useInspectorFocus } from './InspectorSession';
 import './InspectorPanel.css';
 
 interface InspectorPanelProps {
-    domainId: string;
     droneLinkState: DroneLinkStateHook;
     canReset?: boolean;
     selectedNodeId: number | null;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false, selectedNodeId }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, selectedNodeId }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -33,11 +33,12 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
     const nodes = Object.values(droneLinkState.state);
     const selectedNode = selectedNodeId ? droneLinkState.state[selectedNodeId] : null;
 
+    const focusTracking = useInspectorFocus(selectedNodeId, selectedNode?.observationGeneration);
     return (
-        <div className="inspector-panel text-white">
+        <div {...focusTracking} className="inspector-panel text-white">
             <header className="inspector-header">
                 <h2>Inspector</h2>
-                <IconButton label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+                <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
             </header>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
                 <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
@@ -62,10 +63,9 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         )}
 
                         {selectedNode && (
-                            <ObservationNamesContext.Provider value={droneLinkState.state}><ChannelList key={selectedNode.id}
-                                nodeId={selectedNode.id}
-                                channels={selectedNode.channels}
-                            /></ObservationNamesContext.Provider>
+                            <ObservationNamesContext.Provider value={droneLinkState.state}>
+                                <ChannelList key={`${selectedNode.id}:${selectedNode.observationGeneration}`} node={selectedNode} />
+                            </ObservationNamesContext.Provider>
                         )}
                     </div>
                 )}

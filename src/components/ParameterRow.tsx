@@ -23,7 +23,7 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
                 {presentation.writable !== undefined && (presentation.writable ? <Unlock aria-hidden="true" /> : <Lock aria-hidden="true" />)}
                 <span className="visually-hidden">{writability}</span>
             </span>
-            <IconButton label={`Parameter details: ${name}`} icon={<InfoCircle />} variant="link" onClick={() => setDetails(true)} />
+            <IconButton data-inspector-focus={`parameter-${channelId}-${parameterId}`} label={`Parameter details: ${name}`} icon={<InfoCircle />} variant="link" onClick={() => setDetails(true)} />
         </header>
         {presentation.values.length ? <ul className="dw-parameter-values" aria-label={`Observed values for ${name}`}>
             {presentation.values.map((value, index) => <li key={index} aria-label={`Value ${index + 1}`}>

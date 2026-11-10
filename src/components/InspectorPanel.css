@@ -36,3 +36,8 @@
 .dw-system-parameters summary { cursor: pointer; padding: var(--dw-space-2); color: var(--dw-color-muted); }
 .dw-exact-values { padding-left: var(--dw-space-6); }
 .dw-exact-values code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.dw-channel-card-heading { display: flex; align-items: start; }
+.dw-channel-card-heading .dw-channel-toggle { min-width: 0; flex: 1; }
+.dw-channel-reorder { display: flex; flex-shrink: 0; padding: var(--dw-space-1); }
+.dw-channel-reorder [aria-disabled="true"] { opacity: var(--dw-opacity-disabled); cursor: default; }
+.channel-list-header [aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
