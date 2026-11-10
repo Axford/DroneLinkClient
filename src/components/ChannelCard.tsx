@@ -1,98 +1,37 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Card, Badge, Collapse } from 'react-bootstrap';
 import { ChevronDown, ChevronRight } from 'react-bootstrap-icons';
-import { ChannelState } from '../dronelink/DroneLinkState';
+import { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
+import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
+import { receiptLabel } from '../dronelink/observedPositions';
 import ParameterList from './ParameterList';
 
-interface ChannelCardProps {
-    nodeId: number;
-    channelId: number;
-    channel: ChannelState;
-    expanded: boolean;
-    onToggleExpand: () => void;
+interface ChannelCardProps { nodeId: number; channelId: number; channel: ChannelState; expanded: boolean; onToggleExpand: () => void }
+function observedByte(reading: ParameterState | undefined): number | undefined {
+    if (!reading || reading.unavailable?.value || reading.msgType !== DRONE_LINK_MSG_TYPE_UINT8_T || reading.numValues !== 1 || reading.values.length !== 1) return;
+    const value = reading.values[0];
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255 ? value : undefined;
 }
-
-const ChannelCard: React.FC<ChannelCardProps> = ({ 
-    nodeId, 
-    channelId, 
-    channel, 
-    expanded,
-    onToggleExpand
-}) => {
+export default function ChannelCard({ nodeId, channelId, channel, expanded, onToggleExpand }: ChannelCardProps) {
+    const bodyId = useId();
     const parameterCount = Object.keys(channel.params).length;
-    const isActive = channel.lastHeard && (Date.now() - channel.lastHeard) < 5 * 60 * 1000; // 5 minutes
-    
-    const getChannelStatusVariant = (): string => {
-        if (channel.enabled === false) return 'secondary';
-        if (isActive) return 'success';
-        return 'warning';
-    };
-    
-    const getChannelStatusText = (): string => {
-        if (channel.enabled === false) return 'Disabled';
-        if (isActive) return 'Recent observation';
-        return 'Older observation';
-    };
-
-    return (
-        <Card className="channel-card">
-            <Card.Header 
-                className="dw-channel-toggle"
-                as="button" type="button" aria-expanded={expanded} onClick={onToggleExpand}
-            >
-                <div className="d-flex justify-content-between align-items-center">
-                    <div className="d-flex align-items-center gap-2">
-                        {expanded ? (
-                            <ChevronDown size={14} className="text-muted" />
-                        ) : (
-                            <ChevronRight size={14} className="text-muted" />
-                        )}
-                        <div>
-                            <strong className="me-2 text-white">
-                                {channel.name || `Channel ${channelId}`}
-                            </strong>
-                            <small className="text-secondary">({channelId})</small>
-                        </div>
-                    </div>
-                    
-                    <div className="d-flex align-items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <Badge bg={getChannelStatusVariant()} className="small">
-                            {getChannelStatusText()}
-                        </Badge>
-                        
-                        {channel.type && (
-                            <Badge bg="info" className="small">
-                                {channel.type}
-                            </Badge>
-                        )}
-                        
-                        <Badge bg="secondary" className="small">
-                            {parameterCount} {parameterCount === 1 ? 'param' : 'params'}
-                        </Badge>
-                        
-                    </div>
-                </div>
-            </Card.Header>
-            
-            <Collapse in={expanded}>
-                <div>
-                    <Card.Body className="py-2">
-                        {parameterCount === 0 ? (
-                            <div className="text-center py-2">
-                                <small className="text-secondary">No parameters discovered</small>
-                            </div>
-                        ) : (
-                            <ParameterList 
-                                nodeId={nodeId}
-                                channelId={channelId}
-                                parameters={channel.params}
-                            />
-                        )}
-                    </Card.Body>
-                </div>
-            </Collapse>
-        </Card>
-    );
-};
-
-export default ChannelCard;
+    const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
+    const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
+    const statusText = status === 0 ? 'Disabled' : status === 1 ? 'Enabled' : status === 2 ? 'Waiting' : status;
+    const provenance = (id: number) => { const reading = channel.params[id]; return `Observed ${nodeId}>${channelId}.${id} · ${reading.source || 'Unknown source'} · ${receiptLabel(reading.lastHeard)}`; };
+    return <Card className="channel-card">
+        <Card.Header className="dw-channel-toggle" as="button" type="button" aria-expanded={expanded} aria-controls={bodyId} onClick={onToggleExpand}>
+            <span className="dw-channel-identity">{expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}<strong>{channel.name || `Channel ${channelId}`}</strong><span className="dw-meta">{nodeId}&gt;{channelId}</span></span>
+            <span className="dw-channel-metadata">
+                {channel.type !== undefined && <Badge bg="secondary">{channel.type}</Badge>}
+                {status !== undefined && <Badge bg="secondary" title={provenance(DRONE_MODULE_PARAM_STATUS)}>Status: {statusText}</Badge>}
+                {resets !== undefined && <Badge bg="secondary" title={provenance(DRONE_MODULE_PARAM_RESETCOUNT)}>Resets: {resets}</Badge>}
+                <span className="dw-meta">{parameterCount} {parameterCount === 1 ? 'param' : 'params'}</span>
+            </span>
+            <span className="visually-hidden">Channel receipt: {receiptLabel(channel.lastHeard)}</span>
+        </Card.Header>
+        <Collapse in={expanded}><div id={bodyId}><Card.Body>
+            {parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} /> : <p className="dw-meta mb-0">No parameters discovered</p>}
+        </Card.Body></div></Collapse>
+    </Card>;
+}

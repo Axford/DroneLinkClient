@@ -31,7 +31,7 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   expect(screen.getByRole('cell', { name: /7>4.8 GPS.location/ })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Close Map source bindings' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
+  if (screen.queryByRole('button', { name: 'Expand All' })) fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
   fireEvent.click(screen.getByRole('button', { name: 'Parameter details: location' }));
   expect(screen.getByText(/Value last changed/)).toHaveTextContent(new Date(receivedAt - 60000).toLocaleString());
   expect(screen.getByText(/Name received/)).toHaveTextContent('via HTTP');

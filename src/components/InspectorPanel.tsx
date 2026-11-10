@@ -7,6 +7,7 @@ import SurfacePanel from './ui/SurfacePanel';
 import DangerAction from './ui/DangerAction';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeInfo from './NodeInfo';
+import { ObservationNamesContext } from './parameterPresentation';
 import ChannelList from './ChannelList';
 import './InspectorPanel.css';
 
@@ -61,10 +62,10 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                         )}
 
                         {selectedNode && (
-                            <ChannelList key={selectedNode.id}
+                            <ObservationNamesContext.Provider value={droneLinkState.state}><ChannelList key={selectedNode.id}
                                 nodeId={selectedNode.id}
                                 channels={selectedNode.channels}
-                            />
+                            /></ObservationNamesContext.Provider>
                         )}
                     </div>
                 )}

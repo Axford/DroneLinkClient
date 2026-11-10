@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from 'react-bootstrap';
 import { ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
 import { ChannelState } from '../dronelink/DroneLinkState';
@@ -11,7 +11,7 @@ interface ChannelListProps {
 }
 
 const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
-    const [expandedChannels, setExpandedChannels] = useState<Set<number>>(new Set());
+    const [collapsedChannels, setCollapsedChannels] = useState<Set<number>>(new Set());
     
     const channelEntries = Object.entries(channels).map(([channelId, channel]) => ({
         id: parseInt(channelId),
@@ -22,25 +22,32 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
     channelEntries.sort((a, b) => a.id - b.id);
     
     // Calculate if all channels are expanded
-    const allExpanded = channelEntries.length > 0 && channelEntries.every(channel => expandedChannels.has(channel.id));
+    const allExpanded = channelEntries.length > 0 && channelEntries.every(channel => !collapsedChannels.has(channel.id));
 
     const handleToggleExpand = (channelId: number) => {
-        const newExpanded = new Set(expandedChannels);
-        if (newExpanded.has(channelId)) {
-            newExpanded.delete(channelId);
+        const nextCollapsed = new Set(collapsedChannels);
+        if (nextCollapsed.has(channelId)) {
+            nextCollapsed.delete(channelId);
         } else {
-            newExpanded.add(channelId);
+            nextCollapsed.add(channelId);
         }
-        setExpandedChannels(newExpanded);
+        setCollapsedChannels(nextCollapsed);
     };
 
     const handleExpandAll = () => {
         if (allExpanded) {
-            setExpandedChannels(new Set());
+            setCollapsedChannels(new Set(channelEntries.map(c => c.id)));
         } else {
-            setExpandedChannels(new Set(channelEntries.map(c => c.id)));
+            setCollapsedChannels(new Set());
         }
     };
+
+    useEffect(() => {
+        setCollapsedChannels(previous => {
+            const remaining = new Set(Array.from(previous).filter(id => channels[id]));
+            return remaining.size === previous.size ? previous : remaining;
+        });
+    }, [channels]);
 
     if (channelEntries.length === 0) {
         return (
@@ -60,14 +67,14 @@ const ChannelList: React.FC<ChannelListProps> = ({ nodeId, channels }) => {
                 <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />} onClick={handleExpandAll} />
             </div>
             
-            <div>
+            <div className="dw-channel-grid">
                 {channelEntries.map(channel => (
                     <ChannelCard
                         key={channel.id}
                         nodeId={nodeId}
                         channelId={channel.id}
                         channel={channel}
-                        expanded={expandedChannels.has(channel.id)}
+                        expanded={!collapsedChannels.has(channel.id)}
                         onToggleExpand={() => handleToggleExpand(channel.id)}
                     />
                 ))}

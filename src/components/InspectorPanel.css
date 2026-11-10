@@ -13,3 +13,26 @@
 .channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
 
 .channel-card .card-header svg { width: var(--dw-icon-size); height: var(--dw-icon-size); }
+
+/* Row-major grids preserve reading and keyboard order as the Inspector resizes. */
+.dw-channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; gap: var(--dw-space-2); }
+.dw-channel-grid .channel-card { min-width: 0; margin: 0; }
+.channel-card .dw-channel-toggle { display: flex; flex-direction: column; align-items: stretch; gap: var(--dw-space-1); width: 100%; }
+.dw-channel-identity, .dw-channel-metadata { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dw-space-2); min-width: 0; }
+.dw-channel-identity strong, .dw-channel-metadata .badge { overflow-wrap: anywhere; white-space: normal; }
+.dw-channel-identity .dw-meta { margin-left: auto; }
+.dw-parameter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 176px), 1fr)); align-items: start; gap: var(--dw-space-2); }
+.parameter-row.dw-parameter { display: block; min-width: 0; margin: 0; }
+.dw-parameter-header { display: flex; align-items: flex-start; gap: var(--dw-space-1); }
+.dw-parameter-header .dw-parameter-label { flex: 1; }
+.dw-parameter-header .dw-icon-button { flex-shrink: 0; }
+.dw-parameter-writable { display: inline-flex; padding-block: var(--dw-space-2); }
+.dw-parameter-writable svg { width: var(--dw-icon-size); height: var(--dw-icon-size); }
+.dw-parameter-values { display: flex; flex-wrap: wrap; list-style: none; gap: var(--dw-space-1); padding: 0; margin: var(--dw-space-2) 0; }
+.dw-parameter-values li { min-width: 0; max-width: 100%; padding: var(--dw-space-1) var(--dw-space-2); background: var(--dw-color-control); border-radius: var(--dw-radius-small); overflow-wrap: anywhere; white-space: pre-wrap; }
+.dw-address-name { display: block; }
+.dw-parameter-receipt { overflow-wrap: anywhere; }
+.dw-system-parameters { margin-top: var(--dw-space-2); }
+.dw-system-parameters summary { cursor: pointer; padding: var(--dw-space-2); color: var(--dw-color-muted); }
+.dw-exact-values { padding-left: var(--dw-space-6); }
+.dw-exact-values code { white-space: pre-wrap; overflow-wrap: anywhere; }

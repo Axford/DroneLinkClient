@@ -26,4 +26,4 @@ ARCH-1.1 publication (2026-11-06): accepted [ADR-0004](../../DroneLinkDatastore/
 ## Domain workspace alignment
 
 - [Legacy inspector/map-overlay research and screenshots](research/legacy-domain-ui-review.md).
-- [UI-01 sliced implementation plan](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md), maintained in the isolated Datastore planning branch. Proposed; implementation unstarted. Read-only slices preserve cloud provenance/permissions; M2 owns command delivery and later action integration.
+- [UI-01 sliced implementation plan](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md), maintained in the isolated Datastore planning branch. UI.1/UI.1-R and UI.2 are locally verified; later slices remain open. Read-only slices preserve cloud provenance/permissions; M2 owns command delivery and later action integration.
