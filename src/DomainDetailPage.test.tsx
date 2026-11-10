@@ -44,7 +44,7 @@ test('changing the selected domain aborts its old poll and loads the new shared 
 test('the map initializes when a slow snapshot load finally reveals its container', async () => {
   jest.useFakeTimers();
   const constructor = mapboxgl.Map as unknown as jest.Mock;
-  constructor.mockImplementation(() => ({ addControl: jest.fn(), on: jest.fn(), remove: jest.fn() }));
+  constructor.mockImplementation(() => ({ addControl: jest.fn(), on: jest.fn(), remove: jest.fn(), getCenter: () => ({lng: -1, lat: 51}), getZoom: () => 17 }));
   let finishObservations: ((value: any) => void) | undefined;
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
     if (url.includes('timeoutMs=25000')) return new Promise(() => {});

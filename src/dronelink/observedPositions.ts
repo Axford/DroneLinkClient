@@ -25,9 +25,14 @@ export function observedPositions(state: GlobalState): ObservedPosition[] {
   });
 }
 
-export function receiptLabel(receivedAt: number | undefined, now = Date.now()): string {
+export function receiptAgeLabel(receivedAt: number | undefined, now = Date.now()): string {
   if (!receivedAt) return 'No saved receipt';
   const minutes = Math.floor(Math.max(0, now - receivedAt) / 60000);
   const age = minutes < 1 ? 'less than a minute ago' : minutes < 60 ? `${minutes}m ago` : `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`;
-  return `${new Date(receivedAt).toLocaleString()} (${age})`;
+  return age;
+}
+
+export function receiptLabel(receivedAt: number | undefined, now = Date.now()): string {
+  if (!receivedAt) return 'No saved receipt';
+  return `${new Date(receivedAt).toLocaleString()} (${receiptAgeLabel(receivedAt, now)})`;
 }

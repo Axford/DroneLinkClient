@@ -48,6 +48,6 @@ test('Viewer can inspect singleton identity and binding provenance without comma
 });
 
 test('degraded snapshot warning reports current unavailable parts',()=>{
- render(<InspectorPanel domainId="fleet" droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} onNodeSelect={jest.fn()} />);
+ render(<InspectorPanel domainId="fleet" droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} />);
  expect(screen.getByRole('alert')).toHaveTextContent('2 observation parts are unavailable because packet validation failed.');
 });

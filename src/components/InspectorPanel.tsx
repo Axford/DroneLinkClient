@@ -6,7 +6,6 @@ import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import DangerAction from './ui/DangerAction';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
-import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
 import ChannelList from './ChannelList';
 import './InspectorPanel.css';
@@ -16,10 +15,9 @@ interface InspectorPanelProps {
     droneLinkState: DroneLinkStateHook;
     canReset?: boolean;
     selectedNodeId: number | null;
-    onNodeSelect: (nodeId: number | null) => void;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false, selectedNodeId, onNodeSelect }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkState, canReset = false, selectedNodeId }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -56,11 +54,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
                     <Alert variant="warning">Node observations unavailable. Refresh to retry.</Alert>
                 ) : (
                     <div>
-                        <NodeSelector
-                            nodes={nodes}
-                            selectedNodeId={selectedNodeId}
-                            onNodeSelect={onNodeSelect}
-                        />
+                        {!selectedNode && <p className="dw-status">Select a node on the map to inspect its observations.</p>}
 
                         {selectedNode && (
                             <NodeInfo node={selectedNode} />

@@ -9,9 +9,6 @@
 .channel-card .card-body { padding: var(--dw-space-2); }
 .parameter-row + .parameter-row { margin-top: var(--dw-space-2); }
 .parameter-row { background: var(--dw-color-raised); padding: var(--dw-space-2); border-radius: var(--dw-radius-small); }
-.node-selector { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
-.node-selector { margin-bottom: var(--dw-space-3); }
-.node-badges { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); margin-top: var(--dw-space-2); }
 
 .channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
 

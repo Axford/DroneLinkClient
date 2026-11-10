@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
 import WorkspaceShell from './components/WorkspaceShell';
@@ -17,6 +17,7 @@ interface DomainDetailPageProps {}
 const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const { domainId } = useParams<{ domainId: string }>();
     const narrow = useNarrowLayout();
+    const mapView = useMemo<React.MutableRefObject<User['mapState']>>(() => ({ current: undefined }), [domainId]);
     const refreshGeneration = useRef(0);
     const statusRef = useRef<string | undefined>(undefined);
     const selectedDomain = useRef(domainId); selectedDomain.current = domainId;
@@ -102,13 +103,13 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     }, [domainId, stopStreaming, loadSharedObservations]);
     useEffect(() => {
         let active = true;
-        const refresh = () => { void refreshDomain().catch(error => { if (active && error instanceof ApiError && [401, 403, 404].includes(error.status)) { stopStreaming(); reset(); setDomain(null); setError(error.message); } }); };
-        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { refreshGeneration.current++; stopStreaming(); reset(); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
+        const refresh = () => { void refreshDomain().catch(error => { if (active && error instanceof ApiError && [401, 403, 404].includes(error.status)) { stopStreaming(); reset(); setSelectedNodeId(null); setDomain(null); setError(error.message); } }); };
+        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { refreshGeneration.current++; stopStreaming(); reset(); setSelectedNodeId(null); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
         const timer = setInterval(refresh, 15000); window.addEventListener('focus', refresh); window.addEventListener(accessEvent, accessChanged);
         return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
     }, [domainId, refreshDomain, stopStreaming, reset]);
 
-    if (loading) return <PageFeedback loading message="Loading observations…" />;
+    if (loading || (domain !== null && domain._id !== domainId)) return <PageFeedback loading message="Loading observations…" />;
     if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
     return <WorkspaceShell user={user} activeDomain={domain}>
@@ -125,13 +126,13 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </header>
             {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
             <div className="dw-operation-panels">
-                <PanelGroup direction={narrow ? 'vertical' : 'horizontal'}>
+                <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
                     <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                        <ObservedMap key={domain._id} token={mapboxToken} user={user} state={droneLinkState.state} onNodeSelect={setSelectedNodeId} />
+                        <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
                     </Panel>
                     <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
                     <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                        <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+                        <InspectorPanel key={`${domain._id}:${selectedNodeId}`} domainId={domainId!} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
                     </Panel>
                 </PanelGroup>
             </div>
