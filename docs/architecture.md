@@ -96,3 +96,9 @@ Reorder mode exposes earlier/later actions in row-major order and announces the 
 ## UI.4 operational summaries
 
 `src/dronelink/moduleVisualizations.ts` owns the Client registry keyed by observed module type. The NMEA and INA219 entries project channel observations into read-only summaries for both the floating node cards and the selected node's Inspector. Each matching channel contributes independently. Summary evaluation uses the current observation inventory and keeps each parameter's original provenance. The Inspector's spatial readings reuse `mapBindings` and its existing priority and channel tie-break. Channel cards retain the generic parameter view.
+
+## UI.5 specialist channel summaries
+
+Registry entries can contribute an Inspector summary independently of their overlay chip. The Management, NMEA and INA219 summaries select validated readings from the channel being inspected. The common summary UI renders labelled values, a heading compass when applicable and the existing receipt/change/name details. NMEA and INA219 share interpretation with the overlay for satellite count and cell voltage. The node-level map binding remains independently selected by the existing map rules.
+
+The Inspector session remembers the Parameters choice by node, observation generation, channel and observed module type. Supported channels default to Summary. Channels without a specialist view open directly to Parameters. A completed inventory that removes the channel or replaces its module type discards its choice. Breakpoint remounts keep the selected view and restore focus to matching controls.

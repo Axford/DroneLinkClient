@@ -26,4 +26,4 @@ ARCH-1.1 publication (2026-11-06): accepted [ADR-0004](../../DroneLinkDatastore/
 ## Domain workspace alignment
 
 - [Legacy inspector/map-overlay research and screenshots](research/legacy-domain-ui-review.md).
-- [UI-01 sliced implementation plan](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md), maintained in the isolated Datastore planning branch. UI.1/UI.1-R through UI.4 cover floating node cards, typed inspection, session context and read-only operational summaries. The central plan records acceptance and remaining scope.
+- [UI-01 sliced implementation plan](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md), maintained in the isolated Datastore planning branch. UI.1/UI.1-R through UI.5 cover floating node cards, typed inspection, session context, operational widgets and specialist channel summaries. The central plan records acceptance and remaining scope.

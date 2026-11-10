@@ -186,3 +186,9 @@ Context lasts for the current authorised Domain visit. Switching nodes, resizing
 Node cards show one chip for each observed NMEA or INA219 channel. Satellite counts below 4 are red, 4–8 are amber, and 9 or higher use the neutral style. Cell voltage uses neutral styling. A dash indicates an unavailable reading.
 
 The selected node's Inspector shows the same chips with bound position and heading when available. Open **Node details** for the source, exact Server receipt, available change and name attribution, and selected spatial binding. The compact node age still refers to the node's latest Server receipt. Each chip keeps its own reading's receipt.
+
+## UI.5 specialist channel summaries
+
+Management, NMEA and INA219 channels open to **Summary**. Use **Parameters** on the same card to see the generic parameter list and exact decoded values. The view choice follows the channel while you work in the current Domain visit. Reloading starts from Summary again.
+
+NMEA shows its own position, satellite count, speed in knots and observed heading. INA219 shows cell and load voltage, current and power. Management shows last reported uptime, IP address and core reset reasons, with numeric codes for unknown reasons. A dash indicates an unavailable observation. Use **Channel reading details** (the information icon) for the original receipt, source, address and available change/name attribution.

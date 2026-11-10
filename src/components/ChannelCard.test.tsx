@@ -7,7 +7,7 @@ const base: ChannelState = { channel: 4, name: 'GPS', type: 'NMEA', lastHeard: 1
 
 function Fixture({ channel }: { channel: ChannelState }) {
     const [open, setOpen] = useState(false);
-    return <ChannelCard nodeId={7} channelId={4} channel={channel} expanded onToggleExpand={jest.fn()} systemOpen={open} onToggleSystem={setOpen} />;
+    return <ChannelCard nodeId={7} channelId={4} channel={channel} expanded onToggleExpand={jest.fn()} systemOpen={open} onToggleSystem={setOpen} showParameters={false} onShowParameters={jest.fn()} />;
 }
 
 test('headers expose device-reported status and zero reset count independently of age, with reachable system observations', async () => {

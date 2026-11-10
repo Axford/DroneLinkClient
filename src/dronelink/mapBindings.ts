@@ -48,7 +48,7 @@ export function mapBindings(node: NodeState): Partial<Record<MapRole, MapBinding
   return selected;
 }
 
-export function locationCoordinates(binding: MapBinding | undefined): [number, number] | undefined {
+export function locationCoordinates(binding: Pick<MapBinding, 'reading'> | undefined): [number, number] | undefined {
   if (!binding) return;
   const [longitude, latitude] = binding.reading.values;
   // Preserve legacy zero-longitude suppression, adding finite/range validation.

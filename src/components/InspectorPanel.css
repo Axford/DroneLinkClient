@@ -41,3 +41,42 @@
 .dw-channel-reorder { display: flex; flex-shrink: 0; padding: var(--dw-space-1); }
 .dw-channel-reorder [aria-disabled="true"] { opacity: var(--dw-opacity-disabled); cursor: default; }
 .channel-list-header [aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
+
+.dw-channel-views { display: flex; gap: var(--dw-space-1); }
+.dw-channel-views button {
+    border: 0;
+    border-radius: var(--dw-radius-small) var(--dw-radius-small) 0 0;
+    background: transparent;
+    color: var(--dw-color-text);
+    padding: var(--dw-space-1) var(--dw-space-2);
+    min-height: var(--dw-control-size);
+}
+.dw-channel-views button:hover { background: var(--dw-color-hover); }
+.dw-channel-views button[aria-pressed="true"] { background: var(--dw-color-primary); }
+.dw-channel-views button:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: -2px; }
+.dw-channel-views + * { border-top: var(--dw-space-1) solid var(--dw-color-primary); padding-top: var(--dw-space-2); }
+.dw-channel-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 124px), 1fr));
+    gap: var(--dw-space-1);
+    margin: 0;
+}
+.dw-channel-summary > div { min-width: 0; border-radius: var(--dw-radius-small); background: var(--dw-color-control); padding: var(--dw-space-2); }
+.dw-channel-summary > [data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
+.dw-channel-summary > [data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }
+.dw-channel-summary > :not([data-severity="neutral"]) dt { color: var(--dw-color-text); }
+.dw-channel-summary dd { display: flex; align-items: center; gap: var(--dw-space-1); margin: 0; overflow-wrap: anywhere; }
+.dw-channel-summary-actions { display: flex; justify-content: end; }
+.dw-heading-compass {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--dw-control-size);
+    height: var(--dw-control-size);
+    border: 1px solid var(--dw-color-border);
+    border-radius: 50%;
+    color: var(--dw-color-accent);
+}
+.dw-heading-compass span { position: absolute; top: 0; font-size: var(--dw-font-size-meta); line-height: 1; }
+.dw-heading-compass svg { margin-top: var(--dw-space-1); }

@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { GlobalState, NodeState } from '../dronelink/DroneLinkState';
+import { observedModuleType } from '../dronelink/moduleVisualizations';
 
 interface Preferences {
     generation?: number;
     order: number[];
     collapsed: number[];
     systemOpen: number[];
+    parameters: Record<number, string>;
     reordering: boolean;
 }
 type SavedPreferences = Record<number, Preferences>;
 interface FocusBookmark { nodeId: number | null; generation?: number; control: string }
-const defaults = (node: NodeState): Preferences => ({ generation: node.observationGeneration, order: [], collapsed: [], systemOpen: [], reordering: false });
+const defaults = (node: NodeState): Preferences => ({ generation: node.observationGeneration, order: [], collapsed: [], systemOpen: [], parameters: {}, reordering: false });
 
 function reconcile(saved: SavedPreferences, nodes: GlobalState): SavedPreferences {
     let result = saved;
@@ -24,10 +26,12 @@ function reconcile(saved: SavedPreferences, nodes: GlobalState): SavedPreference
         const order = previous.order.filter(channel => node.channels[channel]);
         const collapsed = previous.collapsed.filter(channel => node.channels[channel]);
         const systemOpen = previous.systemOpen.filter(channel => Object.keys(node.channels[channel]?.params ?? {}).some(param => Number(param) < 8));
+        const parameterChoices = Object.entries(previous.parameters);
+        const parameters = parameterChoices.filter(([channel, type]) => observedModuleType(node.channels[Number(channel)]) === type);
         const reordering = previous.reordering && Object.keys(node.channels).length > 1;
-        if (order.length !== previous.order.length || collapsed.length !== previous.collapsed.length || systemOpen.length !== previous.systemOpen.length || reordering !== previous.reordering) {
+        if (order.length !== previous.order.length || collapsed.length !== previous.collapsed.length || systemOpen.length !== previous.systemOpen.length || parameters.length !== parameterChoices.length || reordering !== previous.reordering) {
             if (result === saved) result = { ...saved };
-            result[id] = { ...previous, order, collapsed, systemOpen, reordering };
+            result[id] = { ...previous, order, collapsed, systemOpen, parameters: Object.fromEntries(parameters), reordering };
         }
     }
     return result;
@@ -61,11 +65,21 @@ export function InspectorSessionProvider({ nodes, inventoryComplete, children }:
 export function useChannelPresentation(node: NodeState) {
     const session = useContext(InspectorSession);
     if (!session) throw new Error('Channel presentation requires an Inspector session');
-    const { order, collapsed, systemOpen, reordering } = session.saved[node.id] ?? defaults(node);
+    const { order, collapsed, systemOpen, parameters, reordering } = session.saved[node.id] ?? defaults(node);
     const ids = [...order, ...Object.keys(node.channels).map(Number).sort((a, b) => a - b).filter(id => !order.includes(id))];
     const update = (change: (previous: Preferences) => Preferences) => session.update(node.id, change);
     return {
-        ids, collapsed, systemOpen, reordering,
+        ids, collapsed, systemOpen, parameters, reordering,
+        setShowParameters: (id: number, show: boolean) => {
+            const type = observedModuleType(node.channels[id]);
+            if (!type) return;
+            update(previous => {
+                const parameters = { ...previous.parameters };
+                if (show) parameters[id] = type;
+                else delete parameters[id];
+                return { ...previous, parameters };
+            });
+        },
         toggleChannel: (id: number) => update(previous => ({ ...previous, collapsed: previous.collapsed.includes(id) ? previous.collapsed.filter(item => item !== id) : [...previous.collapsed, id] })),
         setAllCollapsed: (collapse: boolean) => update(previous => ({ ...previous, collapsed: collapse ? ids : [] })),
         setSystemOpen: (id: number, open: boolean) => update(previous => ({ ...previous, systemOpen: [...previous.systemOpen.filter(item => item !== id), ...(open ? [id] : [])] })),

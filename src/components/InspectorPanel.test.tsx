@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import InspectorPanel from './InspectorPanel';
 import { InspectorSessionProvider } from './InspectorSession';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
@@ -36,6 +36,7 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   fireEvent.click(screen.getByRole('button', { name: 'Close Map source bindings' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   if (screen.queryByRole('button', { name: 'Expand All' })) fireEvent.click(screen.getByRole('button', { name: 'Expand All' }));
+  fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
   fireEvent.click(screen.getByRole('button', { name: 'Parameter details: location' }));
   expect(screen.getByText(/Value last changed/)).toHaveTextContent(new Date(receivedAt - 60000).toLocaleString());
   expect(screen.getByText(/Name received/)).toHaveTextContent('via HTTP');
@@ -67,7 +68,7 @@ test('Viewer can inspect observed voltage and bound position with independent pr
   } };
   render(<Fixture droneLinkState={{ ...hook, state: { 7: node } }} selectedNodeId={7} />);
   expect(screen.getByText('Cell 3.13 V').closest('[data-severity]')).toHaveAttribute('data-severity', 'neutral');
-  expect(screen.getByText('51.00000°, -1.00000°')).toBeVisible();
+  expect(screen.getByRole('group', { name: 'Position · 51.00000°, -1.00000°' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Node details' }));
   expect(screen.getByText(/^7>12\.15 · HTTP/)).toHaveTextContent(new Date(voltageReceipt).toLocaleString());
   expect(screen.getByText(/^7>4\.8 · Gateway 254/)).toHaveTextContent(new Date(receivedAt).toLocaleString());
