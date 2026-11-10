@@ -35,7 +35,7 @@ export default function DomainCard({ domain, user, onRefresh }: { domain: Domain
     try { const value = await authenticatedFetchJson(`/api/domains/${domain._id}/packet-count`); setPackets(`${value.data.retainedPacketCount} retained packets · Refresh`); }
     catch { setPackets('Retry packet count'); }
   };
-  return <Card><Card.Body>
+  return <Card className="dw-domain-card h-100"><Card.Body>
     <div className="dw-domain-header">
       <Card.Title className="domain-card-title mb-0"><Link to={`/private/domain/${domain._id}`}>{domain.name}</Link></Card.Title>
       <div className="dw-domain-badges" aria-label="Domain role and status">
@@ -50,7 +50,7 @@ export default function DomainCard({ domain, user, onRefresh }: { domain: Domain
       <IconButton label="Refresh totals" variant="link" className="dw-domain-actions" icon={<ArrowClockwise />} onClick={() => setReload(value => value + 1)} />
     </div>
     {countsError && <Alert variant="warning">Totals unavailable.</Alert>}
-    <div className="dw-toolbar justify-content-end">
+    <div className="dw-toolbar dw-domain-card-actions justify-content-end">
       <details className="dw-meta"><summary>Details</summary><p>Domain {domain._id}</p><p>Retained device identities · Accepted members</p><button className="btn btn-link p-0" onClick={loadPackets}>{packets}</button></details>
       <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={onRefresh} />
     </div>

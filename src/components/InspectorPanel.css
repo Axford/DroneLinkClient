@@ -7,7 +7,6 @@
 .channel-card .card-header:hover { background: var(--dw-color-hover); }
 .channel-card .card-header > div { flex-wrap: wrap; gap: var(--dw-space-2); }
 .channel-card .card-body { padding: var(--dw-space-2); }
-.parameter-row { padding: var(--dw-space-2) 0;  }
 .parameter-row + .parameter-row { margin-top: var(--dw-space-2); }
 .parameter-row { background: var(--dw-color-raised); padding: var(--dw-space-2); border-radius: var(--dw-radius-small); }
 .node-selector { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
@@ -15,3 +14,5 @@
 .node-badges { display: flex; flex-wrap: wrap; gap: var(--dw-space-1); margin-top: var(--dw-space-2); }
 
 .channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
+
+.channel-card .card-header svg { width: var(--dw-icon-size); height: var(--dw-icon-size); }
