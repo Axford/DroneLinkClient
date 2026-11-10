@@ -2,6 +2,7 @@
 
 Reviewed: 2026-11-06. Role: React web interface, build/test ownership and versioned frontend artifacts.
 
+- [DroneWright design guidelines](../../DroneLinkDatastore/docs/design-guidelines.md)
 - [Local architecture](architecture.md)
 - [Local operations](operations.md)
 - [System documentation index](../../DroneLinkDatastore/docs/README.md)
