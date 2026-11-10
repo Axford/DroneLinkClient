@@ -4,6 +4,7 @@ import { Gear, CheckLg, Archive, ArrowCounterclockwise, BoxArrowRight, PersonDas
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
+import DangerAction from './ui/DangerAction';
 import { Domain, DomainRole, User } from '../App';
 import { accessEvent, affectsDomain, authenticatedFetchJson, mutate } from '../utils/api';
 interface Member { _id: string; displayName: string; email: string; role: DomainRole }
@@ -62,21 +63,56 @@ export default function DomainCollaboration({ domain, user, onRefresh }: { domai
   const issue = () => action(() => mutate(root + '/invitations', { email, role }), result => { setShare(result.data.shareUrl); setEmail(''); setMessage('Link shown once. Share with the invited account.'); });
   const rotate = () => action(async () => { if (!window.confirm(`Replace the machine key for "${domain.name}"? Devices using the old key must be reconfigured.`)) return; return mutate(root + '/regenerate-key', { revision: domain.revision }); }, result => { if (result) setKey(result.data.apiKey); });
   return <><IconButton label="Domain settings" icon={<Gear />} aria-haspopup="dialog" onClick={() => setExpanded(true)} />
-  <SettingsDialog title="Domain settings" show={expanded} onHide={() => setExpanded(false)}>
-
-    {error && <Alert variant="warning">{error}</Alert>}{message && <Alert variant="info">{message}</Alert>}
-    <SurfacePanel title={domain.name}>
-    {domain.canEdit && <Form onSubmit={event => { event.preventDefault(); void action(() => mutate(root, { name, revision: domain.revision }, 'PUT')); }} className="dw-inline-form mb-3"><Form.Control aria-label="Domain name" value={name} maxLength={100} onChange={event => setName(event.target.value)} /><IconButton label="Save name" icon={<CheckLg />} type="submit" disabled={busy || !name.trim()} /></Form>}
-    {(domain.canArchive || domain.canRestore) && <IconButton label={active ? 'Archive domain' : 'Restore domain'} icon={active ? <Archive /> : <ArrowCounterclockwise />} variant="outline-warning" disabled={busy} onClick={() => void lifecycle()} />}
-    {active && domain.myRole && <IconButton label="Leave domain" icon={<BoxArrowRight />} className="ms-2" variant="outline-secondary" disabled={busy} onClick={() => { if (window.confirm(`Leave "${domain.name}"? Another accepted Owner is required before the final Owner can leave.`)) void action(() => mutate(root + '/leave', { revision: domain.revision })); }} />}
-    </SurfacePanel>
-    <SurfacePanel title="Members"><Table size="sm" responsive><thead><tr><th>Collaborator</th><th>Role</th>{domain.canManageMembers && <th>Manage</th>}</tr></thead><tbody>{members.map(member => <tr key={member._id}><td>{member.displayName}<br /><small>{member.email}</small></td><td>{member.role}</td>{domain.canManageMembers && <td><Form.Select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy} onChange={event => { const next = event.target.value; if (window.confirm(`Change ${member.email} to ${next}?`)) void action(() => mutate(`${root}/members/${member._id}`, { role: next, revision: domain.revision }, 'PATCH')); }}>{roles.map(role => <option key={role}>{role}</option>)}</Form.Select><IconButton label="Remove member" icon={<PersonDash />} variant="outline-danger" disabled={busy} onClick={() => { if (window.confirm(`Remove ${member.email} from "${domain.name}"?`)) void action(() => mutate(`${root}/members/${member._id}`, { revision: domain.revision }, 'DELETE')); }} /></td>}</tr>)}</tbody></Table>
-    {memberCursor && <IconButton label="Next members" icon={<ChevronRight />} onClick={() => void load('members', memberCursor).catch(error => setError(error.message))} />}
-    </SurfacePanel>
-    {viewKey && <SurfacePanel title="Machine key">{key ? <><code className="dw-secret">{key}</code><IconButton label="Hide key" icon={<EyeSlash />} onClick={() => { setKey(null); }} /><IconButton label="Copy key" icon={<Clipboard />} onClick={() => void navigator.clipboard.writeText(key).then(() => setMessage('Key copied.'), () => setError('Copy failed.'))} /></> : <IconButton label="Show key" icon={<Eye />} disabled={busy} onClick={() => void action(() => authenticatedFetchJson(root + '/key'), result => setKey(result.data.apiKey))} />}{domain.canManageKeys && <IconButton label="Replace key" icon={<ArrowRepeat />} className="ms-2" variant="outline-warning" disabled={busy} onClick={() => void rotate()} />}</SurfacePanel>}
-    {manager && <SurfacePanel title="Invitations">{active && <Form className="dw-inline-form" onSubmit={event => { event.preventDefault(); void issue(); }}><Form.Control type="email" aria-label="Invitation email" placeholder="Email address" required value={email} onChange={event => setEmail(event.target.value)} /><Form.Select aria-label="Invitation role" value={role} onChange={event => setRole(event.target.value as DomainRole)}>{roles.map(role => <option key={role}>{role}</option>)}</Form.Select><IconButton label="Create invitation" icon={<PersonPlus />} type="submit" disabled={busy} /></Form>}
-      {share && <Alert variant="info" className="mt-2"><Form.Control aria-label="Invitation share link" readOnly value={share} /><IconButton label="Copy invitation link" icon={<Clipboard />} onClick={() => void navigator.clipboard.writeText(share).then(() => setMessage('Invitation link copied. Share it with the intended email address.'), () => setError('Copy failed. Select the link and copy it manually.'))} /></Alert>}
-      <Table size="sm" responsive><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Expires</th>{active && <th>Actions</th>}</tr></thead><tbody>{invitations.map(invitation => <tr key={invitation._id}><td>{invitation.emailCanonical}</td><td>{invitation.role}</td><td>{invitation.effectiveState}</td><td>{new Date(invitation.expiresAt).toLocaleString()}</td>{active && <td>{!['accepted', 'revoked'].includes(invitation.effectiveState) && <><IconButton label="Reissue" icon={<ArrowRepeat />} disabled={busy} onClick={() => void action(() => mutate(`${root}/invitations/${invitation._id}/reissue`, { role: invitation.role, revision: invitation.revision }), result => { setShare(result.data.shareUrl); setMessage('Previous link invalidated. Copy the fresh link now.'); })} /><IconButton label="Revoke" icon={<XLg />} variant="outline-danger" disabled={busy} onClick={() => void action(() => mutate(`${root}/invitations/${invitation._id}`, { revision: invitation.revision }, 'DELETE'), () => setShare(''))} /></>}</td>}</tr>)}</tbody></Table>{inviteCursor && <IconButton label="Next invitations" icon={<ChevronRight />} onClick={() => void load('invitations', inviteCursor).catch(error => setError(error.message))} />}
-    </SurfacePanel>}
-  </SettingsDialog></>;
+    <SettingsDialog title="Domain settings" show={expanded} onHide={() => setExpanded(false)}>
+      {error && <Alert variant="warning">{error}</Alert>}{message && <Alert variant="info">{message}</Alert>}
+      <SurfacePanel title={domain.name}>
+        {domain.canEdit && <Form onSubmit={event => { event.preventDefault(); void action(() => mutate(root, { name, revision: domain.revision }, 'PUT')); }} className="dw-inline-form">
+          <Form.Control aria-label="Domain name" value={name} maxLength={100} onChange={event => setName(event.target.value)} />
+          <IconButton label="Save name" icon={<CheckLg />} type="submit" disabled={busy || !name.trim()} />
+        </Form>}
+        {domain.canRestore && <div className="dw-item-row"><span>Archived</span><div className="dw-row-actions"><IconButton label="Restore domain" icon={<ArrowCounterclockwise />} disabled={busy} onClick={() => void lifecycle()} /></div></div>}
+      </SurfacePanel>
+      <SurfacePanel title="Members">
+        <Table size="sm" responsive><thead><tr><th>Collaborator</th><th className="text-end">{domain.canManageMembers ? 'Role / actions' : 'Role'}</th></tr></thead>
+          <tbody>{members.map(member => <tr key={member._id}>
+            <td>{member.displayName}<br /><small>{member.email}</small></td>
+            <td className="dw-actions-cell">{domain.canManageMembers ? <div className="dw-row-actions" role="group" aria-label={`Actions for ${member.email}`}>
+              <Form.Select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy} onChange={event => { const next = event.target.value; if (window.confirm(`Change ${member.email} to ${next}?`)) void action(() => mutate(`${root}/members/${member._id}`, { role: next, revision: domain.revision }, 'PATCH')); }}>{roles.map(role => <option key={role}>{role}</option>)}</Form.Select>
+              <DangerAction label="Remove member" warning="Removes membership." compact><IconButton label="Remove member" icon={<PersonDash />} variant="outline-danger" disabled={busy} onClick={() => { if (window.confirm(`Remove ${member.email} from "${domain.name}"?`)) void action(() => mutate(`${root}/members/${member._id}`, { revision: domain.revision }, 'DELETE')); }} /></DangerAction>
+            </div> : member.role}</td>
+          </tr>)}</tbody>
+        </Table>
+        {memberCursor && <IconButton label="Next members" icon={<ChevronRight />} onClick={() => void load('members', memberCursor).catch(error => setError(error.message))} />}
+      </SurfacePanel>
+      {viewKey && <SurfacePanel title="Machine key">
+        <div className="dw-item-row"><div className="dw-item-content">{key ? <code className="dw-secret">{key}</code> : <span className="dw-meta">Hidden</span>}</div>
+          <div className="dw-row-actions">{key ? <>
+            <IconButton label="Hide key" icon={<EyeSlash />} onClick={() => setKey(null)} />
+            <IconButton label="Copy key" icon={<Clipboard />} onClick={() => void navigator.clipboard.writeText(key).then(() => setMessage('Key copied.'), () => setError('Copy failed.'))} />
+          </> : <IconButton label="Show key" icon={<Eye />} disabled={busy} onClick={() => void action(() => authenticatedFetchJson(root + '/key'), result => setKey(result.data.apiKey))} />}</div>
+        </div>
+        {domain.canManageKeys && <div className="mt-3"><DangerAction label="Replace key" warning="Devices using this key must be reconfigured."><IconButton label="Replace key" icon={<ArrowRepeat />} variant="outline-danger" disabled={busy} onClick={() => void rotate()} /></DangerAction></div>}
+      </SurfacePanel>}
+      {manager && <SurfacePanel title="Invitations">
+        {active && <Form className="dw-inline-form mb-3" onSubmit={event => { event.preventDefault(); void issue(); }}>
+          <Form.Control type="email" aria-label="Invitation email" placeholder="Email address" required value={email} onChange={event => setEmail(event.target.value)} />
+          <Form.Select aria-label="Invitation role" value={role} onChange={event => setRole(event.target.value as DomainRole)}>{roles.map(role => <option key={role}>{role}</option>)}</Form.Select>
+          <IconButton label="Create invitation" icon={<PersonPlus />} type="submit" disabled={busy} />
+        </Form>}
+        {share && <Alert variant="info" className="mt-2"><div className="dw-item-row"><div className="dw-item-content"><Form.Control aria-label="Invitation share link" readOnly value={share} /></div><div className="dw-row-actions"><IconButton label="Copy invitation link" icon={<Clipboard />} onClick={() => void navigator.clipboard.writeText(share).then(() => setMessage('Invitation link copied. Share it with the intended email address.'), () => setError('Copy failed. Select the link and copy it manually.'))} /></div></div></Alert>}
+        <Table size="sm" responsive><thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Expires</th>{active && <th className="text-end">Actions</th>}</tr></thead>
+          <tbody>{invitations.map(invitation => <tr key={invitation._id}>
+            <td>{invitation.emailCanonical}</td><td>{invitation.role}</td><td>{invitation.effectiveState}</td><td>{new Date(invitation.expiresAt).toLocaleString()}</td>
+            {active && <td className="dw-actions-cell">{!['accepted', 'revoked'].includes(invitation.effectiveState) && <div className="dw-row-actions" role="group" aria-label={`Actions for ${invitation.emailCanonical}`}>
+              <IconButton label="Reissue" icon={<ArrowRepeat />} disabled={busy} onClick={() => void action(() => mutate(`${root}/invitations/${invitation._id}/reissue`, { role: invitation.role, revision: invitation.revision }), result => { setShare(result.data.shareUrl); setMessage('Previous link invalidated. Copy the fresh link now.'); })} />
+              <DangerAction label="Revoke invitation" warning="Invalidates this link." compact><IconButton label="Revoke" icon={<XLg />} variant="outline-danger" disabled={busy} onClick={() => void action(() => mutate(`${root}/invitations/${invitation._id}`, { revision: invitation.revision }, 'DELETE'), () => setShare(''))} /></DangerAction>
+            </div>}</td>}
+          </tr>)}</tbody>
+        </Table>
+        {inviteCursor && <IconButton label="Next invitations" icon={<ChevronRight />} onClick={() => void load('invitations', inviteCursor).catch(error => setError(error.message))} />}
+      </SurfacePanel>}
+      {domain.canArchive && <DangerAction label="Archive domain" warning="Stops telemetry for everyone and invalidates pending invitations."><IconButton label="Archive domain" icon={<Archive />} variant="outline-danger" disabled={busy} onClick={() => void lifecycle()} /></DangerAction>}
+      {active && domain.myRole && <DangerAction label="Leave domain" warning="Removes your Domain membership."><IconButton label="Leave domain" icon={<BoxArrowRight />} variant="outline-danger" disabled={busy} onClick={() => { if (window.confirm(`Leave "${domain.name}"? Another accepted Owner is required before the final Owner can leave.`)) void action(() => mutate(root + '/leave', { revision: domain.revision })); }} /></DangerAction>}
+    </SettingsDialog>
+  </>;
 }

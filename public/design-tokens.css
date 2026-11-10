@@ -23,6 +23,7 @@
   --dw-color-warning: #f1c76b;
   --dw-color-warning-bg-rgb: 115, 86, 20;
   --dw-color-danger: #ff9696;
+  --dw-color-danger-surface: #35232c;
   --dw-color-danger-bg-rgb: 147, 54, 62;
   --dw-color-focus: #82b7ff;
   --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

@@ -4,6 +4,7 @@ import { Gear } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
+import DangerAction from './ui/DangerAction';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
@@ -41,7 +42,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
             </header>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
                 <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
-                {canReset && selectedNode && <IconButton label="Reset node observations" icon={<Gear />} variant="outline-warning" disabled={resetting} onClick={resetSelected} />}
+                {canReset && selectedNode && <DangerAction label={`Reset Node ${selectedNode.id}`} warning="Clears shared observations for everyone. Identity and history stay."><IconButton label="Reset node observations" icon={<Gear />} variant="outline-danger" disabled={resetting} onClick={resetSelected} /></DangerAction>}
                 {resetError && <Alert variant="danger">{resetError}</Alert>}
                 </SurfacePanel>
             </SettingsDialog>

@@ -27,4 +27,5 @@
 .dw-parameter-label { min-width: 0; overflow-wrap: anywhere; }
 .dw-parameter-value { margin-left: auto; overflow-wrap: anywhere; font-family: var(--dw-font-mono); }
 
-.dw-home-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-3); background: var(--dw-color-panel); padding: var(--dw-space-2); margin-bottom: var(--dw-space-4); border-radius: var(--dw-radius); }
+.dw-home-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--dw-space-3); }
+.dw-home-toolbar > .dw-icon-button { align-self: center; }

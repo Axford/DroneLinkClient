@@ -40,6 +40,7 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   view.rerender(<InspectorPanel {...props} canReset />);
   fireEvent.click(screen.getByRole('button', { name: 'Inspector tools' }));
+  expect(screen.getByRole('button', { name: 'Reset node observations' })).toHaveAccessibleDescription('Clears shared observations for everyone. Identity and history stay.');
   fireEvent.click(screen.getByRole('button', { name: 'Reset node observations' }));
   await waitFor(() => expect(reset).toHaveBeenCalledWith(7));
   view.rerender(<InspectorPanel {...props} canReset={false} />);

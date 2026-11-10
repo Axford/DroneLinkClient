@@ -15,13 +15,13 @@ export default function HomePage({ user, onRefresh, domains, onDomainUpdate, pag
   const [creating, setCreating] = useState(false);
   return <Container fluid className="p-0 domain-home">
     <div className="dw-home-toolbar">
-    <Nav variant="tabs" role="tablist" aria-label="Domain status" activeKey={status} onSelect={key => { if (key === 'active' || key === 'archived') onStatusChange(key); }} className="mb-0">
+    <Nav variant="tabs" role="tablist" aria-label="Domain status" activeKey={status} onSelect={key => { if (key === 'active' || key === 'archived') onStatusChange(key); }} className="mb-0 dw-attached-tabs">
       <Nav.Item><Nav.Link as="button" eventKey="active" role="tab" id="domain-tab-active" aria-controls="domain-list" aria-selected={status === 'active'}>Active domains</Nav.Link></Nav.Item>
       <Nav.Item><Nav.Link as="button" eventKey="archived" role="tab" id="domain-tab-archived" aria-controls="domain-list" aria-selected={status === 'archived'}>Archived domains</Nav.Link></Nav.Item>
     </Nav>
     {canCreate && <IconButton label="New Domain" variant="primary" icon={<Plus />} onClick={() => setCreating(true)} />}
     </div>
-    <div id="domain-list" role="tabpanel" aria-labelledby={`domain-tab-${status}`}>
+    <div id="domain-list" className="dw-tab-content" role="tabpanel" aria-labelledby={`domain-tab-${status}`}>
     {loading ? <p>Loading domains…</p> : domains.length ? <Row>{domains.map(domain => <Col md={6} xl={4} key={domain._id} className="mb-3"><DomainCard domain={domain} user={user} onRefresh={onRefresh} /></Col>)}</Row> : <Alert variant="info">{status === 'archived' ? 'No archived domains.' : 'No domains yet. Accept an invitation to join a domain.'}</Alert>}
     <div className="d-flex gap-2"><IconButton label="Previous" icon={<ChevronLeft />} disabled={!pagination.hasPrev} onClick={() => onPageChange('previous')} /><IconButton label="Next" icon={<ChevronRight />} disabled={!pagination.nextCursor} onClick={() => onPageChange('next')} /></div>
     </div>

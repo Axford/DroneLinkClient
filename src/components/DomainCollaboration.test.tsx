@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import DomainCollaboration from './DomainCollaboration';
 import { Domain, User } from '../App';
 const owner: Domain = { _id: 'fleet', name: 'Fleet', revision: 7, status: 'active', myRole: 'owner', canManageMembers: true, canManageKeys: true, canEdit: true, canArchive: true, canRestore: false };
@@ -56,7 +56,11 @@ test('role change clears a displayed key and discards an obsolete in-flight key 
 });
 test('archive/restore use reviewed domain revisions and archived controls stay read-only', async () => {
   const requests = setup(); const refresh = jest.fn().mockResolvedValue(undefined); const { rerender } = render(<DomainCollaboration domain={owner} user={person} onRefresh={refresh} />); open();
-  await screen.findByText(person.email); fireEvent.click(screen.getByRole('button', { name: 'Archive domain' }));
+  await screen.findByText(person.email);
+  const archive = within(screen.getByRole('group', { name: 'Archive domain' })).getByRole('button', { name: 'Archive domain' });
+  expect(archive).toHaveAccessibleDescription('Stops telemetry for everyone and invalidates pending invitations.');
+  expect(within(screen.getByRole('group', { name: 'Replace key' })).getByRole('button', { name: 'Replace key' })).toHaveAccessibleDescription('Devices using this key must be reconfigured.');
+  fireEvent.click(archive);
   await waitFor(() => expect(requests.some(request => request.url.endsWith('/archive'))).toBe(true)); expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('History and memberships are retained'));
   expect(JSON.parse(requests.find(request => request.url.endsWith('/archive'))!.options!.body as string)).toEqual({ revision: 7 });
   await act(async () => { rerender(<DomainCollaboration domain={{ ...owner, revision: 8, status: 'archived', canEdit: false, canArchive: false, canRestore: true, canManageMembers: false, canManageKeys: false }} user={person} onRefresh={refresh} />); });
