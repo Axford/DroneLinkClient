@@ -103,7 +103,10 @@ test('a transient access refresh failure retains the Domain and shared observati
     return { ok: true, status: 200, json: async () => data };
   });
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
-  await screen.findByText('Alpha'); offline = true;
+  await screen.findByText('Alpha');
+  expect(screen.queryByText('Collaboration')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Domains' })).toBeInTheDocument();
+  offline = true;
   await act(async () => window.dispatchEvent(new Event('focus')));
   expect(screen.getByText('Alpha')).toBeInTheDocument(); expect(screen.getByText('Inspector')).toBeInTheDocument();
 });

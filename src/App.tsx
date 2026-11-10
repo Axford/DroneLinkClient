@@ -8,7 +8,7 @@ import InvitePage from './InvitePage';
 import DomainDetailPage from './DomainDetailPage';
 import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
-import { authenticatedFetch } from './utils/api';
+import { accessEvent, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 
 // Interfaces
 export interface User {
@@ -33,20 +33,22 @@ function AppContent() {
   const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
   const location = useLocation();
   const listGeneration = useRef(0);
+  const hasLoadedDomains = useRef(false);
 
   const loadPage = useCallback(async (stack: Array<string | undefined>) => {
     const generation = ++listGeneration.current;
     const cursor = stack[stack.length - 1];
     try {
-      const response = await authenticatedFetch(`/api/domains?limit=10&status=${domainStatus}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
-      if (!response.ok) throw new Error('Failed to fetch domains');
-      const result = await response.json();
+      const result = await authenticatedFetchJson(`/api/domains?limit=10&status=${domainStatus}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
       if (generation !== listGeneration.current) return;
+      hasLoadedDomains.current = true;
+      setError(null);
       setDomains(result.data);
       setCursorStack(stack);
       setPagination({ limit: 10, nextCursor: result.pagination.nextCursor, hasPrev: stack.length > 1 });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch domains');
+      if (generation !== listGeneration.current) return;
+      if (!hasLoadedDomains.current || (err instanceof ApiError && [401, 403].includes(err.status))) setError(err instanceof Error ? err.message : 'Failed to fetch domains');
     }
   }, [domainStatus]);
   const fetchDomains = (direction: 'next' | 'previous' | 'reset' = 'reset') => loadPage(direction === 'reset' ? [undefined] : direction === 'previous' ? cursorStack.slice(0, -1) : [...cursorStack, pagination.nextCursor || undefined]);
@@ -82,6 +84,21 @@ function AppContent() {
     const invalidate = () => { listGeneration.current++; };
     return () => { active = false; invalidate(); };
   }, [location.pathname, loadPage]);
+
+  useEffect(() => {
+    const refresh = () => { void loadPage(cursorStack); };
+    const accessChanged = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.status === 401) { listGeneration.current++; setDomains([]); setError('Sign in again to continue.'); }
+      else if (detail?.status === 403) {
+        // Unmount privileged panels immediately while the list is re-authorized.
+        setDomains([]); refresh();
+      }
+    };
+    const timer = setInterval(refresh, 15000);
+    window.addEventListener('focus', refresh); window.addEventListener(accessEvent, accessChanged);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
+  }, [loadPage, cursorStack]);
 
   const handleDomainUpdate = (updatedDomain: Domain) => {
     const domainIndex = domains.findIndex(d => d._id === updatedDomain._id);
@@ -165,6 +182,8 @@ function AppContent() {
         />
         <main className="content-wrapper">
           <HomePage 
+            user={user}
+            onRefresh={() => loadPage(cursorStack)}
             domains={domains} 
             onDomainUpdate={handleDomainUpdate}
             onDomainDelete={handleDomainDelete}

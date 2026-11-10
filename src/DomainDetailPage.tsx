@@ -5,7 +5,6 @@ import { ArrowLeft } from 'react-bootstrap-icons';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import ObservedMap from './components/ObservedMap';
 import { Domain, User } from './App';
-import DomainCollaboration from './components/DomainCollaboration';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import InspectorPanel from './components/InspectorPanel';
@@ -143,7 +142,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                         onClick={() => navigate('/private')}
                         className="me-3"
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={16} /> Domains
                     </Button>
                     <h5 className="mb-0 me-3">{domain.name}</h5>
                 </div>
@@ -165,9 +164,6 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </div>
 
             {domain.status === 'archived' && <Alert variant="warning" className="mb-0">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
-            <div style={{ maxHeight: '40vh', overflowY: 'auto', flexShrink: 0 }}>
-                {user && <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={refreshDomain} />}
-            </div>
             <small className="px-3 py-1 text-white">Observation only · Parameter commands unavailable.</small>
             {/* Resizable Panels */}
             <div style={{ flex: 1, minHeight: 0 }}>
