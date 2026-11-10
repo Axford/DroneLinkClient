@@ -1,0 +1,43 @@
+/* DroneWright shared tokens. Owned by Client; shipped unchanged in release assets. */
+:root {
+  color-scheme: dark;
+  --dw-color-canvas: #171b20;
+  --dw-color-surface: #21262d;
+  --dw-color-raised: #292f38;
+  --dw-color-hover: #323b47;
+  --dw-color-text: #e6edf3;
+  --dw-color-muted: #a8b3c2;
+  --dw-color-border: #414c5a;
+  --dw-color-accent: #82b7ff;
+  --dw-color-primary: #235dba;
+  --dw-color-primary-hover: #2c6ed3;
+  --dw-color-success: #79d5a4;
+  --dw-color-warning: #f1c76b;
+  --dw-color-danger: #ff9696;
+  --dw-color-focus: #82b7ff;
+  --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --dw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --dw-font-size-base: 14px;
+  --dw-font-size-meta: 0.857142857rem;
+  --dw-font-size-heading: 1.285714286rem;
+  --dw-font-size-title: 1.714285714rem;
+  --dw-line-height: 1.5;
+  --dw-space-1: 0.25rem;
+  --dw-space-2: 0.5rem;
+  --dw-space-3: 0.75rem;
+  --dw-space-4: 1rem;
+  --dw-space-6: 1.5rem;
+  --dw-space-8: 2rem;
+  --dw-control-size: 2.285714286rem;
+  --dw-rail-width: 4rem;
+  --dw-sidebar-width: 16rem;
+  --dw-dialog-width: 64rem;
+  --dw-auth-width: 32rem;
+  --dw-border-width: 1px;
+  --dw-radius: 0.5rem;
+  --dw-radius-small: 0.25rem;
+  --dw-shadow: 0 0.5rem 2rem #0006;
+  --dw-focus-ring: 0 0 0 2px var(--dw-color-focus);
+  --dw-motion-fast: 150ms;
+  --dw-opacity-disabled: 0.5;
+}
