@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Spinner, Alert } from 'react-bootstrap';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import WorkspaceShell from './components/WorkspaceShell';
+import PageFeedback from './components/ui/PageFeedback';
 import HomePage from './HomePage';
 import InvitePage from './InvitePage';
 import DomainDetailPage from './DomainDetailPage';
@@ -27,7 +27,6 @@ function AppContent() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [pagination, setPagination] = useState<{ limit: number; nextCursor: string | null; hasPrev: boolean }>({ limit: 10, nextCursor: null, hasPrev: false });
   const [domainStatus, setDomainStatus] = useState<'active' | 'archived'>('active');
   const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
@@ -120,84 +119,14 @@ function AppContent() {
     await fetchDomains();
   };
 
-  if (loading) {
-    return (
-      <Container fluid className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container className="mt-5">
-        <Alert variant="danger">
-          <Alert.Heading>Error</Alert.Heading>
-          <p>{error}</p><a href="/auth/google">Sign in with Google</a>
-        </Alert>
-      </Container>
-    );
-  }
-
-  // Handle invite pages separately
-  if (location.pathname.startsWith('/invite/')) {
-    return <InvitePage />;
-  }
-
-  // Handle domain detail pages separately
-  if (location.pathname.startsWith('/private/domain/')) {
-    return <DomainDetailPage />;
-  }
-
-  if (loading) {
-    return (
-      <Container fluid className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container className="mt-5">
-        <Alert variant="danger">
-          <Alert.Heading>Error</Alert.Heading>
-          <p>{error}</p><a href="/auth/google">Sign in with Google</a>
-        </Alert>
-      </Container>
-    );
-  }
-
-  return (
-    user && (
-      <div className="d-flex" data-bs-theme="dark">
-        <Sidebar 
-          user={user} 
-          isCollapsed={isSidebarCollapsed} 
-          toggleSidebar={() => setSidebarCollapsed(!isSidebarCollapsed)} 
-        />
-        <main className="content-wrapper">
-          <HomePage 
-            user={user}
-            onRefresh={() => loadPage(cursorStack)}
-            domains={domains} 
-            onDomainUpdate={handleDomainUpdate}
-            onDomainDelete={handleDomainDelete}
-            pagination={pagination}
-            onPageChange={fetchDomains}
-            loading={loading}
-            canCreate={user.isPlatformAdmin === true}
-            status={domainStatus}
-            onStatusChange={setDomainStatus}
-          />
-        </main>
-      </div>
-    )
-  );
+  if (loading) return <PageFeedback loading message="Loading..." />;
+  if (error) return <PageFeedback message={error}><a href="/auth/google">Sign in with Google</a></PageFeedback>;
+  return user && <WorkspaceShell user={user}>
+    <HomePage user={user} onRefresh={() => loadPage(cursorStack)} domains={domains}
+      onDomainUpdate={handleDomainUpdate} onDomainDelete={handleDomainDelete}
+      pagination={pagination} onPageChange={fetchDomains} loading={loading}
+      canCreate={user.isPlatformAdmin === true} status={domainStatus} onStatusChange={setDomainStatus} />
+  </WorkspaceShell>;
 }
 
 function App() {

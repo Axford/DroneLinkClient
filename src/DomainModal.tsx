@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
+import { Form, Alert } from 'react-bootstrap';
+import { CheckLg, Plus } from 'react-bootstrap-icons';
+import SettingsDialog from './components/ui/SettingsDialog';
+import IconButton from './components/ui/IconButton';
 import { Domain } from './App';
 import { authenticatedFetch } from './utils/api';
 import { useToast } from './contexts/ToastContext';
@@ -86,11 +89,7 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
     };
 
     return (
-        <Modal data-bs-theme="dark" show={show} onHide={handleClose}>
-            <Modal.Header closeButton>
-                <Modal.Title>{domain ? 'Edit Domain' : 'Create Domain'}</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
+        <SettingsDialog title={domain ? 'Edit Domain' : 'Create Domain'} show={show} onHide={handleClose}>
                 {errors.length > 0 && (
                     <Alert variant="danger">
                         <ul className="mb-0">
@@ -115,18 +114,12 @@ const DomainModal: React.FC<DomainModalProps> = ({ show, handleClose, handleSave
                         />
                     </Form.Group>
                 </Form>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={handleClose} disabled={loading}>
-                    Cancel
-                </Button>
-                <Button variant="primary" onClick={onSave} disabled={loading || !name.trim()}>
-                    {loading && <Spinner as="span" animation="border" size="sm" className="me-2" />}
-                    {domain ? 'Update Domain' : 'Create Domain'}
-                </Button>
-            </Modal.Footer>
-        </Modal>
+
+            <div className="dw-toolbar justify-content-end">
+                <IconButton label={domain ? 'Update Domain' : 'Create Domain'} variant="primary" icon={domain ? <CheckLg /> : <Plus />} onClick={onSave} disabled={loading || !name.trim()} />
+            </div>
+        </SettingsDialog>
     );
 };
 
-export default DomainModal; 
+export default DomainModal;
