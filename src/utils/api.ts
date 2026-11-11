@@ -6,7 +6,8 @@ export const affectsDomain = (event: Event, domainId: string) => {
     return detail.status === 401 || detail.domainId === domainId || detail.url === '/api/user' || detail.url === '/api/session' || (typeof detail.url === 'string' && (detail.url === `/api/domains/${domainId}` || detail.url.startsWith(`/api/domains/${domainId}/`)));
 };
 export const accessEvent = 'dronelink:access-changed';
-export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+type AuthenticatedRequest = RequestInit & { notifyForbidden?: boolean };
+export const authenticatedFetch = async (url: string, { notifyForbidden = true, ...options }: AuthenticatedRequest = {}): Promise<Response> => {
     const headers = new Headers(options.headers);
     if (!['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
         const session = await fetch('/api/session', { credentials: 'include', signal: options.signal });
@@ -18,10 +19,10 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
         headers.set('Content-Type', 'application/json');
     }
     const response = await fetch(url, { ...options, credentials: 'include', headers });
-    if (!options.signal?.aborted && [401, 403].includes(response.status)) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: response.status, url } }));
+    if (!options.signal?.aborted && (response.status === 401 || (notifyForbidden && response.status === 403))) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: response.status, url } }));
     return response;
 };
-export const authenticatedFetchJson = async (url: string, options: RequestInit = {}): Promise<any> => {
+export const authenticatedFetchJson = async (url: string, options: AuthenticatedRequest = {}): Promise<any> => {
     const response = await authenticatedFetch(url, options);
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new ApiError(response.status, result.code || 'request-failed', response.status === 409 ? (result.message || 'The record changed.') + ' Refresh, review the latest state, and repeat your action.' : result.message || 'Request failed');

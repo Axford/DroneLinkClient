@@ -1,6 +1,7 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
+import type { VisualizationSetting, VisualizationSettingsDefinition, VisualizationTarget, VoltageThresholds } from './visualizationSettings';
 
 export interface ObservedSummary {
     label: string;
@@ -21,8 +22,9 @@ export interface InspectorSummary {
 }
 
 interface ModuleVisualization {
-    overlay?: (channel: ChannelState) => ObservedSummary;
-    inspector?: (channel: ChannelState) => InspectorSummary;
+    overlay?: (channel: ChannelState, thresholds?: VoltageThresholds | null) => ObservedSummary;
+    inspector?: (channel: ChannelState, thresholds?: VoltageThresholds | null) => InspectorSummary;
+    settings?: VisualizationSettingsDefinition;
 }
 
 function hasReading(reading: ParameterState | undefined): reading is ParameterState {
@@ -52,6 +54,15 @@ function satelliteCount(channel: ChannelState): ObservedSummary {
 function quantity(channel: ChannelState, parameterId: number, label: string, unit: string, decimals: number): ObservedSummary {
     const value = numericValue(channel.params[parameterId], [DRONE_LINK_MSG_TYPE_FLOAT]);
     return field(channel, parameterId, label, value === undefined ? undefined : `${value.toFixed(decimals)} ${unit}`);
+}
+
+function cellVoltage(channel: ChannelState, thresholds?: VoltageThresholds | null): ObservedSummary {
+    const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const summary = field(channel, 15, 'Cell voltage', volts === undefined ? undefined : `${volts.toFixed(2)} V`);
+    if (volts === undefined || !thresholds) return summary;
+    if (volts < thresholds.redBelow) return { ...summary, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
+    if (volts < thresholds.amberBelow) return { ...summary, severity: 'warning', status: `Below amber threshold (${thresholds.amberBelow} V)` };
+    return summary;
 }
 
 function positionText(reading: ParameterState | undefined): string | undefined {
@@ -98,13 +109,23 @@ const visualizations = new Map<string, ModuleVisualization>([
         }
     }],
     ['INA219', {
-        overlay(channel) {
-            const cell = quantity(channel, 15, 'Cell voltage', 'V', 2);
+        settings: {
+            moduleType: 'INA219',
+            description: 'Shared cell-voltage colours for this channel.',
+            invalidMessage: 'Enter two positive voltage thresholds. The red threshold must be lower than amber.',
+            fields: [{ key: 'redBelow', label: 'Red below (V)' }, { key: 'amberBelow', label: 'Amber below (V)' }],
+            parse(draft) {
+                const redBelow = Number(draft.redBelow), amberBelow = Number(draft.amberBelow);
+                return Number.isFinite(redBelow) && Number.isFinite(amberBelow) && redBelow > 0 && amberBelow > redBelow ? { redBelow, amberBelow } : null;
+            }
+        },
+        overlay(channel, thresholds) {
+            const cell = cellVoltage(channel, thresholds);
             return { ...cell, text: `Cell ${cell.text}` };
         },
-        inspector(channel) {
+        inspector(channel, thresholds) {
             return {
-                primary: [quantity(channel, 15, 'Cell voltage', 'V', 2)],
+                primary: [cellVoltage(channel, thresholds)],
                 supporting: [quantity(channel, 14, 'Load voltage', 'V', 2), quantity(channel, 12, 'Current', 'A', 2),
                     quantity(channel, 13, 'Power', 'W', 2)]
             };
@@ -136,12 +157,13 @@ export function channelVisualization(channel: ChannelState): ModuleVisualization
     if (type) return visualizations.get(type);
 }
 
-export function moduleSummaries(node: NodeState): ObservedSummary[] {
+export function moduleSummaries(node: NodeState, getSettings?: (target: VisualizationTarget) => VisualizationSetting | undefined): ObservedSummary[] {
     const channels = Object.values(node.channels).sort((a, b) => a.channel - b.channel);
     return Array.from(visualizations).flatMap(([type, plugin]) => {
         const overlay = plugin.overlay;
         if (!overlay) return [];
-        return channels.filter(channel => observedModuleType(channel) === type).map(overlay);
+        return channels.filter(channel => observedModuleType(channel) === type).map(channel =>
+            overlay(channel, getSettings?.({ nodeAddress: node.id, channel: channel.channel, moduleType: type })?.thresholds));
     });
 }
 

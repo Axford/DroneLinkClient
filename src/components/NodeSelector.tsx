@@ -7,6 +7,7 @@ import { SummaryChips } from './NodeSummary';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import useNarrowLayout from './ui/useNarrowLayout';
+import { useVisualizationSettings } from './VisualizationSettings';
 import './NodeSelector.css';
 
 interface NodeSelectorProps {
@@ -21,6 +22,7 @@ interface NodeSelectorProps {
 /** Node selection remains available independently of basemap/position availability. */
 export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLocate, canLocate, now }: NodeSelectorProps) {
     const narrow = useNarrowLayout();
+    const settings = useVisualizationSettings();
     const [expanded, setExpanded] = useState(!narrow);
     useEffect(() => setExpanded(!narrow), [narrow]);
     const selected = nodes.find(node => node.id === selectedNodeId);
@@ -37,7 +39,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
                 </button>
                 <IconButton label={`Locate node ${node.id}`} icon={<GeoAlt />} disabled={!canLocate(node.id)}
                     onClick={() => { onLocate(node.id); if (narrow) setExpanded(false); }} />
-            <SummaryChips nodeId={node.id} summaries={moduleSummaries(node)} now={now} />
+            <SummaryChips nodeId={node.id} summaries={moduleSummaries(node, settings?.get)} now={now} />
         </li>)}
         {nodes.length === 0 && <li className="dw-meta dw-node-list-empty">No observed nodes</li>}
     </ul>;

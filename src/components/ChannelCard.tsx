@@ -7,11 +7,14 @@ import { receiptLabel } from '../dronelink/observedPositions';
 import ParameterList from './ParameterList';
 import ChannelSummary, { ChannelSummaryDetails } from './ChannelSummary';
 import { channelVisualization } from '../dronelink/moduleVisualizations';
+import { useVisualizationSettings } from './VisualizationSettings';
+import ChannelVisualizationSettings from './ChannelVisualizationSettings';
 
 interface ChannelCardProps {
     nodeId: number;
     channelId: number;
     channel: ChannelState;
+    generation?: number;
     expanded: boolean;
     onToggleExpand: () => void;
     systemOpen: boolean;
@@ -25,10 +28,14 @@ function observedByte(reading: ParameterState | undefined): number | undefined {
     const value = reading.values[0];
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255 ? value : undefined;
 }
-export default function ChannelCard({ nodeId, channelId, channel, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
+export default function ChannelCard({ nodeId, channelId, channel, generation = 0, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
     const bodyId = useId();
-    const renderSummary = channelVisualization(channel)?.inspector;
-    const summary = showParameters ? undefined : renderSummary?.(channel);
+    const plugin = channelVisualization(channel);
+    const settings = useVisualizationSettings();
+    const definition = plugin?.settings;
+    const target = definition && { nodeAddress: nodeId, channel: channelId, moduleType: definition.moduleType };
+    const thresholds = target && settings?.get(target)?.thresholds;
+    const summary = showParameters ? undefined : plugin?.inspector?.(channel, thresholds);
     const parameterCount = Object.keys(channel.params).length;
     const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
     const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
@@ -44,9 +51,11 @@ export default function ChannelCard({ nodeId, channelId, channel, expanded, onTo
                 <span className="dw-meta">{parameterCount} {parameterCount === 1 ? 'param' : 'params'}</span>
             </span>
             <span className="visually-hidden">Channel receipt: {receiptLabel(channel.lastHeard)}</span>
-        </Card.Header>{actions}</div>
+        </Card.Header>{actions}
+            {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
+        </div>
         <Collapse in={expanded}><div id={bodyId}><Card.Body>
-            {renderSummary && <div className="dw-channel-summary-toolbar">
+            {plugin?.inspector && <div className="dw-channel-summary-toolbar">
                 <div className="dw-channel-views" role="group" aria-label={`View for channel ${channelId}`}>
                     <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
                     <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>

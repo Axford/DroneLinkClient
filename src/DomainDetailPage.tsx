@@ -11,6 +11,7 @@ import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticated
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import InspectorPanel from './components/InspectorPanel';
 import { InspectorSessionProvider } from './components/InspectorSession';
+import { VisualizationSettingsNotice, VisualizationSettingsProvider } from './components/VisualizationSettings';
 
 
 interface DomainDetailPageProps {}
@@ -114,32 +115,35 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
     return <WorkspaceShell user={user} activeDomain={domain}>
-        <div className="dw-operations">
-            <header className="dw-operations-header">
-                <h1>{domain.name}</h1>
-                <div className="dw-toolbar">
-                    <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
-                    <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
-                    <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
-                    <Badge bg="secondary" title="Parameter commands unavailable until M2">Observation only</Badge>
-                    {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
+        <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
+            <div className="dw-operations">
+                <header className="dw-operations-header">
+                    <h1>{domain.name}</h1>
+                    <div className="dw-toolbar">
+                        <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
+                        <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
+                        <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
+                        <Badge bg="secondary" title="Parameter commands unavailable until M2">Observation only</Badge>
+                        {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
+                    </div>
+                </header>
+                {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
+                <VisualizationSettingsNotice />
+                <div className="dw-operation-panels">
+                    <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={droneLinkState.state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
+                        <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
+                            <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
+                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+                            </Panel>
+                            <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
+                            <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
+                                <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
+                            </Panel>
+                        </PanelGroup>
+                    </InspectorSessionProvider>
                 </div>
-            </header>
-            {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
-            <div className="dw-operation-panels">
-                <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={droneLinkState.state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
-                    <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
-                        <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                            <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
-                        </Panel>
-                        <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
-                        <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                            <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
-                        </Panel>
-                    </PanelGroup>
-                </InspectorSessionProvider>
             </div>
-        </div>
+        </VisualizationSettingsProvider>
     </WorkspaceShell>;
 };
 

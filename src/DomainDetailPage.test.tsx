@@ -14,6 +14,7 @@ function Harness() {
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 const sharedSnapshot = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { schemaVersion: 1, activationEpoch: 'm1-c-1', nodes: [], channels: [], startCursor: 'start', catchUpCursor: 'final' }, pagination: { nextCursor: null } }) });
 function observationReply(url: string): any {
+  if (url.includes('/visualization-settings?')) return { ok: true, status: 200, json: async () => ({ data: { items: [] }, pagination: { nextCursor: null } }) };
   if (url.startsWith('/api/domains?')) return { ok: true, status: 200, json: async () => ({ data: [], pagination: { nextCursor: null } }) };
   if (url.endsWith('/observations')) return sharedSnapshot();
   if (url.includes('/observations/updates?')) return { ok: true, status: 200, json: async () => ({ success: true, data: { events: [], cursor: 'final', caughtUp: true }, pagination: { nextCursor: null } }) };
@@ -110,4 +111,23 @@ test('a transient access refresh failure retains the Domain and shared observati
   offline = true;
   await act(async () => window.dispatchEvent(new Event('focus')));
   expect(screen.getByText('Alpha')).toBeInTheDocument(); expect(screen.getByText('Inspector')).toBeInTheDocument();
+});
+
+test('a settings load failure keeps observations visible and offers a retry', async () => {
+  let fail = true;
+  const reply = (data: unknown, status = 200) => ({ ok: status === 200, status, json: async () => data });
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url.includes('/visualization-settings?') && fail) return reply({ message: 'Unavailable' }, 503);
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (observationReply(url)) return observationReply(url);
+    if (url === '/api/user') return reply({ _id: 'user', displayName: 'Viewer' });
+    if (url === '/api/config') return reply({ data: { mapboxAccessToken: null } });
+    return reply({ data: { _id: 'a', name: 'Alpha', status: 'active', canEdit: false } });
+  });
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  expect(await screen.findByText('Could not refresh visualization settings.')).toBeVisible();
+  expect(screen.getByText('Inspector')).toBeVisible();
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: /^Retry$/ }));
+  await waitFor(() => expect(screen.queryByText('Could not refresh visualization settings.')).not.toBeInTheDocument());
 });

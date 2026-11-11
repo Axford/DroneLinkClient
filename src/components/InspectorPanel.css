@@ -45,6 +45,7 @@
 .channel-card .card-body { container-type: inline-size; }
 .dw-channel-summary-toolbar { display: flex; justify-content: space-between; align-items: start; gap: var(--dw-space-1); }
 .dw-channel-summary-toolbar > .dw-icon-button { flex-shrink: 0; }
+.dw-visualization-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 176px), 1fr)); gap: var(--dw-space-3); }
 .dw-channel-views { display: flex; flex-wrap: wrap; min-width: 0; gap: var(--dw-space-1); }
 .dw-channel-views button {
     border: 0;

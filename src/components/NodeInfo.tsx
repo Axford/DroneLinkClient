@@ -9,6 +9,7 @@ import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 import { moduleSummaries, spatialSummaries } from '../dronelink/moduleVisualizations';
 import { SummaryChips, SummaryDetails } from './NodeSummary';
+import { useVisualizationSettings } from './VisualizationSettings';
 
 interface NodeInfoProps {
     node: NodeState;
@@ -17,7 +18,8 @@ interface NodeInfoProps {
 const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     const [details, setDetails] = useState(false);
     const [currentTime, setCurrentTime] = useState(Date.now());
-    const summaries = [...moduleSummaries(node), ...spatialSummaries(node)];
+    const settings = useVisualizationSettings();
+    const summaries = [...moduleSummaries(node, settings?.get), ...spatialSummaries(node)];
     
     const channelCount = Object.keys(node.channels).length;
     const parameterCount = Object.values(node.channels).reduce(
