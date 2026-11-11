@@ -9,6 +9,7 @@ import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeSelector from './NodeSelector';
 import NodeInfo from './NodeInfo';
 import ChannelList from './ChannelList';
+import { DomainCommands } from '../commands/CommandControls';
 import './InspectorPanel.css';
 
 interface InspectorPanelProps {
@@ -38,7 +39,10 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ domainId, droneLinkStat
         <div className="inspector-panel text-white">
             <header className="inspector-header">
                 <h2>Inspector</h2>
-                <IconButton label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+                <div className="dw-row-actions">
+                    <DomainCommands node={selectedNode?.id} />
+                    <IconButton label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+                </div>
             </header>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
                 <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { InfoCircle } from 'react-bootstrap-icons';
 import { ParameterState } from '../dronelink/DroneLinkState';
 import { receiptLabel } from '../dronelink/observedPositions';
+import { ParameterCommands } from '../commands/CommandControls';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
@@ -22,8 +23,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
       </SurfacePanel><SurfacePanel title="Provenance">
       {parameter.timestamp && <p>Value last changed {new Date(parameter.timestamp).toLocaleString()}</p>}
       {parameter.nameLastHeard && <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource}</p>}
-      <p className="dw-meta">Observation only · Parameter commands unavailable until M2.</p>
       </SurfacePanel>
+      {details && <ParameterCommands target={{ nodeAddress: nodeId, channel: channelId, param: parameterId }} observation={parameter.writeObservation} />}
     </SettingsDialog>
   </div>;
 }

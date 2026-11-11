@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Badge, Row, Col } from 'react-bootstrap';
 import { Wifi, WifiOff, Cpu, Hash, InfoCircle } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
+import { commandRequest, root, useCommandScope } from '../commands/session';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import MapBindings from './MapBindings';
@@ -14,6 +15,21 @@ interface NodeInfoProps {
 
 const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     const [details, setDetails] = useState(false);
+    const scope = useCommandScope();
+    const [transport, setTransport] = useState<'http'>();
+    const domainId = scope?.domainId;
+    const droneId = node.droneId;
+    useEffect(() => {
+        setTransport(undefined);
+        if (!details || !domainId || !droneId) return;
+        const controller = new AbortController();
+        void commandRequest<{ data: { drones: Array<{ _id: string; activeCommandTransport?: 'http' }> } }>(
+            root(domainId) + '/identities', { signal: controller.signal }
+        ).then(({ data }) => {
+            if (!controller.signal.aborted) setTransport(data.drones.find(drone => drone._id === droneId)?.activeCommandTransport);
+        }).catch(() => {});
+        return () => controller.abort();
+    }, [details, domainId, droneId]);
     const [currentTime, setCurrentTime] = useState(Date.now());
     
     const channelCount = Object.keys(node.channels).length;
@@ -53,6 +69,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
             <div className="dw-item-row"><div className="dw-toolbar dw-item-content"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge></div><div className="dw-row-actions"><IconButton label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /></div></div>
             <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
             <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>
+                {transport === 'http' && <p className="dw-meta">Command transport: HTTP</p>}
         <Card className="bg-dark border-secondary">
             <Card.Header className="py-2 bg-dark border-secondary">
                 <div className="d-flex justify-content-between align-items-center">

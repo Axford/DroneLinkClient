@@ -1,4 +1,5 @@
 import { encodeLinkPacket, ProtocolValidationError, PacketBytes } from '@dronelink/protocol';
+import { WriteObservation } from '../commands/model';
 import { CloudObservations, ObservationView } from './CloudObservations';
 /**
  * DroneLink State Management - React/TypeScript Port
@@ -15,6 +16,7 @@ export interface ParameterState {
   numValues: number;
   values: number[] | string[];
   writable: boolean;
+  writeObservation?: WriteObservation;
   param: number;
   name?: string;
   timestamp?: number;
@@ -623,6 +625,10 @@ export class DroneLinkState {
           else {
             parameter.msgType = type; parameter.bytesPerValue = msg.bytesPerValue(); parameter.numValues = msg.numValues();
             parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
+            if (facet.writable === true && type <= DRONE_LINK_MSG_TYPE_CHAR && view.activationEpoch) {
+              parameter.writeObservation = { bytes: payload, expected: { observationEpoch: view.activationEpoch,
+                nodeGeneration: row.generation, msgType: type, payloadBytes: payload.length, writable: true } };
+            }
             parameter.lastHeard = Date.parse(facet.lastReceivedAt); parameter.timestamp = Date.parse(facet.valueLastChangedAt!);
             parameter.source = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP';
             if (Number(id) === DRONE_MODULE_PARAM_TYPE && type <= DRONE_LINK_MSG_TYPE_CHAR) channel.type = parameter.values[0];

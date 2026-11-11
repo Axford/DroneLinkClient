@@ -8,17 +8,18 @@ export const affectsDomain = (event: Event, domainId: string) => {
 export const accessEvent = 'dronelink:access-changed';
 export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
     const headers = new Headers(options.headers);
-    if (!['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase())) {
+    const method = (options.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
         const session = await fetch('/api/session', { credentials: 'include', signal: options.signal });
         if (!session.ok) {
-            if (!options.signal?.aborted) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: session.status, url } }));
+            if (!options.signal?.aborted) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: session.status, url, method } }));
             throw new ApiError(session.status, 'unauthenticated', 'Sign in again to continue.');
         }
         headers.set('X-CSRF-Token', (await session.json()).data.csrfToken);
         headers.set('Content-Type', 'application/json');
     }
     const response = await fetch(url, { ...options, credentials: 'include', headers });
-    if (!options.signal?.aborted && [401, 403].includes(response.status)) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: response.status, url } }));
+    if (!options.signal?.aborted && [401, 403].includes(response.status)) window.dispatchEvent(new CustomEvent(accessEvent, { detail: { status: response.status, url, method } }));
     return response;
 };
 export const authenticatedFetchJson = async (url: string, options: RequestInit = {}): Promise<any> => {

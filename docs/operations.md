@@ -160,3 +160,11 @@ Home tabs now directly join their content panel with an accent-selected tab. Mem
 ## Grid and padding verification — 2026-11-10
 
 The shared 4px grid now governs layout spacing, default gutters, panels/cards/dialog bodies, field/button padding, icon dimensions and map controls. Body typography remains 14px with a 20px line height. Framework utility values resolve to the same scale; no independent rem-based spacing scale is used on the current surfaces. Browser acceptance checks actual computed 24px desktop / 12px narrow workspace padding, 16px content/card/dialog/panel padding, and 32px fields/close controls, aligned card heights/bottom actions, and prior responsive/modal/access/observation checks. See the central [grid acceptance ledger](../../DroneLinkDatastore/docs/planning/m1-contracts-and-telemetry.md#consistent-design-grid-and-padding--2026-11-10). No data, permission or managed deployment changes accompany this refinement.
+
+### M2-A command controls
+
+Open a parameter's details to query its value or name, or edit a writable observation. The editor captures the observation generation, type and size when opened. The Domain commands dialog provides numeric queries for the selected node, pending and history views, and HTTP command lifetime. Owners and Platform Admins can change the lifetime.
+
+A submission with an unknown outcome can be checked or retried with its original request. Recovery stays in memory for the signed-in user and Domain while the page application is running. A Viewer can check their existing submission and read history. The observed value continues to reflect actual publications and the command outcome shows when the polling node retrieved the request.
+
+Run the React, TypeScript, protocol and release checks. The hosted command browser fixture uses two Chrome contexts, synthetic accounts and an owned Firestore emulator. The shared M2 plan records the compatible Server and release evidence.
