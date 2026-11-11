@@ -8,7 +8,7 @@ export interface ObservationFacet {
 export interface ObservationNode { nodeAddress: number; generation: number; revision: number; resetAt: string | null; lastReceivedAt?: string | null; droneId?: string }
 export interface ObservationChannel { nodeAddress: number; generation: number; revision: number; channel: number; lastReceivedAt: string; params: Record<string, { value?: ObservationFacet; name?: ObservationFacet }> }
 export interface ObservationEvent { nodes: ObservationNode[]; channels: ObservationChannel[] }
-export interface ObservationView { nodes: ObservationNode[]; channels: ObservationChannel[] }
+export interface ObservationView { nodes: ObservationNode[]; channels: ObservationChannel[]; activationEpoch?: string }
 interface SnapshotData extends ObservationView { schemaVersion: number; activationEpoch: string; startCursor: string; catchUpCursor: string | null }
 interface UpdateData { events: ObservationEvent[]; cursor: string; caughtUp: boolean }
 interface Page<T> { data: T; pagination: { nextCursor: string | null } }
@@ -24,6 +24,7 @@ export class CloudObservations {
   private timer?: ReturnType<typeof setTimeout>;
   private domain?: string;
   private cursor?: string;
+  private activationEpoch?: string;
   private live = false;
   private lastDiagnostics = 0;
   private diagnosticRequest?: Promise<void>;
@@ -31,7 +32,7 @@ export class CloudObservations {
   failedWrites = 0;
 
   constructor(private changed: (view: ObservationView) => void) {}
-  private publish() { this.changed({ nodes: Array.from(this.nodes.values()), channels: Array.from(this.channels.values()) }); }
+  private publish() { this.changed({ nodes: Array.from(this.nodes.values()), channels: Array.from(this.channels.values()), activationEpoch: this.activationEpoch }); }
   private apply(event: ObservationEvent) {
     for (const row of event.nodes) {
       const old = this.nodes.get(row.nodeAddress);
@@ -74,7 +75,7 @@ export class CloudObservations {
   }
   async load(domain: string, live = true, resynchronising = false): Promise<void> {
     this.stop(); const generation = this.generation; this.domain = domain; this.live = live;
-    this.nodes.clear(); this.channels.clear(); this.failedWrites = 0; this.lastDiagnostics = 0;
+    this.nodes.clear(); this.channels.clear(); this.activationEpoch = undefined; this.failedWrites = 0; this.lastDiagnostics = 0;
     this.status = resynchronising ? 'resynchronising' : 'loading'; this.publish();
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -83,6 +84,7 @@ export class CloudObservations {
           const page: Page<SnapshotData> = await this.request<SnapshotData>(domain, `observations${pageCursor ? '?cursor=' + encodeURIComponent(pageCursor) : ''}`);
           if (generation !== this.generation) return;
           if (page.data.schemaVersion !== 1 || page.data.activationEpoch !== 'm1-c-1') throw new ApiError(426, 'client-refresh-required', 'Refresh the application: the shared observation contract differs.');
+          this.activationEpoch = page.data.activationEpoch;
           this.apply(page.data); if (!start) start = page.data.startCursor;
           through = page.data.catchUpCursor || ''; pageCursor = page.pagination.nextCursor;
         } while (pageCursor);

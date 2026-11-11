@@ -198,3 +198,11 @@ NMEA leads with its observed heading and compass, with position, satellite count
 On an active Domain, Admins, Owners and Editors can open the gear on an INA219 channel card. Enter red and amber thresholds in volts, with red lower than amber, then save. The card and the overlay chip use the same thresholds. Clear thresholds to restore neutral styling. If another editor saved first, reload the saved values in the dialog and review them before retrying.
 
 Viewers and archived Domains see the saved colours. Settings are retained across observation reset and used when the channel reports INA219 again. Reload the page or return focus to the workspace to pick up another operator's changes. Saving only changes the web display.
+
+### M2-A command controls
+
+Open a parameter's details to query its value or name, or edit a writable observation. The editor captures the observation generation, type and size when opened. The Domain commands dialog provides numeric queries for the selected node, pending and history views, and HTTP command lifetime. Owners and Platform Admins can change the lifetime.
+
+A submission with an unknown outcome can be checked or retried with its original request. Recovery stays in memory for the signed-in user and Domain while the page application is running. A Viewer can check their existing submission and read history. The observed value continues to reflect actual publications and the command outcome shows when the polling node retrieved the request.
+
+Run the React, TypeScript, protocol and release checks. The hosted command browser fixture uses two Chrome contexts, synthetic accounts and an owned Firestore emulator. The shared M2 plan records the compatible Server and release evidence.

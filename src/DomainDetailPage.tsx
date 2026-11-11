@@ -9,6 +9,7 @@ import ObservedMap from './components/ObservedMap';
 import { Domain, User } from './App';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
+import { CommandScope } from './commands/session';
 import InspectorPanel from './components/InspectorPanel';
 import { InspectorSessionProvider } from './components/InspectorSession';
 import { VisualizationSettingsNotice, VisualizationSettingsProvider } from './components/VisualizationSettings';
@@ -106,7 +107,21 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     useEffect(() => {
         let active = true;
         const refresh = () => { void refreshDomain().catch(error => { if (active && error instanceof ApiError && [401, 403, 404].includes(error.status)) { stopStreaming(); reset(); setSelectedNodeId(null); setDomain(null); setError(error.message); } }); };
-        const accessChanged = (event: Event) => { if (!domainId || !affectsDomain(event, domainId)) return; const status = (event as CustomEvent).detail?.status; if (status === 401 || status === 403) { refreshGeneration.current++; stopStreaming(); reset(); setSelectedNodeId(null); setDomain(null); setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.'); } else refresh(); };
+        const accessChanged = (event: Event) => {
+            if (!domainId || !affectsDomain(event, domainId)) return;
+            const { status, url, method } = (event as CustomEvent).detail || {};
+            const commandMutation = typeof url === 'string' && /\/command(?:s|-(?:submissions|settings))(?:\/|$)/.test(url) &&
+                ['POST', 'PATCH'].includes(method);
+            if (status === 403 && commandMutation) {
+                setDomain(previous => previous && { ...previous, canEdit: false, canManageMembers: false });
+                refresh();
+                return;
+            }
+            if (status === 401 || status === 403) {
+                refreshGeneration.current++; stopStreaming(); reset(); setSelectedNodeId(null); setDomain(null);
+                setError(status === 401 ? 'Sign in again to continue.' : 'Domain access denied.');
+            } else refresh();
+        };
         const timer = setInterval(refresh, 15000); window.addEventListener('focus', refresh); window.addEventListener(accessEvent, accessChanged);
         return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
     }, [domainId, refreshDomain, stopStreaming, reset]);
@@ -114,7 +129,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     if (loading || (domain !== null && domain._id !== domainId)) return <PageFeedback loading message="Loading observations…" />;
     if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
-    return <WorkspaceShell user={user} activeDomain={domain}>
+    return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={{
+        userId: user._id, domainId: domain._id, canSubmit: domain.status === 'active' && domain.canEdit,
+        canSettings: domain.status === 'active' && domain.canManageMembers
+    }}><WorkspaceShell user={user} activeDomain={domain}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
             <div className="dw-operations">
                 <header className="dw-operations-header">
@@ -123,7 +141,6 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                         <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
                         <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
                         <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
-                        <Badge bg="secondary" title="Parameter commands unavailable until M2">Observation only</Badge>
                         {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
                     </div>
                 </header>
@@ -144,7 +161,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 </div>
             </div>
         </VisualizationSettingsProvider>
-    </WorkspaceShell>;
+    </WorkspaceShell></CommandScope.Provider>;
 };
 
 export default DomainDetailPage;

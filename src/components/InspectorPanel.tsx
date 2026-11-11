@@ -10,6 +10,7 @@ import NodeInfo from './NodeInfo';
 import { ObservationNamesContext } from './parameterPresentation';
 import ChannelList from './ChannelList';
 import { useInspectorFocus } from './InspectorSession';
+import { DomainCommands } from '../commands/CommandControls';
 import './InspectorPanel.css';
 
 interface InspectorPanelProps {
@@ -38,7 +39,10 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
         <div {...focusTracking} className="inspector-panel text-white">
             <header className="inspector-header">
                 <h2>Inspector</h2>
-                <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+                <div className="dw-row-actions">
+                    <DomainCommands node={selectedNode?.id} />
+                    <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+                </div>
             </header>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
                 <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>

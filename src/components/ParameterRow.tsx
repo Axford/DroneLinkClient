@@ -3,6 +3,7 @@ import { InfoCircle, Lock, Unlock } from 'react-bootstrap-icons';
 import { ParameterState } from '../dronelink/DroneLinkState';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { ObservationNamesContext, presentParameter } from './parameterPresentation';
+import { ParameterCommands } from '../commands/CommandControls';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
@@ -45,8 +46,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
                 {receivedAt && parameter.timestamp ? <p>Value last changed {new Date(parameter.timestamp).toLocaleString()}</p> : null}
                 {parameter.nameLastHeard ? <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource || 'Unknown source'}</p> : null}
                 {parameter.unavailable?.name && <p>Name unavailable: {parameter.unavailable.name}</p>}
-                <p className="dw-meta">Observation only · Parameter commands unavailable until M2.</p>
             </SurfacePanel>
+            {details && <ParameterCommands target={{ nodeAddress: nodeId, channel: channelId, param: parameterId }} observation={parameter.writeObservation} />}
         </SettingsDialog>
     </article>;
 }
