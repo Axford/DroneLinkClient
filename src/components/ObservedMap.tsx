@@ -5,6 +5,7 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import NodeSelector from './NodeSelector';
+import MapContextMenu from './MapContextMenu';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { observedPositions, receiptLabel } from '../dronelink/observedPositions';
@@ -21,6 +22,7 @@ export interface ObservedMapProps {
 }
 
 export default function ObservedMap({ token, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
+  const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
@@ -28,6 +30,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [cameraRevision, setCameraRevision] = useState(0);
   const [now, setNow] = useState(Date.now());
   const positions = React.useMemo(() => observedPositions(state), [state]);
 
@@ -56,6 +59,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         resizeObserver.observe(container.current);
       }
       current.on('error', event => { console.error('Map rendering failed:', event.error); setMapError(true); });
+      current.on('movestart', () => setCameraRevision(revision => revision + 1));
       current.on('moveend', () => {
         if (viewState) { const center = current!.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current!.getZoom() }; }
         clearTimeout(saveTimer);
@@ -86,6 +90,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       let entry = markers.current.get(position.nodeId);
       if (!entry) {
         const button = document.createElement('button');
+        button.dataset.mapNode = String(position.nodeId);
         button.type = 'button'; button.setAttribute('role', 'button'); button.className = 'btn btn-primary btn-sm dw-map-marker';
         button.addEventListener('click', () => select.current(position.nodeId));
         entry = { button, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(map.current) };
@@ -114,7 +119,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     map.current.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 0 });
   };
 
-  return <div className="dw-map">
+  return <div className="dw-map" ref={pane}>
     <div ref={container} aria-label="Observed Drone map" className="dw-map-canvas" />
     <NodeSelector nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
       onLocate={locateNode} canLocate={canLocate} now={now} />
@@ -123,6 +128,8 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       {token && positions.length > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
       <IconButton label="Map details" icon={<InfoCircle />} onClick={() => setDetails(true)} />
     </div>
+    <MapContextMenu pane={pane} canvas={container} enabled={mapReady && !mapError} state={state} positions={positions}
+      cameraRevision={cameraRevision} unproject={point => map.current?.isMoving() ? undefined : map.current?.unproject(point)} now={now} />
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
       <p>Select a node or marker to inspect it. Locate centres the map on its last-known position. Observations remain available in the inspector when the map is unavailable.</p>

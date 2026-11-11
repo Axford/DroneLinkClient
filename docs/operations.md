@@ -206,3 +206,10 @@ Open a parameter's details to query its value or name, or edit a writable observ
 A submission with an unknown outcome can be checked or retried with its original request. Recovery stays in memory for the signed-in user and Domain while the page application is running. A Viewer can check their existing submission and read history. The observed value continues to reflect actual publications and the command outcome shows when the polling node retrieved the request.
 
 Run the React, TypeScript, protocol and release checks. The hosted command browser fixture uses two Chrome contexts, synthetic accounts and an owned Firestore emulator. The shared M2 plan records the compatible Server and release evidence.
+
+
+### Nav map context menus
+
+Right-click a point on the map or long-press it on a touchscreen to open **Set target**. Choose the node and Nav channel to submit the clicked coordinates immediately. The warning icon indicates a configured subscription can overwrite the coordinates, or that the target source is unknown. A valid observed target and current Domain edit access are required.
+
+Right-click or long-press a marker to open **Follow** for that node. Choose a source under the intended Nav channel. Its receipt age is the age of the saved location reading. If the source binding changes or disappears, reopen the menu to choose the new address. A regular tap selects the node for inspection. The **Domain commands** dialog shows the resulting request and its delivery or recovery status. A matched M2-enabled Server is required for submission. See the [central verification record](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md#nav-map-context-menus).
