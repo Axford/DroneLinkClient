@@ -142,9 +142,13 @@ test('supported channels open to their own observed readings and expose the save
     expect(summary(4).getByText('3 sats').closest('[data-severity]')).toHaveAttribute('data-severity', 'danger');
     expect(summary(5).getByText('0.0°')).toBeVisible();
     expect(summary(5).getByText('— sats')).toBeVisible();
-    expect(summary(4).getAllByRole('term')[0]).toHaveTextContent('Heading');
+    const heading = summary(4).getAllByRole('term')[0];
+    expect(heading).toHaveTextContent('Heading');
+    expect(heading).toHaveClass('visually-hidden');
     for (const value of ['3.75 V', '7.50 V', '-0.25 A', '2.00 W']) expect(summary(6).getByText(value)).toBeVisible();
-    expect(summary(6).getAllByRole('term')[0]).toHaveTextContent('Cell voltage');
+    const voltage = summary(6).getAllByRole('term')[0];
+    expect(voltage).toHaveTextContent('Cell voltage');
+    expect(voltage).not.toHaveClass('visually-hidden');
     fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
     const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
     expect(details.getByText(/^7>4\.10 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
@@ -168,6 +172,7 @@ test('invalid readings stay unavailable and view choice follows the channel only
         const fields = screen.getByLabelText(`Observed readings for channel ${id}`);
         expect(within(fields).getAllByText(/Unavailable$/)).toHaveLength(count);
     }
+    expect(within(screen.getByLabelText('Observed readings for channel 4')).getByText('Heading')).not.toHaveClass('visually-hidden');
     expect(screen.queryByRole('group', { name: 'View for channel 8' })).not.toBeInTheDocument();
     expect(screen.getByText('Generic reading')).toBeVisible();
     fireEvent.click(controls().getByRole('button', { name: 'Parameters' }));

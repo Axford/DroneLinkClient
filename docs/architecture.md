@@ -105,7 +105,7 @@ The Inspector session remembers the Parameters choice by node, observation gener
 
 ### Legacy instrument palette
 
-The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available primary readings with neutral severity and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
+The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available readings and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints with separate cues. The NMEA compass and bearing are centred in their tile. Its term remains available to assistive technology and becomes visible when no bearing can be drawn. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
 
 ## Shared module visualization settings
 

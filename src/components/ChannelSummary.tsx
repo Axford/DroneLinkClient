@@ -6,13 +6,16 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 
 function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
+    const bearing = summary.bearing;
+    const hasCompass = bearing !== undefined;
     return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'}
-        data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}>
-        <dt className="dw-meta">{summary.label}</dt>
+        data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}
+        data-graphic={hasCompass || undefined}>
+        <dt className={hasCompass ? 'visually-hidden' : 'dw-meta'}>{summary.label}</dt>
         <dd>
-            {summary.bearing !== undefined && <span className="dw-heading-compass" aria-hidden="true">
+            {hasCompass && <span className="dw-heading-compass" aria-hidden="true">
                 <span>N</span><span>E</span><span>S</span><span>W</span>
-                <i style={{ transform: `rotate(${summary.bearing % 360}deg)` }} />
+                <i style={{ transform: `rotate(${bearing % 360}deg)` }} />
             </span>}
             {summary.severity === 'warning' && <ExclamationTriangle aria-hidden="true" />}
             {summary.severity === 'danger' && <ExclamationOctagon aria-hidden="true" />}
