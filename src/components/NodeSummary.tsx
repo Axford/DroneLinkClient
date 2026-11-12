@@ -12,8 +12,9 @@ interface SummaryProps {
 
 function observationDetails(nodeId: number, summary: ObservedSummary, now: number) {
     const { channelId, parameterId, reading, status } = summary;
+    const receipt = reading?.source === 'Local' ? 'Gateway receipt' : 'Server receipt';
     return [`${nodeId}>${channelId}.${parameterId}`, reading?.source || 'Unknown source',
-        `Server receipt: ${receiptLabel(reading?.lastHeard, now)}`, status].filter(Boolean).join(' · ');
+        `${receipt}: ${receiptLabel(reading?.lastHeard, now)}`, status].filter(Boolean).join(' · ');
 }
 
 export function SummaryChips({ nodeId, summaries, now }: SummaryProps) {
