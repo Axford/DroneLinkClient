@@ -11,6 +11,7 @@ export interface ObservedSummary {
     reading?: ParameterState;
     severity?: 'warning' | 'danger';
     status?: string;
+    unavailable?: boolean;
     binding?: MapBinding;
     bearing?: number;
     lines?: string[];
@@ -38,8 +39,9 @@ function numericValue(reading: ParameterState | undefined, types: number[]): num
 }
 
 function field(channel: ChannelState, parameterId: number, label: string, text?: string): ObservedSummary {
+    const unavailable = text === undefined;
     return { label, text: text ?? '—', channelId: channel.channel, parameterId, reading: channel.params[parameterId],
-        status: text === undefined ? 'Unavailable' : undefined };
+        status: unavailable ? 'Unavailable' : undefined, unavailable };
 }
 
 function satelliteCount(channel: ChannelState): ObservedSummary {

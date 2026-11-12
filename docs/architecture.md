@@ -103,6 +103,10 @@ Registry entries can contribute an Inspector summary independently of their over
 
 The Inspector session remembers the Parameters choice by node, observation generation, channel and observed module type. Supported channels default to Summary. Channels without a specialist view open directly to Parameters. A completed inventory that removes the channel or replaces its module type discards its choice. Breakpoint remounts keep the selected view and restore focus to matching controls.
 
+### Legacy instrument palette
+
+The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available primary readings with neutral severity and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
+
 ## Shared module visualization settings
 
 The authorized Domain workspace owns the settings snapshot, shared by the node overlay and Inspector. The Client refreshes it on entry and window focus and applies the committed response after saving. The INA219 registry entry defines the voltage fields and uses one interpretation for both surfaces. The Server validates writes and returns the next revision. Settings live outside observation and Inspector session state and survive observation reset. An older hosted API leaves settings controls unavailable and voltage displays neutral.

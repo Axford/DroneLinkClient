@@ -6,7 +6,8 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 
 function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
-    return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'} data-severity={summary.severity ?? 'neutral'}>
+    return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'}
+        data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}>
         <dt className="dw-meta">{summary.label}</dt>
         <dd>
             {summary.bearing !== undefined && <span className="dw-heading-compass" aria-hidden="true">
