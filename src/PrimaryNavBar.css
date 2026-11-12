@@ -87,13 +87,37 @@
 
 @media (orientation: portrait) {
   .primary-nav-bar {
+    --primary-nav-button-size: calc(var(--dw-grid) * 11);
     flex-direction: row;
+    align-items: center;
     width: 100%;
-    min-height: var(--dw-header-height);
   }
 
+  .primary-nav-header,
+  .primary-nav-links,
+  .primary-nav-account { padding: var(--dw-space-1) var(--dw-space-2); }
+
+  .primary-nav-header { min-height: 0; }
   .primary-nav-links { flex-direction: row; min-width: 0; }
-  .primary-nav-links .primary-nav-link { flex: none; }
-  .primary-nav-account { margin-block-start: 0; margin-inline-start: auto; }
+  .primary-nav-header .dw-icon-button,
+  .primary-nav-links .primary-nav-link,
+  .primary-nav-profile {
+    flex: none;
+    width: var(--primary-nav-button-size);
+    height: var(--primary-nav-button-size);
+  }
+
+  .primary-nav-account {
+    margin-block-start: 0;
+    margin-inline-start: auto;
+    background: transparent;
+  }
+
+  .primary-nav-account .primary-nav-profile {
+    --bs-btn-bg: var(--dw-color-raised);
+    padding: 0;
+  }
+
+  .primary-nav-profile img { object-fit: cover; }
   .primary-nav-popup { max-width: calc(100vw - var(--dw-space-4)); }
 }
