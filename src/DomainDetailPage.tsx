@@ -12,6 +12,8 @@ import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import { CommandScope } from './commands/session';
 import InspectorPanel from './components/InspectorPanel';
 import { InspectorSessionProvider } from './components/InspectorSession';
+import { useConnectedWorkbench } from './workbench/connectedWorkbench';
+import { ConnectedLocalInspector, GatewayConnection, SourceChoice } from './workbench/ConnectedWorkbenchControls';
 import { VisualizationSettingsNotice, VisualizationSettingsProvider } from './components/VisualizationSettings';
 
 
@@ -32,6 +34,11 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
+    const workbench = useConnectedWorkbench(domain?.status === 'active' && domain._id === domainId && user ? domainId : undefined);
+    const currentLocal = useRef(workbench.usesLocal);
+    currentLocal.current = workbench.usesLocal;
+    const canCloudTarget = useCallback((node: number) => !currentLocal.current(node), []);
+
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
     const { loadSharedObservations, stopStreaming, reset } = droneLinkState;
@@ -129,9 +136,11 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     if (loading || (domain !== null && domain._id !== domainId)) return <PageFeedback loading message="Loading observations…" />;
     if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
+    const state = workbench.mixed(droneLinkState.state);
+    const local = selectedNodeId !== null && workbench.usesLocal(selectedNodeId);
     return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={{
         userId: user._id, domainId: domain._id, canSubmit: domain.status === 'active' && domain.canEdit,
-        canSettings: domain.status === 'active' && domain.canManageMembers
+        canSettings: domain.status === 'active' && domain.canManageMembers, canTarget: canCloudTarget
     }}><WorkspaceShell user={user} activeDomain={domain}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
             <div className="dw-operations">
@@ -145,16 +154,21 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     </div>
                 </header>
                 {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
+                {domain.status === 'active' && window.isSecureContext && <GatewayConnection workbench={workbench} />}
                 <VisualizationSettingsNotice />
                 <div className="dw-operation-panels">
-                    <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={droneLinkState.state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
+                    <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
                             <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={droneLinkState.state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
                             </Panel>
                             <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
                             <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                                <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
+                                {workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
+                                {local && selectedNodeId !== null
+                                    ? <ConnectedLocalInspector key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} workbench={workbench} state={state} canQuery={domain.canEdit} />
+                                    : <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={{ ...droneLinkState, state }} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />}
+
                             </Panel>
                         </PanelGroup>
                     </InspectorSessionProvider>

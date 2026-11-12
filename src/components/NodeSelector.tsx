@@ -29,18 +29,20 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
     const selectedLabel = selected ? `${selected.id} · ${selected.name || `Node ${selected.id}`}` : 'Choose a node';
 
     const items = <ul id="observed-node-list" className="dw-node-items">
-        {[...nodes].sort((a, b) => a.id - b.id).map(node => <li key={node.id} data-selected={node.id === selectedNodeId}>
+        {[...nodes].sort((a, b) => a.id - b.id).map(node => {
+            const receipt = node.interface === 'Local' ? 'Gateway receipt' : 'Server receipt';
+            return <li key={node.id} data-selected={node.id === selectedNodeId}>
                 <button type="button" className="dw-node-select" aria-pressed={node.id === selectedNodeId}
                     aria-label={`Inspect node ${node.id}: ${node.name || `Node ${node.id}`}`} aria-describedby={`node-receipt-${node.id}`}
                     onClick={() => { onNodeSelect(node.id); if (narrow) setExpanded(false); }}>
                     <strong className="dw-node-name" title={node.name ? `${node.id} · ${node.name}` : `Node ${node.id}`}>{node.name ? `${node.id} · ${node.name}` : `Node ${node.id}`}</strong>
-                    <span className="dw-node-age" aria-hidden="true" title={node.lastHeard ? `Server receipt: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}>{compactReceiptAge(node.lastHeard, now)}</span>
-                    <span id={`node-receipt-${node.id}`} className="visually-hidden">{node.lastHeard ? `Server receipt: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}</span>
+                    <span className="dw-node-age" aria-hidden="true" title={node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}>{compactReceiptAge(node.lastHeard, now)}</span>
+                    <span id={`node-receipt-${node.id}`} className="visually-hidden">{node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}</span>
                 </button>
                 <IconButton label={`Locate node ${node.id}`} icon={<GeoAlt />} disabled={!canLocate(node.id)}
                     onClick={() => { onLocate(node.id); if (narrow) setExpanded(false); }} />
             <SummaryChips nodeId={node.id} summaries={moduleSummaries(node, settings?.get)} now={now} />
-        </li>)}
+        </li>; })}
         {nodes.length === 0 && <li className="dw-meta dw-node-list-empty">No observed nodes</li>}
     </ul>;
     const toggle = <IconButton label={expanded ? 'Collapse node list' : 'Expand node list'} icon={expanded ? <ChevronUp /> : <ChevronDown />}

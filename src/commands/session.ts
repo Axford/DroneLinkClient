@@ -2,7 +2,7 @@ import { createContext, useContext, useSyncExternalStore } from 'react';
 import { ApiError, authenticatedFetch } from '../utils/api';
 import { Command, Intent } from './model';
 
-export interface Scope { domainId: string; userId: string; canSubmit: boolean; canSettings: boolean }
+export interface Scope { domainId: string; userId: string; canSubmit: boolean; canSettings: boolean; canTarget?: (node: number) => boolean }
 export const CommandScope = createContext<Scope | null>(null);
 export const useCommandScope = () => useContext(CommandScope);
 export const root = (domainId: string) => '/api/domains/' + encodeURIComponent(domainId);
@@ -82,6 +82,7 @@ async function send(scope: Scope, attempt: Attempt, recovering: boolean) {
 }
 export async function submit(scope: Scope, intent: Intent) {
   if (!scope.canSubmit) throw new Error('Command submission requires current edit access.');
+  if (scope.canTarget?.(intent.target.nodeAddress) === false) throw new Error('The selected node is using the local gateway.');
   const prior = current(scope);
   if (prior.attempt && prior.attempt.status !== 'rejected') throw new Error('Resolve the current submission first.');
   let reservation = prior.attempt?.reservation;
@@ -95,6 +96,10 @@ export async function submit(scope: Scope, intent: Intent) {
       update(scope, { last: prior.last });
       throw error;
     }
+  }
+  if (scope.canTarget?.(intent.target.nodeAddress) === false) {
+    update(scope, { last: prior.last });
+    throw new Error('The selected node is using the local gateway.');
   }
   return send(scope, { status: 'sending', reservation, request: { ...intent, submissionId: reservation.submissionId } }, false);
 }

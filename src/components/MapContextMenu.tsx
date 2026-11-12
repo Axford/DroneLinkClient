@@ -138,7 +138,10 @@ export default function MapContextMenu({ pane, canvas, enabled, state, positions
   const menu = useRef<HTMLDivElement>(null);
   const context = open?.context;
   const observations = useMemo(() => ({ nodes: state, positions }), [state, positions]);
-  const actions = useMemo(() => allowed && context ? mapContextActions(context, observations) : [], [allowed, context, observations]);
+  const cloudActions = React.useCallback((mapContext: MapContext) => mapContextActions(mapContext, observations).map(group => ({
+    ...group, entries: group.entries.filter(entry => scope?.canTarget?.(entry.intent.target.nodeAddress) !== false),
+  })), [observations, scope?.canTarget]);
+  const actions = useMemo(() => allowed && context ? cloudActions(context) : [], [allowed, context, cloudActions]);
   const groups = actions.map(group => ({ ...group, entries: group.entries.filter(entry => open?.keys.has(entry.key)) }))
     .filter(group => group.entries.length);
 
@@ -178,7 +181,7 @@ export default function MapContextMenu({ pane, canvas, enabled, state, positions
       if (!coordinate) return false;
       context = { kind: 'background', longitude: coordinate.lng, latitude: coordinate.lat };
     }
-    const keys = new Set(mapContextActions(context, observations).flatMap(group => group.entries.map(entry => entry.key)));
+    const keys = new Set(cloudActions(context).flatMap(group => group.entries.map(entry => entry.key)));
     if (!keys.size) return false;
     setFeedback('');
     current.current = { context, point, keys };

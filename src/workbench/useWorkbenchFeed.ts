@@ -82,18 +82,27 @@ function readInterface(value: unknown): InterfaceStatus | undefined {
     }
 }
 
-export function useWorkbenchFeed(): Feed {
-    const [feed, setFeed] = useState<Feed>({ status: 'connecting', routes: {}, paths: { wifi: {}, serial: {} },
-        observations: { wifi: {}, serial: {} }, interfaces: {}, diagnostics: [] });
+export interface WorkbenchStream extends EventTarget {
+    onerror: (() => void) | null;
+    close(): void;
+}
+const standalone = () => new EventSource('/api/workbench/v1/events?diagnostics=1') as unknown as WorkbenchStream;
+const emptyFeed: Feed = { status: 'connecting', routes: {}, paths: { wifi: {}, serial: {} },
+        observations: { wifi: {}, serial: {} }, interfaces: {}, diagnostics: [] };
+
+export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalone): Feed {
+    const [feed, setFeed] = useState<Feed>(emptyFeed);
 
     useEffect(() => {
+        setFeed(emptyFeed);
+        if (!open) return;
         const observations = { wifi: new DroneLinkState({ debug: false }), serial: new DroneLinkState({ debug: false }) };
         let routes: Routes = {};
         let paths: Feed['paths'] = { wifi: {}, serial: {} };
         let interfaces: Feed['interfaces'] = {};
         let diagnostics: Diagnostic[] = [];
         let diagnosticId = 0;
-        let currentStream: EventSource | undefined;
+        let currentStream: WorkbenchStream | undefined;
         let retry: ReturnType<typeof setTimeout> | undefined;
 
         const publish = (status: Feed['status']) => setFeed({ status, routes, paths, interfaces, diagnostics,
@@ -107,15 +116,15 @@ export function useWorkbenchFeed(): Feed {
         }
 
         function connect() {
-            const stream = new EventSource('/api/workbench/v1/events?diagnostics=1');
+            const stream = open!();
             currentStream = stream;
             let receivedSnapshot = false;
             let enhanced = false;
             const on = (type: string, handle: (payload: Record<string, unknown>) => void) => {
-                stream.addEventListener(type, (event: MessageEvent<string>) => {
+                stream.addEventListener(type, event => {
                     if (currentStream !== stream) return;
                     try {
-                        const payload: unknown = JSON.parse(event.data);
+                        const payload: unknown = JSON.parse((event as MessageEvent<string>).data);
                         if (payload && typeof payload === 'object') handle(payload as Record<string, unknown>);
                     } catch (error) {
                         if (!(error instanceof SyntaxError || error instanceof DOMException || error instanceof ProtocolValidationError)) throw error;
@@ -202,7 +211,7 @@ export function useWorkbenchFeed(): Feed {
             observations.wifi.destroy();
             observations.serial.destroy();
         };
-    }, []);
+    }, [open]);
 
-    return feed;
+    return open ? feed : emptyFeed;
 }
