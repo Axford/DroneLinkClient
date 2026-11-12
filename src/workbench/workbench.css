@@ -39,3 +39,17 @@
     overflow: auto;
     overflow-wrap: anywhere;
 }
+
+.dw-workbench-files {
+    margin-top: 24px;
+}
+
+.dw-workbench-file-list,
+.dw-workbench-file-actions {
+    margin-top: 12px;
+}
+
+.dw-workbench-files textarea {
+    margin-top: 4px;
+    resize: vertical;
+}

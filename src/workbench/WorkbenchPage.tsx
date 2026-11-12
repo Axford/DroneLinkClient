@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import NodeFiles from './NodeFiles';
 import ChannelList from '../components/ChannelList';
 import { InspectorSessionProvider } from '../components/InspectorSession';
 import { ObservationNamesContext } from '../components/parameterPresentation';
@@ -23,6 +24,8 @@ function localTime(timestamp: number) {
 export default function WorkbenchPage() {
     const { status, routes, paths, observations, interfaces, diagnostics } = useWorkbenchFeed();
     const [selectedNode, selectNode] = useState<number>();
+    const [files, setFiles] = useState({ busy: false, dirty: false });
+    const reportFiles = useCallback((busy: boolean, dirty: boolean) => setFiles({ busy, dirty }), []);
     const [choices, setChoices] = useState<Record<string, Selection>>({});
     const connected = status === 'connected';
     const gateway = transports.map(transport => interfaces[transport]?.address ?? '-').join('/');
@@ -57,7 +60,10 @@ export default function WorkbenchPage() {
                         const route = routes[id];
                         const name = (route && observations[route.transport][id]?.name) || `Node ${id}`;
                         return <li key={id}>
-                            <button type="button" className="btn btn-outline-secondary text-start mb-2 w-100" aria-pressed={id === selectedNode} onClick={() => selectNode(id)}>
+                            <button type="button" className="btn btn-outline-secondary text-start mb-2 w-100" aria-pressed={id === selectedNode} disabled={files.busy && id !== selectedNode} onClick={() => {
+                                if (id === selectedNode || (files.dirty && !window.confirm('Discard the unsaved node file draft?'))) return;
+                                selectNode(id);
+                            }}>
                                 {name} · {connected ? route?.reachable ? 'Reachable' : 'Route expired' : 'Gateway disconnected'}
                                 <span className="d-block dw-meta">Address {id}{route && ` · Next hop ${route.nextHop}`}</span>
                             </button>
@@ -69,7 +75,7 @@ export default function WorkbenchPage() {
                 <h2 id="workbench-inspector">Inspector</h2>
                 {selectedNode === undefined ? <p>Select a node to inspect its observations.</p> : <>
                     {showTransport && <label className="dw-workbench-transport">Transport
-                        <select className="form-select" value={choice} onChange={event => setChoice(event.target.value as Selection)}>
+                        <select className="form-select" value={choice} disabled={files.busy} onChange={event => setChoice(event.target.value as Selection)}>
                             <option value="auto">Auto</option>
                             {transports.map(transport => <option key={transport} value={transport} disabled={!interfaces[transport]}>{transportLabel[transport]}</option>)}
                         </select>
@@ -88,6 +94,8 @@ export default function WorkbenchPage() {
                 </>}
             </section>
         </div>
+        {selectedNode !== undefined && <NodeFiles key={selectedNode} node={selectedNode} transport={active}
+            available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} activity={reportFiles} />}
         {showTransport && <section aria-labelledby="workbench-network" className="dw-workbench-network">
             <h2 id="workbench-network">Network</h2>
             <div className="dw-workbench-interfaces">

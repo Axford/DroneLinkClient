@@ -13,6 +13,7 @@ interface Route {
     reachable: boolean;
     transport: Transport;
     metric?: number;
+    uptimeMs?: number;
 }
 
 interface InterfaceStatus {
@@ -63,9 +64,9 @@ function isTransport(value: unknown): value is Transport {
 
 function readRoute(value: unknown, reachable: unknown, enhanced: boolean): Route | undefined {
     if (!value || typeof value !== 'object') return;
-    const { node, nextHop, lastHeardAtMs, transport = enhanced ? undefined : 'wifi', metric } = value as Record<string, unknown>;
+    const { node, nextHop, lastHeardAtMs, transport = enhanced ? undefined : 'wifi', metric, uptimeMs } = value as Record<string, unknown>;
     if (isAddress(node) && isAddress(nextHop) && isTimestamp(lastHeardAtMs) && typeof reachable === 'boolean' && isTransport(transport)) {
-        return { node, nextHop, lastHeardAtMs, reachable, transport, metric: isCounter(metric) ? metric : undefined };
+        return { node, nextHop, lastHeardAtMs, reachable, transport, metric: isCounter(metric) ? metric : undefined, uptimeMs: isCounter(uptimeMs) ? uptimeMs : undefined };
     }
 }
 
