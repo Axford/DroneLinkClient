@@ -6,6 +6,7 @@ import PageFeedback from './components/ui/PageFeedback';
 import HomePage from './HomePage';
 import InvitePage from './InvitePage';
 import DomainDetailPage from './DomainDetailPage';
+import WorkbenchPage from './workbench/WorkbenchPage';
 import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
 import { accessEvent, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
@@ -134,6 +135,7 @@ function App() {
     <ToastProvider>
       <Router>
         <Routes>
+          <Route path="/workbench/" element={<WorkbenchPage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
           <Route path="/private/domain/:domainId" element={<DomainDetailPage />} />
           <Route path="/*" element={<AppContent />} />

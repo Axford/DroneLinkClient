@@ -97,9 +97,8 @@ export class DroneLinkState {
   get snapshotWriteFailures() { return this.cloud.failedWrites; }
   resetNodeObservations(node: number) { return this.cloud.resetNode(node); }
 
-  constructor() {
-    // Initialize periodic tasks
-    this.startPeriodicTasks();
+  constructor({ debug = true } = {}) {
+    if (debug) this.startPeriodicTasks();
   }
 
   /**
@@ -158,9 +157,11 @@ export class DroneLinkState {
     return this.state;
   }
 
-  /**
-   * Get state for a specific node
-   */
+  discardNode(nodeId: number): void {
+    delete this.state[nodeId];
+  }
+
+  /** Get state for a specific node. */
   getNodeState(nodeId: number): NodeState | null {
     return this.state[nodeId] || null;
   }
@@ -195,14 +196,14 @@ export class DroneLinkState {
   /**
    * Handle incoming DroneLink message
    */
-  handleLinkMsg(msg: DroneLinkMsg, queryNames: boolean = true, interfaceName: string = 'socket'): void {
+  handleLinkMsg(msg: DroneLinkMsg, queryNames: boolean = true, interfaceName: string = 'socket', receivedAt = Date.now()): void {
     if (!this.liveMode) return;
     try { msg.encodeUnframed(); } catch (error) {
       if (!(error instanceof ProtocolValidationError)) throw error;
       this.rejectedMessages++; return;
     }
 
-    const now = Date.now();
+    const now = receivedAt;
     this.received++;
 
     // Trigger raw message event
@@ -403,6 +404,16 @@ export class DroneLinkState {
   private processValueMessage(msg: DroneLinkMsg, isNewParam: boolean, timestamp: number, interfaceName: string): void {
     const param = this.state[msg.node].channels[msg.channel].params[msg.param];
     
+    if (interfaceName === 'Local') {
+      if (msg.msgType === DRONE_LINK_MSG_TYPE_NAME) {
+        param.nameLastHeard = timestamp;
+        param.nameSource = interfaceName;
+      } else {
+        param.lastHeard = timestamp;
+        param.source = interfaceName;
+      }
+    }
+
     if (msg.msgType === DRONE_LINK_MSG_TYPE_NAME) {
       // Handle parameter name
       param.name = msg.payloadToString();
@@ -417,15 +428,16 @@ export class DroneLinkState {
       // Handle parameter value
       const newValues = msg.valueArray();
       const valuesChanged = isNewParam || !this.arraysEqual(param.values, newValues);
+      const metadataChanged = param.msgType !== msg.msgType || param.writable !== msg.writable;
       
-      if (valuesChanged) {
+      if (valuesChanged || (interfaceName === 'Local' && metadataChanged)) {
         // Update parameter state
         param.msgType = msg.msgType;
         param.bytesPerValue = msg.bytesPerValue();
         param.numValues = msg.numValues();
         param.values = newValues as number[] | string[];
         param.writable = msg.writable;
-        param.timestamp = msg.timestamp || timestamp;
+        if (valuesChanged) param.timestamp = msg.timestamp || timestamp;
 
         // Handle special parameter types
         this.handleSpecialParameters(msg, newValues);

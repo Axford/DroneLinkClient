@@ -33,7 +33,7 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
             </li>)}
         </ul> : <p className="dw-meta mb-0">Value unavailable</p>}
         {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
-        {receivedAt ? <div className="dw-meta dw-parameter-receipt" title={`Server receipt: ${receiptLabel(receivedAt)}`}>{parameter.source || 'Unknown source'} · <time dateTime={new Date(receivedAt).toISOString()}>{new Date(receivedAt).toLocaleTimeString()}</time></div> : null}
+        {receivedAt ? <div className="dw-meta dw-parameter-receipt" title={`${parameter.source === 'Local' ? 'Gateway' : 'Server'} receipt: ${receiptLabel(receivedAt)}`}>{parameter.source || 'Unknown source'} · <time dateTime={new Date(receivedAt).toISOString()}>{new Date(receivedAt).toLocaleTimeString()}</time></div> : null}
         <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
             <SurfacePanel title="Observation">
                 <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>
