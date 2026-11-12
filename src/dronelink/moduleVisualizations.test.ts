@@ -64,3 +64,17 @@ test.each([
     expect(renderer.inspector({ ...observed, params: { ...observed.params, [countsParameter]: invalidCount } }).columns[0])
         .toEqual({ label: 'Sent', count: undefined, rate: '12.4/s' });
 });
+
+test.each([[72, '-72 dBm'], [0, '0 dBm'], [101, '—'], [-1, '—'], [NaN, '—']])(
+    'RFM69 uses the same signed RSSI for the Inspector and node chip (%s)',
+    (value, text) => {
+        const observed = channel(4, 0, 'RFM69Telemetry');
+        observed.params[8] = { ...observed.params[15], param: 8, values: [value] };
+        const node: NodeState = { id: 7, lastHeard: 1000, channels: { 4: observed } };
+        const signal = moduleSummaries(node)[0];
+        const summary = channelVisualization(observed)?.inspector?.(observed);
+        expect(signal.text).toBe(text);
+        expect(signal.severity).toBeUndefined();
+        expect(summary && 'columns' in summary && summary.signal).toEqual(signal);
+    }
+);

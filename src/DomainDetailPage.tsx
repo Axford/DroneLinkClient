@@ -154,7 +154,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                             </Panel>
                             <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
                             <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                                <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
+                                <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={droneLinkState} liveDomain={domain.status === 'active'} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />
                             </Panel>
                         </PanelGroup>
                     </InspectorSessionProvider>

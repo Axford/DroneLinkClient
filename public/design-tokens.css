@@ -29,6 +29,7 @@
   /* Legacy module instruments */
   --dw-color-instrument-face: #343a40;
   --dw-color-instrument-reading: #88ff88;
+  --dw-color-instrument-trace: #ffff55;
   --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --dw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --dw-font-size-base: 14px;

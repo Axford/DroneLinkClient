@@ -1,0 +1,37 @@
+.dw-rssi-signal {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--dw-space-2);
+    margin: var(--dw-space-2) 0 0;
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+
+.dw-rssi-signal figcaption {
+    display: grid;
+    justify-items: center;
+    margin-inline: auto;
+}
+
+.dw-rssi-signal strong {
+    color: var(--dw-color-instrument-reading);
+    font-size: var(--dw-font-size-heading);
+    font-variant-numeric: tabular-nums;
+}
+
+.dw-rssi-signal [data-unavailable] { color: var(--dw-color-muted); }
+.dw-rssi-chart {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--dw-space-1);
+    flex: 1 1 210px;
+    min-width: 0;
+}
+.dw-rssi-axis { display: flex; flex-direction: column; justify-content: space-between; text-align: end; }
+.dw-rssi-chart svg { display: block; width: 100%; }
+.dw-rssi-time { grid-column: 2; display: flex; justify-content: space-between; }
+.dw-rssi-signal line { stroke: var(--dw-color-border); }
+.dw-rssi-signal circle { fill: var(--dw-color-instrument-trace); }
+.dw-rssi-signal polyline { fill: none; stroke: var(--dw-color-instrument-trace); stroke-width: 2; }

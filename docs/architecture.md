@@ -117,6 +117,12 @@ SerialTelemetry groups Sent, Received and Rejected into three equal columns when
 
 Windows keep at most 100 receipts from the last five minutes. A new receipt with the same value is still a sample. Reading the same snapshot again adds nothing. Invalid values with a known receipt mark a gap. Without a usable receipt the series clears. A snapshot can contribute its latest receipt once. The sampler preserves Server timestamps when the browser clock is behind. It can age on redraw and neither polls nor reconstructs packet history. Trace rendering may split at a caller-specified gap between receipts. Histogram bins and trace styling belong to their respective renderers.
 
+### RFM69 signal summary
+
+The firmware and legacy dispatcher identify the module as `RFM69Telemetry`. The specialist view combines packet counts and rates at parameters 9 and 10 with an independent RSSI reading at parameter 8. The firmware sends a magnitude from 0 to 100. The summary and node chip display its negative dBm value, with zero retained. Reading Details includes the RSSI source and receipt. Radio settings remain in the generic Parameters view.
+
+The signal trace uses the sampled window while the expanded Summary is visible on an active Domain with ready observations or a connected Workbench path. It plots receipt time and breaks across unavailable samples or gaps over 15 seconds. Switching node or path, leaving the Summary, losing the connection or resetting its observations clears the trace. Archived snapshots can display the last observed RSSI.
+
 ## Shared module visualization settings
 
 The authorized Domain workspace owns the settings snapshot, shared by the node overlay and Inspector. The Client refreshes it on entry and window focus and applies the committed response after saving. The INA219 registry entry defines the voltage fields and uses one interpretation for both surfaces. The Server validates writes and returns the next revision. Settings live outside observation and Inspector session state and survive observation reset. An older hosted API leaves settings controls unavailable and voltage displays neutral.

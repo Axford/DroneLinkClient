@@ -26,6 +26,7 @@ interface PacketTelemetrySummary {
     columns: { label: string; count?: string; rate?: string }[];
     details: ObservedSummary[];
     note?: string;
+    signal?: ObservedSummary;
 }
 
 interface PacketTelemetryDefinition {
@@ -140,7 +141,27 @@ export class PacketTelemetryRenderer {
     }
 }
 
+export function signedRssi(magnitude: number): number | undefined {
+    if (magnitude >= 0 && magnitude <= 100) return 0 - magnitude;
+}
+
+function rfm69Signal(channel: ChannelState): ObservedSummary {
+    const raw = numericValue(channel.params[8], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const rssi = raw === undefined ? undefined : signedRssi(raw);
+    return field(channel, 8, 'RSSI', rssi === undefined ? undefined : `${Math.round(rssi)} dBm`);
+}
+
+const rfm69Packets = new PacketTelemetryRenderer({ countsParameter: 9, ratesParameter: 10 });
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['RFM69Telemetry', {
+        overlay: rfm69Signal,
+        inspector(channel) {
+            const packets = rfm69Packets.inspector(channel);
+            const signal = rfm69Signal(channel);
+            return { ...packets, signal, details: [...packets.details, signal] };
+        }
+    }],
     ['SerialTelemetry', new PacketTelemetryRenderer({
         countsParameter: 9,
         ratesParameter: 10,

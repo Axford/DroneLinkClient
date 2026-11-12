@@ -4,6 +4,7 @@ import type { InspectorSummary, ObservedSummary } from '../dronelink/moduleVisua
 import { SummaryDetails } from './NodeSummary';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
+import Rfm69Signal from './Rfm69Signal';
 
 function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
     const bearing = summary.bearing;
@@ -36,16 +37,19 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
     </dd>;
 }
 
-export default function ChannelSummary({ channelId, summary }: { channelId: number; summary: InspectorSummary }) {
+export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
     if ('columns' in summary) {
-        return <dl className="dw-channel-summary" data-layout="columns" aria-label={label}>
-            {summary.columns.map(column => <div key={column.label} className="dw-summary-primary">
-                <dt className="dw-meta">{column.label}</dt>
-                <PacketReading label="Count" value={column.count} />
-                <PacketReading label="Rate in packets per second" value={column.rate} />
-            </div>)}
-        </dl>;
+        return <>
+            <dl className="dw-channel-summary" data-layout="columns" aria-label={label}>
+                {summary.columns.map(column => <div key={column.label} className="dw-summary-primary">
+                    <dt className="dw-meta">{column.label}</dt>
+                    <PacketReading label="Count" value={column.count} />
+                    <PacketReading label="Rate in packets per second" value={column.rate} />
+                </div>)}
+            </dl>
+            {summary.signal && <Rfm69Signal key={sampleScope} signal={summary.signal} scope={sampleScope} />}
+        </>;
     }
     const layout = summary.primary.length === 1 ? 'lead' : 'rows';
     return <dl className="dw-channel-summary" data-layout={layout} aria-label={label}>

@@ -6,7 +6,7 @@ import IconButton from './ui/IconButton';
 import ChannelCard from './ChannelCard';
 import { useChannelPresentation } from './InspectorSession';
 
-export default function ChannelList({ node }: { node: NodeState }) {
+export default function ChannelList({ node, sampleLive = false }: { node: NodeState; sampleLive?: boolean }) {
     const view = useChannelPresentation(node);
     const allExpanded = view.ids.every(id => !view.collapsed.includes(id));
     const [announcement, setAnnouncement] = useState('');
@@ -43,7 +43,7 @@ export default function ChannelList({ node }: { node: NodeState }) {
                             }} />;
                     })}
                 </div>;
-                return <ChannelCard key={id} nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration}
+                return <ChannelCard key={id} nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive}
                     expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
                     showParameters={!!view.parameters[id]} onShowParameters={show => view.setShowParameters(id, show)}
                     systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} />;
