@@ -138,9 +138,10 @@ export default function MapContextMenu({ pane, canvas, enabled, state, positions
   const menu = useRef<HTMLDivElement>(null);
   const context = open?.context;
   const observations = useMemo(() => ({ nodes: state, positions }), [state, positions]);
+  const canTarget = scope?.canTarget;
   const cloudActions = React.useCallback((mapContext: MapContext) => mapContextActions(mapContext, observations).map(group => ({
-    ...group, entries: group.entries.filter(entry => scope?.canTarget?.(entry.intent.target.nodeAddress) !== false),
-  })), [observations, scope?.canTarget]);
+    ...group, entries: group.entries.filter(entry => canTarget?.(entry.intent.target.nodeAddress) !== false),
+  })), [observations, canTarget]);
   const actions = useMemo(() => allowed && context ? cloudActions(context) : [], [allowed, context, cloudActions]);
   const groups = actions.map(group => ({ ...group, entries: group.entries.filter(entry => open?.keys.has(entry.key)) }))
     .filter(group => group.entries.length);
