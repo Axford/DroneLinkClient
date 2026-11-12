@@ -20,11 +20,19 @@ export interface ObservedSummary {
 export type InspectorSummary = {
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | {
+} | PacketTelemetrySummary;
+
+interface PacketTelemetrySummary {
     columns: { label: string; count?: string; rate?: string }[];
     details: ObservedSummary[];
-    note: string;
-};
+    note?: string;
+}
+
+interface PacketTelemetryDefinition {
+    countsParameter: number;
+    ratesParameter: number;
+    note?: string;
+}
 
 interface ModuleVisualization {
     overlay?: (channel: ChannelState, thresholds?: VoltageThresholds | null) => ObservedSummary;
@@ -100,7 +108,7 @@ function uptimeText(seconds: number | undefined): string | undefined {
     return [days && `${days}d`, hours && `${hours}h`, minutes && `${minutes}m`, `${seconds % 60}s`].filter(Boolean).join(' ');
 }
 
-function serialPacketValues(reading: ParameterState | undefined, type: number): number[] | undefined {
+function packetValues(reading: ParameterState | undefined, type: number): number[] | undefined {
     if (!hasReading(reading) || reading.msgType !== type || reading.numValues !== 3 || reading.values.length !== 3) return;
     const values = Array.from<number | string>(reading.values);
     const valid = (value: number | string): value is number =>
@@ -109,26 +117,35 @@ function serialPacketValues(reading: ParameterState | undefined, type: number): 
     if (values.every(valid)) return values;
 }
 
-function serialTelemetrySummary(channel: ChannelState): InspectorSummary {
-    const counts = serialPacketValues(channel.params[9], DRONE_LINK_MSG_TYPE_UINT32_T);
-    const rates = serialPacketValues(channel.params[10], DRONE_LINK_MSG_TYPE_FLOAT);
-    const columns = ['Sent', 'Received', 'Rejected'].map((label, index) => ({
-        label,
-        count: counts?.[index].toString(),
-        rate: rates ? `${rates[index].toFixed(1)}/s` : undefined
-    }));
-    return {
-        columns,
-        details: [
-            field(channel, 9, 'Packet counts', counts && columns.map(({ label, count }) => `${label} ${count}`).join(' · ')),
-            field(channel, 10, 'Packet rates', rates && columns.map(({ label, rate }) => `${label} ${rate}`).join(' · '))
-        ],
-        note: 'Received means complete serial RX handoffs before DroneLink CRC validation. Rejected means serial framing rejects.'
-    };
+export class PacketTelemetryRenderer {
+    constructor(private readonly definition: PacketTelemetryDefinition) {}
+
+    inspector(channel: ChannelState): PacketTelemetrySummary {
+        const { countsParameter, ratesParameter, note } = this.definition;
+        const counts = packetValues(channel.params[countsParameter], DRONE_LINK_MSG_TYPE_UINT32_T);
+        const rates = packetValues(channel.params[ratesParameter], DRONE_LINK_MSG_TYPE_FLOAT);
+        const columns = ['Sent', 'Received', 'Rejected'].map((label, index) => ({
+            label,
+            count: counts?.[index].toString(),
+            rate: rates ? `${rates[index].toFixed(1)}/s` : undefined
+        }));
+        return {
+            columns,
+            details: [
+                field(channel, countsParameter, 'Packet counts', counts && columns.map(({ label, count }) => `${label} ${count}`).join(' · ')),
+                field(channel, ratesParameter, 'Packet rates', rates && columns.map(({ label, rate }) => `${label} ${rate}`).join(' · '))
+            ],
+            note
+        };
+    }
 }
 
 const visualizations = new Map<string, ModuleVisualization>([
-    ['SerialTelemetry', { inspector: serialTelemetrySummary }],
+    ['SerialTelemetry', new PacketTelemetryRenderer({
+        countsParameter: 9,
+        ratesParameter: 10,
+        note: 'Received means complete serial RX handoffs before DroneLink CRC validation. Rejected means serial framing rejects.'
+    })],
     ['NMEA', {
         overlay: satelliteCount,
         inspector(channel) {

@@ -60,7 +60,7 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
-            {'note' in summary && <p className="dw-meta">{summary.note}</p>}
+            {'columns' in summary && summary.note && <p className="dw-meta">{summary.note}</p>}
             <SummaryDetails nodeId={nodeId} summaries={'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />
         </SettingsDialog>
     </>;

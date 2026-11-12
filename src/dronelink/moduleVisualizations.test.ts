@@ -1,6 +1,6 @@
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT } from './DroneLinkMsg';
-import type { ChannelState, NodeState } from './DroneLinkState';
-import { channelVisualization, moduleSummaries } from './moduleVisualizations';
+import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
+import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
+import { channelVisualization, moduleSummaries, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
 
 const channel = (id: number, volts: number, type = 'INA219'): ChannelState => ({
@@ -35,4 +35,32 @@ test('saved INA219 thresholds only apply when a matching module is observed agai
     expect(moduleSummaries(node, () => record)).toEqual([]);
     expect(moduleSummaries({ ...node, channels: { 6: channel(6, 3.2, 'NMEA') } }, () => record)[0].label).toBe('Satellites');
     expect(moduleSummaries({ ...node, channels: { 6: channel(6, 3.2) } }, () => record)[0].severity).toBe('danger');
+});
+
+test.each([
+    ['SerialTelemetry', 9, 10],
+    ['UDPTelemetry', 10, 11]
+])('%s packet mapping keeps the count and rate facets independent', (type, countsParameter, ratesParameter) => {
+    const renderer = new PacketTelemetryRenderer({ countsParameter, ratesParameter });
+    const counts: ParameterState = { param: countsParameter, msgType: DRONE_LINK_MSG_TYPE_UINT32_T, bytesPerValue: 4,
+        writable: false, numValues: 3, values: [4294967295, 2, 0], lastHeard: 700, source: 'Gateway 254' };
+    const rates = { ...counts, param: ratesParameter, msgType: DRONE_LINK_MSG_TYPE_FLOAT,
+        values: [12.4, 0, 2.5], lastHeard: 900, source: 'HTTP' };
+    const observed: ChannelState = { channel: 4, type, lastHeard: 900, params: { [countsParameter]: counts, [ratesParameter]: rates } };
+
+    expect(renderer.inspector(observed)).toMatchObject({
+        columns: [
+            { label: 'Sent', count: '4294967295', rate: '12.4/s' },
+            { label: 'Received', count: '2', rate: '0.0/s' },
+            { label: 'Rejected', count: '0', rate: '2.5/s' }
+        ],
+        details: [{ parameterId: countsParameter, reading: counts }, { parameterId: ratesParameter, reading: rates }]
+    });
+
+    const invalidRate = { ...rates, values: [12.4, NaN, 2.5] };
+    const invalidCount = { ...counts, msgType: DRONE_LINK_MSG_TYPE_FLOAT };
+    expect(renderer.inspector({ ...observed, params: { ...observed.params, [ratesParameter]: invalidRate } }).columns[0])
+        .toEqual({ label: 'Sent', count: '4294967295', rate: undefined });
+    expect(renderer.inspector({ ...observed, params: { ...observed.params, [countsParameter]: invalidCount } }).columns[0])
+        .toEqual({ label: 'Sent', count: undefined, rate: '12.4/s' });
 });
