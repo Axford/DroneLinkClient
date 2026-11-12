@@ -107,9 +107,9 @@ The Inspector session remembers the Parameters choice by node, observation gener
 
 The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available readings and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints with separate cues. The NMEA compass and bearing are centred in their tile. Its term remains available to assistive technology and becomes visible when no bearing can be drawn. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
 
-### SerialTelemetry summary
+### Packet telemetry summaries
 
-SerialTelemetry groups Sent, Received and Rejected into three equal columns when space allows. Counts and rates retain their own availability, source and receipt time. The reading-details dialog identifies complete RX handoffs before DroneLink CRC validation and serial framing rejects. The same read-only summary is available through the Domain workspace and standalone Workbench. The packet telemetry renderer owns the shared projection for these columns. Each module supplies its counter and rate parameter IDs and any transport-specific note.
+SerialTelemetry groups Sent, Received and Rejected into three equal columns when space allows. Counts and rates retain their own availability, source and receipt time. The reading-details dialog identifies complete RX handoffs before DroneLink CRC validation and serial framing rejects. The same read-only summary is available through the Domain workspace and standalone Workbench. The packet telemetry renderer owns the shared projection for these columns. Each module supplies its counter and rate parameter IDs and any transport-specific note. UDPTelemetry uses the same layout with counts at parameter 10 and rates at parameter 11. Each channel supplies its own readings and provenance, including when both transports appear on one node.
 
 ## Shared module visualization settings
 

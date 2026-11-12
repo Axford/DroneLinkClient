@@ -232,3 +232,37 @@ test('SerialTelemetry keeps each count and rate together with independent availa
     fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>4.9' })).toBeVisible();
 });
+
+test('UDPTelemetry shares the packet layout while keeping transport mappings and nodes independent', () => {
+    const udp = specialist(4, 'UDPTelemetry', {
+        9: reading(9, DRONE_LINK_MSG_TYPE_UINT8_T, [255, 255, 255, 255]),
+        10: reading(10, DRONE_LINK_MSG_TYPE_UINT32_T, [4820, 3400, 3]),
+        11: { ...reading(11, DRONE_LINK_MSG_TYPE_FLOAT, [19.4, 16.5, 0.1]), lastHeard: 2000, source: 'HTTP' }
+    });
+    const serial = specialist(6, 'SerialTelemetry', {
+        9: { ...udp.params[10], param: 9 },
+        10: { ...udp.params[11], param: 10 }
+    });
+    const a = node(7, { 4: udp, 6: serial });
+    const b = node(11, { 4: specialist(4, 'UDPTelemetry', { 10: reading(10, DRONE_LINK_MSG_TYPE_UINT32_T, [17, 4, 0]) }) });
+    const nodes = { 7: a, 11: b };
+    const view = render(session(a, nodes));
+    const summary = (id: number) => screen.getByLabelText(`Observed readings for channel ${id}`);
+
+    expect(summary(4).textContent).toEqual(summary(6).textContent);
+    expect(within(summary(4)).getByText('19.4/s')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
+    expect(details.getByText(/^7>4\.10 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
+    expect(details.getByText(/^7>4\.11 · HTTP/)).toHaveTextContent(new Date(2000).toLocaleString());
+    expect(details.queryByText(/serial RX handoffs/)).not.toBeInTheDocument();
+    fireEvent.click(details.getByRole('button', { name: 'Close Channel 4 reading details' }));
+
+    view.rerender(session(b, nodes));
+    expect(within(summary(4)).getByText('17')).toBeVisible();
+    expect(within(summary(4)).getByText('0')).toBeVisible();
+    expect(within(summary(4)).getAllByText('Unavailable')).toHaveLength(3);
+    expect(within(summary(4)).queryByText('4820')).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    expect(screen.getByRole('article', { name: 'Parameter 11>4.10' })).toBeVisible();
+});

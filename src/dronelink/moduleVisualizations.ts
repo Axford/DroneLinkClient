@@ -146,6 +146,7 @@ const visualizations = new Map<string, ModuleVisualization>([
         ratesParameter: 10,
         note: 'Received means complete serial RX handoffs before DroneLink CRC validation. Rejected means serial framing rejects.'
     })],
+    ['UDPTelemetry', new PacketTelemetryRenderer({ countsParameter: 10, ratesParameter: 11 })],
     ['NMEA', {
         overlay: satelliteCount,
         inspector(channel) {
