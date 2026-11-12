@@ -26,6 +26,7 @@ const value = btoa(String.fromCharCode(11, 11, 5, 8, 0, 42));
 const name = btoa(String.fromCharCode(11, 11, 5, 8, 0x50, 86));
 
 it('uses the local feed only and discards stale readings before route or stream recovery', () => {
+    Feed.connections = [];
     jest.useFakeTimers();
     const previousSource = global.EventSource;
     const previousFetch = global.fetch;
@@ -35,7 +36,7 @@ it('uses the local feed only and discards stale readings before route or stream 
     const view = render(<App />);
     try {
         const stream = Feed.connections[0];
-        expect(stream.url).toBe('/api/workbench/v1/events');
+        expect(stream.url).toBe('/api/workbench/v1/events?diagnostics=1');
         act(() => stream.send('snapshot', { routes: [route] }));
         fireEvent.click(screen.getByRole('button', { name: /Node 11 · Reachable/ }));
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
@@ -73,5 +74,62 @@ it('uses the local feed only and discards stale readings before route or stream 
         global.fetch = previousFetch;
         window.history.replaceState({}, '', '/');
         jest.useRealTimers();
+    }
+});
+
+it('keeps a manual per-node path pinned and switches Auto as the gateway route changes', () => {
+    Feed.connections = [];
+    const previousSource = global.EventSource;
+    global.EventSource = Feed as unknown as typeof EventSource;
+    window.history.replaceState({}, '', '/workbench/');
+    const view = render(<App />);
+    const key = 'workbench-transport:254/253:11';
+    localStorage.removeItem(key);
+    try {
+        const stream = Feed.connections[0];
+        const wifi = { ...route, transport: 'wifi', metric: 16 };
+        const serial = { ...route, transport: 'serial', metric: 2 };
+        const status = { up: true, received: 2, sent: 1, rejected: 0, bytesReceived: 20, error: '' };
+        const serialStatus = { ...status, transport: 'serial', address: 253, port: '/test/serial', diagnosticRecords: 1, diagnosticRejected: 0 };
+        const wifiStatus = { ...status, transport: 'wifi', address: 254 };
+        act(() => {
+            stream.send('snapshot', { routes: [serial], paths: [wifi, serial], interfaces: [wifiStatus, serialStatus] });
+            stream.send('observation', { packetBase64: value, receivedAtMs: route.lastHeardAtMs, transport: 'wifi' });
+            stream.send('observation', { packetBase64: btoa(String.fromCharCode(11, 11, 5, 8, 0, 91)), receivedAtMs: route.lastHeardAtMs, transport: 'serial' });
+            for (let index = 0; index < 200; index++) stream.send('diagnostic', { text: `Line ${index}`, receivedAtMs: route.lastHeardAtMs });
+            stream.send('diagnostic', { text: '<device message>', receivedAtMs: route.lastHeardAtMs });
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Node 11 · Reachable/ }));
+        expect(screen.getByText('Node 11 · Local · Serial')).toBeInTheDocument();
+        expect(screen.getByText('91')).toBeInTheDocument();
+        expect(screen.queryByText('42')).not.toBeInTheDocument();
+        expect(screen.getByText('<device message>')).toBeInTheDocument();
+        expect(screen.queryByText('Line 0', { exact: true })).not.toBeInTheDocument();
+        expect(within(screen.getByRole('list', { name: 'Recent serial messages' })).getAllByRole('listitem')).toHaveLength(200);
+        fireEvent.change(screen.getByRole('combobox', { name: 'Transport' }), { target: { value: 'serial' } });
+        expect(localStorage.getItem(key)).toBe('serial');
+        expect(screen.getByText(/Hidden by transport selection/)).toBeInTheDocument();
+        act(() => {
+            stream.send('interface', { ...serialStatus, up: false, error: 'Disconnected' });
+            stream.send('path', { ...serial, reachable: false });
+            stream.send('route', { ...wifi, reachable: true });
+        });
+        expect(screen.getByText('Node 11 · Local · Serial · Last seen')).toBeInTheDocument();
+        expect(screen.getByText('Serial · Down')).toBeInTheDocument();
+        expect(screen.getByText('91')).toBeInTheDocument();
+        fireEvent.change(screen.getByRole('combobox', { name: 'Transport' }), { target: { value: 'auto' } });
+        expect(screen.getByText('Node 11 · Local · Wi-Fi')).toBeInTheDocument();
+        expect(screen.getByText('42')).toBeInTheDocument();
+        act(() => {
+            stream.send('path', { ...serial, reachable: true });
+            stream.send('route', { ...serial, reachable: true });
+        });
+        expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
+        expect(screen.queryByText('91')).not.toBeInTheDocument();
+    } finally {
+        view.unmount();
+        global.EventSource = previousSource;
+        localStorage.removeItem(key);
+        window.history.replaceState({}, '', '/');
     }
 });

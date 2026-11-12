@@ -16,3 +16,26 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+.dw-workbench-network {
+    margin-top: 24px;
+}
+
+.dw-workbench-interfaces {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.dw-workbench-transport {
+    display: block;
+    max-width: 240px;
+    margin-bottom: 12px;
+}
+
+.dw-workbench-log {
+    max-height: 300px;
+    overflow: auto;
+    overflow-wrap: anywhere;
+}

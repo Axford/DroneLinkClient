@@ -221,3 +221,5 @@ Right-click or long-press a marker to open **Follow** for that node. Choose a so
 ## Standalone Workbench
 
 The standard Client release includes `/workbench/`. Verify and extract the release, then pass its `build/` directory to the [Server workbench launcher](../../DroneLinkServer/docs/operations.md#standalone-workbench). The standalone page uses the local gateway feed and shared typed channel Inspector. It can run on a workstation with internet access and needs no hosted DroneWright connection. Missing labels use numeric IDs until the node publishes names. See the [WB plan](../../DroneLinkDatastore/docs/planning/workbench.md) for acceptance.
+
+The Network panel shows the configured interfaces, packet counters and local paths. In the Inspector, Auto follows the gateway route for that node. An explicit Wi-Fi or Serial choice stays pinned when that transport drops, and the previous readings are marked last seen. The browser remembers the choice for that gateway and node. Serial diagnostic lines are local to the current browser connection and capped at 200.
