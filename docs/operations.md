@@ -18,6 +18,10 @@ The React tests use the actual router with Jest-only mappings for React Router's
 
 `npm start` starts the React dev server. It has no configured backend proxy, and a separate origin does not inherit backend sessions. For integrated API/auth checks use the production artifact served by the backend; do not assume the dev server supplies same-origin integration.
 
+## Browser tab icon
+
+The [DroneWright gear and waves](branding/dronewright-mark.svg) are the vector source for `public/favicon.ico`. Export transparent 16, 24, 32 and 64 pixel frames for that file. The hosted shell serves it at `/favicon.ico`.
+
 ## Versioned releases
 
 Commit source/tests/docs before packaging. `npm run pack:release` rejects a dirty checkout, runs the production build and writes only ignored local `releases/` outputs. It uses Python's standard library, Node/npm and Git; it neither publishes nor copies to another repository.
