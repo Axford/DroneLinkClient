@@ -74,7 +74,7 @@
 }
 .dw-channel-summary > [data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
 .dw-channel-summary > [data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }
-.dw-channel-summary > :not([data-severity="neutral"]) dt { color: var(--dw-color-text); }
+.dw-channel-summary > :is([data-severity="warning"], [data-severity="danger"]) dt { color: var(--dw-color-text); }
 .dw-channel-summary dd {
     display: flex;
     align-items: center;
@@ -82,14 +82,15 @@
     margin: 0;
     overflow-wrap: anywhere;
     color: var(--dw-color-instrument-reading);
+    font-variant-numeric: tabular-nums;
 }
 .dw-channel-summary dd > svg { color: var(--dw-color-text); }
-.dw-channel-summary [data-unavailable="true"] dd { color: var(--dw-color-muted); }
-.dw-channel-summary .dw-summary-primary dd {
+.dw-channel-summary [data-unavailable="true"] dd,
+.dw-channel-summary dd[data-unavailable="true"] { color: var(--dw-color-muted); }
+.dw-channel-summary .dw-summary-primary dd:first-of-type {
     font-size: var(--dw-font-size-heading);
     line-height: var(--dw-line-height-heading);
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
 }
 .dw-channel-summary[data-layout="rows"] > .dw-summary-supporting { grid-column: 1 / -1; }
 .dw-summary-lines { display: grid; gap: var(--dw-space-1); }
@@ -99,6 +100,18 @@
     line-height: var(--dw-line-height-title);
     flex-wrap: wrap;
     gap: var(--dw-space-3);
+}
+.dw-channel-summary[data-layout="columns"] { grid-template-columns: minmax(0, 1fr); }
+@supports (grid-template-rows: subgrid) {
+    @container (min-width: 320px) {
+        .dw-channel-summary[data-layout="columns"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .dw-channel-summary[data-layout="columns"] > div {
+            display: grid;
+            grid-row: span 3;
+            grid-template-rows: subgrid;
+            row-gap: 0;
+        }
+    }
 }
 @container (min-width: 320px) {
     .dw-channel-summary[data-layout="lead"] > .dw-summary-primary {

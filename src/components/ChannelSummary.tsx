@@ -27,9 +27,28 @@ function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boo
     </div>;
 }
 
+function PacketReading({ label, value }: { label: string; value?: string }) {
+    return <dd data-unavailable={value === undefined || undefined}>
+        <span className="visually-hidden">{label}: </span>
+        {value === undefined ? <>
+            <span aria-hidden="true">—</span><span className="visually-hidden">Unavailable</span>
+        </> : <span>{value}</span>}
+    </dd>;
+}
+
 export default function ChannelSummary({ channelId, summary }: { channelId: number; summary: InspectorSummary }) {
+    const label = `Observed readings for channel ${channelId}`;
+    if ('columns' in summary) {
+        return <dl className="dw-channel-summary" data-layout="columns" aria-label={label}>
+            {summary.columns.map(column => <div key={column.label} className="dw-summary-primary">
+                <dt className="dw-meta">{column.label}</dt>
+                <PacketReading label="Count" value={column.count} />
+                <PacketReading label="Rate in packets per second" value={column.rate} />
+            </div>)}
+        </dl>;
+    }
     const layout = summary.primary.length === 1 ? 'lead' : 'rows';
-    return <dl className="dw-channel-summary" data-layout={layout} aria-label={`Observed readings for channel ${channelId}`}>
+    return <dl className="dw-channel-summary" data-layout={layout} aria-label={label}>
         {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary />)}
         {summary.supporting.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
     </dl>;
@@ -41,7 +60,8 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
-            <SummaryDetails nodeId={nodeId} summaries={[...summary.primary, ...summary.supporting]} now={Date.now()} />
+            {'note' in summary && <p className="dw-meta">{summary.note}</p>}
+            <SummaryDetails nodeId={nodeId} summaries={'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />
         </SettingsDialog>
     </>;
 }

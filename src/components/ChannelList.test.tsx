@@ -194,3 +194,41 @@ test('invalid readings stay unavailable and view choice follows the channel only
     view.rerender(session(reset, { ...nodes, 7: reset }, 'b'));
     expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('SerialTelemetry keeps each count and rate together with independent availability and receipt details', () => {
+    const serial = specialist(4, 'SerialTelemetry', { 9: reading(9, DRONE_LINK_MSG_TYPE_UINT32_T, [1840, 916, 0]) });
+    const other = specialist(6, 'SerialTelemetry', {
+        9: reading(9, DRONE_LINK_MSG_TYPE_UINT32_T, [4, 1]),
+        10: reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [12.4, 0, 2.5])
+    });
+    const untyped = { ...serial, type: undefined, params: { 9: serial.params[9] } };
+    const view = render(session(node(7, { 4: untyped, 6: other })));
+    expect(screen.getByRole('article', { name: 'Parameter 7>4.9' })).toBeVisible();
+    view.rerender(session(node(7, { 4: serial, 6: other })));
+    const summary = (id: number) => within(screen.getByLabelText(`Observed readings for channel ${id}`));
+    const column = (id: number, label: string) => within(summary(id).getByText(label, { exact: true }).parentElement!);
+
+    expect(summary(4).getAllByRole('term').map(term => term.textContent)).toEqual(['Sent', 'Received', 'Rejected']);
+    expect(column(4, 'Sent').getByText('1840')).toBeVisible();
+    expect(column(4, 'Sent').getByText('Unavailable')).toBeInTheDocument();
+    expect(column(4, 'Rejected').getByText('0')).toBeVisible();
+    expect(column(6, 'Sent').getByText('12.4/s')).toBeVisible();
+    expect(column(6, 'Received').getByText('0.0/s')).toBeVisible();
+    expect(column(6, 'Received').getByText('Unavailable')).toBeInTheDocument();
+
+    const updated = { ...serial, params: { ...serial.params,
+        10: { ...reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [9.3, 5.4, 0]), lastHeard: 2000, source: 'HTTP' } } };
+    view.rerender(session(node(7, { 4: updated, 6: other })));
+    expect(column(4, 'Sent').getByText('9.3/s')).toBeVisible();
+    expect(column(4, 'Rejected').getByText('0.0/s')).toBeVisible();
+    expect(column(6, 'Sent').getByText('12.4/s')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
+    expect(details.getByText(/complete serial RX handoffs before DroneLink CRC/)).toBeVisible();
+    expect(details.getByText(/^7>4\.9 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
+    expect(details.getByText(/^7>4\.10 · HTTP/)).toHaveTextContent(new Date(2000).toLocaleString());
+    fireEvent.click(details.getByRole('button', { name: 'Close Channel 4 reading details' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    expect(screen.getByRole('article', { name: 'Parameter 7>4.9' })).toBeVisible();
+});

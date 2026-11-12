@@ -22,7 +22,10 @@ test.each([[3.2, 'danger'], [3.25, 'warning'], [3.49, 'warning'], [3.5, undefine
         expect(first.severity).toBe(severity);
         expect(first.reading?.lastHeard).toBe(500);
         expect(other.severity).toBeUndefined();
-        expect(channelVisualization(selected)?.inspector?.(selected, thresholds).primary[0].severity).toBe(severity);
+        const summary = channelVisualization(selected)?.inspector?.(selected, thresholds);
+        const primary = summary && 'primary' in summary ? summary.primary[0] : undefined;
+        expect(primary).toBeDefined();
+        expect(primary?.severity).toBe(severity);
         expect(moduleSummaries(node, () => ({ ...record, thresholds: null }))[0].severity).toBeUndefined();
     }
 );

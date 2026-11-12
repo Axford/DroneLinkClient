@@ -107,6 +107,10 @@ The Inspector session remembers the Parameters choice by node, observation gener
 
 The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available readings and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints with separate cues. The NMEA compass and bearing are centred in their tile. Its term remains available to assistive technology and becomes visible when no bearing can be drawn. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
 
+### SerialTelemetry summary
+
+SerialTelemetry groups Sent, Received and Rejected into three equal columns when space allows. Counts and rates retain their own availability, source and receipt time. The reading-details dialog identifies complete RX handoffs before DroneLink CRC validation and serial framing rejects. The same read-only summary is available through the Domain workspace and standalone Workbench.
+
 ## Shared module visualization settings
 
 The authorized Domain workspace owns the settings snapshot, shared by the node overlay and Inspector. The Client refreshes it on entry and window focus and applies the committed response after saving. The INA219 registry entry defines the voltage fields and uses one interpretation for both surfaces. The Server validates writes and returns the next revision. Settings live outside observation and Inspector session state and survive observation reset. An older hosted API leaves settings controls unavailable and voltage displays neutral.
