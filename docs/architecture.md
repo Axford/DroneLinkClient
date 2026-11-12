@@ -111,6 +111,12 @@ The shared channel Summary uses the instrument face and reading tokens in `publi
 
 SerialTelemetry groups Sent, Received and Rejected into three equal columns when space allows. Counts and rates retain their own availability, source and receipt time. The reading-details dialog identifies complete RX handoffs before DroneLink CRC validation and serial framing rejects. The same read-only summary is available through the Domain workspace and standalone Workbench. The packet telemetry renderer owns the shared projection for these columns. Each module supplies its counter and rate parameter IDs and any transport-specific note. UDPTelemetry uses the same layout with counts at parameter 10 and rates at parameter 11. Each channel supplies its own readings and provenance, including when both transports appear on one node.
 
+### Sampled graphics
+
+`sampledObservations.ts` prepares bounded, in-memory windows for specialist graphics from the latest scalar FLOAT observation. A future renderer supplies its value interpretation and a host scope that identifies the Domain, node, channel, module, parameter and stream generation. The host clears the scope on disconnect and changes it on reset, source-path changes and resync. The sampler also separates reported sources and rejects receipts older than the last accepted one in the current scope.
+
+Windows keep at most 100 receipts from the last five minutes. A new receipt with the same value is still a sample. Reading the same snapshot again adds nothing. Invalid values with a known receipt mark a gap. Without a usable receipt the series clears. A snapshot can contribute its latest receipt once. The sampler preserves Server timestamps when the browser clock is behind. It can age on redraw and neither polls nor reconstructs packet history. Trace rendering may split at a caller-specified gap between receipts. Histogram bins and trace styling belong to their respective renderers.
+
 ## Shared module visualization settings
 
 The authorized Domain workspace owns the settings snapshot, shared by the node overlay and Inspector. The Client refreshes it on entry and window focus and applies the committed response after saving. The INA219 registry entry defines the voltage fields and uses one interpretation for both surfaces. The Server validates writes and returns the next revision. Settings live outside observation and Inspector session state and survive observation reset. An older hosted API leaves settings controls unavailable and voltage displays neutral.
