@@ -1,9 +1,10 @@
 import React, { useId } from 'react';
-import { Card, Badge, Collapse } from 'react-bootstrap';
-import { ChevronDown, ChevronRight } from 'react-bootstrap-icons';
+import { Card, Collapse } from 'react-bootstrap';
+import { ChevronDown, ChevronRight, ClockFill, ExclamationCircleFill, ListUl, SlashCircleFill, Speedometer2 } from 'react-bootstrap-icons';
 import { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
-import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
-import { receiptLabel } from '../dronelink/observedPositions';
+import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_ERROR, DRONE_MODULE_PARAM_NAME, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
+import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions';
+import IconButton from './ui/IconButton';
 import ParameterList from './ParameterList';
 import ChannelSummary, { ChannelSummaryDetails } from './ChannelSummary';
 import { channelVisualization, observedModuleType } from '../dronelink/moduleVisualizations';
@@ -15,6 +16,7 @@ interface ChannelCardProps {
     channelId: number;
     channel: ChannelState;
     generation?: number;
+    now?: number;
     sampleLive?: boolean;
     expanded: boolean;
     onToggleExpand: () => void;
@@ -24,48 +26,66 @@ interface ChannelCardProps {
     onShowParameters: (show: boolean) => void;
     actions?: React.ReactNode;
 }
-function observedByte(reading: ParameterState | undefined): number | undefined {
-    if (!reading || reading.unavailable?.value || reading.msgType !== DRONE_LINK_MSG_TYPE_UINT8_T || reading.numValues !== 1 || reading.values.length !== 1) return;
+function observedInteger(reading: ParameterState | undefined, type: number = DRONE_LINK_MSG_TYPE_UINT8_T): number | undefined {
+    if (!reading || reading.unavailable?.value || reading.msgType !== type || reading.numValues !== 1 || reading.values.length !== 1) return;
     const value = reading.values[0];
-    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255 ? value : undefined;
+    return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= (type === DRONE_LINK_MSG_TYPE_UINT32_T ? 0xffffffff : 255) ? value : undefined;
 }
-export default function ChannelCard({ nodeId, channelId, channel, generation = 0, sampleLive = false, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
+export default function ChannelCard({ nodeId, channelId, channel, generation = 0, now = Date.now(), sampleLive = false, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
     const bodyId = useId();
     const plugin = channelVisualization(channel);
     const settings = useVisualizationSettings();
     const definition = plugin?.settings;
     const target = definition && { nodeAddress: nodeId, channel: channelId, moduleType: definition.moduleType };
     const thresholds = target && settings?.get(target)?.thresholds;
-    const summary = showParameters ? undefined : plugin?.inspector?.(channel, thresholds);
-    const sampleScope = sampleLive && expanded ? `${nodeId}/${channelId}/${generation}` : undefined;
+    const summary = plugin?.inspector?.(channel, thresholds);
+    const sampleScope = sampleLive && expanded && !showParameters ? `${nodeId}/${channelId}/${generation}` : undefined;
     const parameterCount = Object.keys(channel.params).length;
-    const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
-    const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
-    const statusText = status === 0 ? 'Disabled' : status === 1 ? 'Enabled' : status === 2 ? 'Waiting' : status;
-    const provenance = (id: number) => { const reading = channel.params[id]; return `Observed ${nodeId}>${channelId}.${id} · ${reading.source || 'Unknown source'} · ${receiptLabel(reading.lastHeard)}`; };
-    return <Card className="channel-card">
-        <div className="dw-channel-card-heading"><Card.Header data-inspector-focus={`channel-${channelId}`} className="dw-channel-toggle" as="button" type="button" aria-expanded={expanded} aria-controls={bodyId} onClick={onToggleExpand}>
-            <span className="dw-channel-identity">{expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}<strong>{channel.name || `Channel ${channelId}`}</strong><span className="dw-meta">{nodeId}&gt;{channelId}</span></span>
-            <span className="dw-channel-metadata">
-                {channel.type !== undefined && <Badge bg="secondary">{channel.type}</Badge>}
-                {status !== undefined && <Badge bg="secondary" title={provenance(DRONE_MODULE_PARAM_STATUS)}>Status: {statusText}</Badge>}
-                {resets !== undefined && <Badge bg="secondary" title={provenance(DRONE_MODULE_PARAM_RESETCOUNT)}>Resets: {resets}</Badge>}
-                <span className="dw-meta">{parameterCount} {parameterCount === 1 ? 'param' : 'params'}</span>
-            </span>
-            <span className="visually-hidden">Channel receipt: {receiptLabel(channel.lastHeard)}</span>
-        </Card.Header>{actions}
-            {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
+    const status = observedInteger(channel.params[DRONE_MODULE_PARAM_STATUS]);
+    const error = observedInteger(channel.params[DRONE_MODULE_PARAM_ERROR]) === 1;
+    const reset = channel.params[DRONE_MODULE_PARAM_RESETCOUNT];
+    const resets = observedInteger(reset, DRONE_LINK_MSG_TYPE_UINT32_T) ?? observedInteger(reset);
+    const operatingStatus = status === 0 ? 'Disabled' : status === 1 ? 'Enabled' : status === 2 ? 'Waiting' : undefined;
+    const statusText = error ? 'Error' : operatingStatus;
+    const StatusIcon = error ? ExclamationCircleFill : status === 0 ? SlashCircleFill : ClockFill;
+    const moduleType = observedModuleType(channel);
+    const observedName = channel.params[DRONE_MODULE_PARAM_NAME]?.unavailable?.value ? undefined : channel.name?.trim();
+    const name = observedName || moduleType || channel.type || 'Unnamed';
+    const receipt = receiptLabel(channel.lastHeard, now);
+    return <Card className="channel-card" data-status={statusText?.toLowerCase()}>
+        <div className="dw-channel-card-heading">
+            <Card.Header data-inspector-focus={`channel-${channelId}`} className="dw-channel-toggle" as="button" type="button"
+                aria-expanded={expanded} aria-controls={bodyId} onClick={onToggleExpand}>
+                {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                <span className="dw-channel-identity">
+                    <strong><span className="dw-channel-number">{channelId}.</span> <span className="dw-channel-name">{name}</span></strong>
+                    <span className="dw-channel-metadata">
+                        <span title={resets === undefined ? 'Reset count unavailable' :
+                            `Observed ${nodeId}>${channelId}.${DRONE_MODULE_PARAM_RESETCOUNT} · ${reset.source || 'Unknown source'} · ${receiptLabel(reset.lastHeard, now)}`}>
+                            <span className="visually-hidden">Resets: </span>{resets ?? '—'}
+                        </span>
+                        <span title={receipt}><span className="visually-hidden">Receipt age: </span>{compactReceiptAge(channel.lastHeard, now)}</span>
+                    </span>
+                    {statusText && (statusText === 'Enabled' ? <span className="visually-hidden">Enabled</span> :
+                        <span className="dw-channel-status"><StatusIcon aria-hidden="true" />{statusText}
+                            {error && operatingStatus && <span className="visually-hidden"> · Operating status: {operatingStatus}</span>}
+                        </span>)}
+                </span>
+            </Card.Header>
+            <div className="dw-channel-actions">
+                {expanded && summary && <div className="dw-channel-view-actions" role="group" aria-label={`View for channel ${channelId}`}>
+                    <IconButton className="dw-channel-view-switch" label={showParameters ? 'Show Summary' : 'Show Parameters'}
+                        icon={showParameters ? <Speedometer2 aria-hidden="true" /> : <ListUl aria-hidden="true" />}
+                        aria-controls={bodyId} data-inspector-focus={`view-${channelId}`} onClick={() => onShowParameters(!showParameters)} />
+                    <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />
+                </div>}
+                {actions}
+                {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
+            </div>
         </div>
         <Collapse in={expanded}><div id={bodyId}><Card.Body>
-            {plugin?.inspector && <div className="dw-channel-summary-toolbar">
-                <div className="dw-channel-views" role="group" aria-label={`View for channel ${channelId}`}>
-                    <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
-                    <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
-                </div>
-                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />}
-            </div>}
-            {summary ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
-                parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} moduleType={observedModuleType(channel)} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
+            {summary && !showParameters ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
+                parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} moduleType={moduleType} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>
     </Card>;

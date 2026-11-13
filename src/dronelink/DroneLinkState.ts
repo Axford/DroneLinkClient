@@ -16,6 +16,7 @@ export interface ParameterState {
   numValues: number;
   values: number[] | string[];
   writable: boolean;
+  priority?: number;
   writeObservation?: WriteObservation;
   param: number;
   name?: string;
@@ -428,7 +429,7 @@ export class DroneLinkState {
       // Handle parameter value
       const newValues = msg.valueArray();
       const valuesChanged = isNewParam || !this.arraysEqual(param.values, newValues);
-      const metadataChanged = param.msgType !== msg.msgType || param.writable !== msg.writable;
+      const metadataChanged = param.msgType !== msg.msgType || param.writable !== msg.writable || param.priority !== msg.priority;
       
       if (valuesChanged || (interfaceName === 'Local' && metadataChanged)) {
         // Update parameter state
@@ -437,6 +438,7 @@ export class DroneLinkState {
         param.numValues = msg.numValues();
         param.values = newValues as number[] | string[];
         param.writable = msg.writable;
+        param.priority = msg.priority;
         if (valuesChanged) param.timestamp = msg.timestamp || timestamp;
 
         // Handle special parameter types
@@ -637,6 +639,8 @@ export class DroneLinkState {
           else {
             parameter.msgType = type; parameter.bytesPerValue = msg.bytesPerValue(); parameter.numValues = msg.numValues();
             parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
+            const priority = facet.priority;
+            if (typeof priority === 'number' && Number.isInteger(priority) && priority >= 0 && priority <= 3) parameter.priority = priority;
             if (facet.writable === true && type <= DRONE_LINK_MSG_TYPE_CHAR && view.activationEpoch) {
               parameter.writeObservation = { bytes: payload, expected: { observationEpoch: view.activationEpoch,
                 nodeGeneration: row.generation, msgType: type, payloadBytes: payload.length, writable: true } };

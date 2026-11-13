@@ -64,19 +64,19 @@ test('keeps per-node context through switches and remounts; reset and Domain rep
     const earlier = screen.getByRole('button', { name: 'Move channel 4 earlier' });
     earlier.focus(); fireEvent.click(earlier);
     expect(earlier).toHaveFocus(); expect(earlier).toHaveAttribute('aria-disabled', 'true');
-    const channelOrder = () => screen.getAllByRole('button').filter(button => button.classList.contains('dw-channel-toggle')).map(button => button.querySelector('strong')?.textContent);
+    const channelOrder = () => screen.getAllByRole('button').filter(button => button.classList.contains('dw-channel-toggle')).map(button => button.querySelector('.dw-channel-name')?.textContent);
     expect(channelOrder()).toEqual(['Battery', 'GPS']);
     await waitFor(() => expect(screen.getByRole('article', { name: 'Parameter 7>1.1' })).toBeVisible());
     view.rerender(session(b, nodes)); expect(channelOrder()).toEqual(['Other GPS']);
     view.rerender(session(a, nodes, 'a', 'narrow')); expect(channelOrder()).toEqual(['Battery', 'GPS']);
-    expect(screen.getByRole('button', { name: /^Battery/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /^4\. Battery/ })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('article', { name: 'Parameter 7>1.1' })).toBeVisible();
     const reset = { ...a, observationGeneration: 1 };
     view.rerender(session(reset, { ...nodes, 7: reset })); expect(channelOrder()).toEqual(['GPS', 'Battery']);
-    expect(screen.getByRole('button', { name: /^Battery/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^4\. Battery/ })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('System parameters (1)').closest('details')).not.toHaveAttribute('open');
     fireEvent.click(screen.getByText('Battery'));
-    view.rerender(session(reset, { ...nodes, 7: reset }, 'b')); expect(screen.getByRole('button', { name: /^Battery/ })).toHaveAttribute('aria-expanded', 'true');
+    view.rerender(session(reset, { ...nodes, 7: reset }, 'b')); expect(screen.getByRole('button', { name: /^4\. Battery/ })).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('prunes removed channels even while another node is selected and appends new channels in numeric order', () => {
@@ -90,7 +90,7 @@ test('prunes removed channels even while another node is selected and appends ne
     const updated = { ...a, channels: { ...a.channels, 2: channel(2, 'Two', 'Two reading'), 8: channel(8, 'Eight', 'Eight reading') } };
     view.rerender(session(updated, { 7: updated, 11: b }));
     const headers = screen.getAllByRole('button').filter(button => button.classList.contains('dw-channel-toggle'));
-    expect(headers.map(button => button.querySelector('strong')?.textContent)).toEqual(['Four', 'Two', 'Eight', 'Nine']);
+    expect(headers.map(button => button.querySelector('.dw-channel-name')?.textContent)).toEqual(['Four', 'Two', 'Eight', 'Nine']);
     expect(headers[3]).toHaveAttribute('aria-expanded', 'true');
 });
 
@@ -101,10 +101,10 @@ test('temporary resync gaps retain preferences; a completed empty snapshot remov
     fireEvent.click(screen.getByText('Battery'));
     view.rerender(snapshot({}, false));
     view.rerender(snapshot({ 7: current }, true));
-    expect(screen.getByRole('button', { name: /^Battery/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /^5\. Battery/ })).toHaveAttribute('aria-expanded', 'false');
     view.rerender(snapshot({}, true));
     view.rerender(snapshot({ 7: current }, true));
-    expect(screen.getByRole('button', { name: /^Battery/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /^5\. Battery/ })).toHaveAttribute('aria-expanded', 'true');
 });
 
 const reading = (param: number, msgType: number, values: number[] | string[]) => ({
@@ -210,24 +210,24 @@ test('invalid readings stay unavailable and view choice follows the channel only
     expect(within(screen.getByLabelText('Observed readings for channel 4')).getByText('Heading')).not.toHaveClass('visually-hidden');
     expect(screen.queryByRole('group', { name: 'View for channel 8' })).not.toBeInTheDocument();
     expect(screen.getByText('Generic reading')).toBeVisible();
-    fireEvent.click(controls().getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(controls().getByRole('button', { name: 'Show Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>4.8' })).toBeVisible();
     view.rerender(session(b, nodes));
-    expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
+    expect(controls().getByRole('button', { name: 'Show Parameters' })).toBeVisible();
     view.rerender(session(a, nodes, 'a', 'narrow'));
-    expect(controls().getByRole('button', { name: 'Parameters' })).toHaveAttribute('aria-pressed', 'true');
+    expect(controls().getByRole('button', { name: 'Show Summary' })).toBeVisible();
     const replaced = node(7, { ...a.channels, 4: specialist(4, 'INA219', {}) });
     view.rerender(session(replaced, { ...nodes, 7: replaced }));
-    expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
+    expect(controls().getByRole('button', { name: 'Show Parameters' })).toBeVisible();
     view.rerender(session(a, nodes));
-    expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(controls().getByRole('button', { name: 'Parameters' }));
+    expect(controls().getByRole('button', { name: 'Show Parameters' })).toBeVisible();
+    fireEvent.click(controls().getByRole('button', { name: 'Show Parameters' }));
     const reset = { ...a, observationGeneration: 1 };
     view.rerender(session(reset, { ...nodes, 7: reset }));
-    expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(controls().getByRole('button', { name: 'Parameters' }));
+    expect(controls().getByRole('button', { name: 'Show Parameters' })).toBeVisible();
+    fireEvent.click(controls().getByRole('button', { name: 'Show Parameters' }));
     view.rerender(session(reset, { ...nodes, 7: reset }, 'b'));
-    expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
+    expect(controls().getByRole('button', { name: 'Show Parameters' })).toBeVisible();
 });
 
 test('specialist reading details link to the same parameter view only with cloud edit access', () => {
@@ -242,7 +242,7 @@ test('specialist reading details link to the same parameter view only with cloud
     expect(screen.queryByRole('button', { name: 'Open parameters for commands' })).not.toBeInTheDocument();
     view.rerender(fixture(true));
     fireEvent.click(screen.getByRole('button', { name: 'Open parameters for commands' }));
-    expect(screen.getByRole('button', { name: 'Parameters' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Show Summary' })).toBeVisible();
     expect(screen.getByRole('article', { name: 'Parameter 7>4.8' })).toBeVisible();
 });
 
@@ -280,7 +280,7 @@ test('SerialTelemetry keeps each count and rate together with independent availa
     expect(details.getByText(/^7>4\.9 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
     expect(details.getByText(/^7>4\.10 · HTTP/)).toHaveTextContent(new Date(2000).toLocaleString());
     fireEvent.click(details.getByRole('button', { name: 'Close Channel 4 reading details' }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Show Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>4.9' })).toBeVisible();
 });
 
@@ -314,7 +314,7 @@ test('UDPTelemetry shares the packet layout while keeping transport mappings and
     expect(within(summary(4)).getByText('0')).toBeVisible();
     expect(within(summary(4)).getAllByText('Unavailable')).toHaveLength(3);
     expect(within(summary(4)).queryByText('4820')).not.toBeInTheDocument();
-    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Show Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 11>4.10' })).toBeVisible();
 });
 
@@ -350,7 +350,7 @@ test('INA3221 aligns the readings of each input and keeps provenance on the sour
     expect(second.getByText(/^7>6\.15 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
     expect(second.getByText(/^7>6\.20 · HTTP/)).toHaveTextContent(new Date(2000).toLocaleString());
     fireEvent.click(details.getByRole('button', { name: 'Close Channel 6 reading details' }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 6' })).getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 6' })).getByRole('button', { name: 'Show Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>6.15' })).toBeVisible();
 });
 
@@ -388,7 +388,7 @@ test('Anemometer keeps current speed, sampled frequency and parameter provenance
     const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
     expect(details.getByText(/^7>4\.10 · Gateway 254/)).toBeVisible();
     fireEvent.click(details.getByRole('button', { name: 'Close Channel 4 reading details' }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Show Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>4.10' })).toBeVisible();
 });
 
@@ -428,10 +428,10 @@ test('QMC5883L has a compass Summary and labels value-only Parameters until a NA
     });
     const view = render(session(node(3, { 5: compass })));
     expect(screen.getByText('8.2°')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Parameters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show Parameters' }));
     const heading = within(screen.getByRole('article', { name: 'Parameter 3>5.11' }));
     expect(heading.getByText('heading')).toBeVisible();
-    expect(heading.getByText('Firmware catalog')).toBeVisible();
+    expect(heading.getByRole('button')).toHaveAccessibleDescription(/Firmware catalog/);
     expect(within(screen.getByRole('article', { name: 'Parameter 3>5.13' })).getByText('calibX')).toBeVisible();
     expect(within(screen.getByRole('article', { name: 'Parameter 3>5.63' })).getByText('Param 63')).toBeVisible();
     const named = { ...compass, params: { ...compass.params, 11: {
@@ -439,5 +439,5 @@ test('QMC5883L has a compass Summary and labels value-only Parameters until a NA
     } } };
     view.rerender(session(node(3, { 5: named })));
     expect(heading.getByText('Device heading')).toBeVisible();
-    expect(heading.queryByText('Firmware catalog')).not.toBeInTheDocument();
+    expect(heading.getByRole('button')).not.toHaveAccessibleDescription(/Firmware catalog/);
 });

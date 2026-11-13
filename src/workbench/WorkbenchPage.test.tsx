@@ -25,7 +25,7 @@ class Feed extends EventTarget {
 
 const route = { node: 11, nextHop: 11, lastHeardAtMs: 1710000000000 };
 // Protocol 0.2.0 fixture layout: source, node, channel, packed parameter, type/length, payload.
-const value = btoa(String.fromCharCode(11, 11, 5, 8, 0, 42));
+const value = btoa(String.fromCharCode(11, 11, 5, 0x88, 0, 42));
 const name = btoa(String.fromCharCode(11, 11, 5, 8, 0x50, 86));
 
 it('uses the local feed only and discards stale readings before route or stream recovery', () => {
@@ -52,6 +52,7 @@ it('uses the local feed only and discards stale readings before route or stream 
         const parameter = screen.getByRole('article', { name: 'Parameter 11>5.8' });
         expect(within(parameter).getByText('42')).toBeInTheDocument();
         expect(within(parameter).getByText('V')).toBeInTheDocument();
+        expect(within(parameter).getByText('11>5.8 · U8 · P2')).toBeVisible();
         expect(parameter.querySelector('time')?.dateTime).toBe(new Date(route.lastHeardAtMs).toISOString());
 
         act(() => stream.send('route', { ...route, reachable: false }));

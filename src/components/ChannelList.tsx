@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Card } from 'react-bootstrap';
 import { ArrowDown, ArrowDownUp, ArrowUp, ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
 import type { NodeState } from '../dronelink/DroneLinkState';
@@ -9,6 +9,11 @@ import { useChannelPresentation } from './InspectorSession';
 export default function ChannelList({ node, sampleLive = false }: { node: NodeState; sampleLive?: boolean }) {
     const view = useChannelPresentation(node);
     const allExpanded = view.ids.every(id => !view.collapsed.includes(id));
+    const [now, setNow] = useState(Date.now);
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, []);
     const [announcement, setAnnouncement] = useState('');
     const movedControl = useRef<HTMLButtonElement | null>(null);
     useLayoutEffect(() => {
@@ -43,7 +48,7 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
                             }} />;
                     })}
                 </div>;
-                return <ChannelCard key={id} nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive}
+                return <ChannelCard key={id} nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
                     expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
                     showParameters={!!view.parameters[id]} onShowParameters={show => view.setShowParameters(id, show)}
                     systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} />;
