@@ -228,3 +228,25 @@ test('Receiver preserves signed output order, raw PWM units and the observed mod
     observed.params[20] = { ...raw, values: raw.values.slice(1) };
     expect(inspect()).toMatchObject({ mode: { unavailable: true }, rawPwm: undefined });
 });
+
+test('Motor preserves input and provenance when the configured scale cannot be drawn', () => {
+    const observed = channel(6, 0, 'Motor');
+    const speed = { ...observed.params[15], param: 8 };
+    const limits = { ...speed, param: 12, numValues: 2, values: [-0.75, 1], lastHeard: 600 };
+    const deadband = { ...speed, param: 13, values: [-0.12], lastHeard: 700 };
+    Object.assign(observed.params, { 8: speed, 12: limits, 13: deadband });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        mappedSpeed: 0.125, limits: { min: -0.75, max: 1 }, deadband: 0.12,
+        details: [{ text: '0.00', reading: speed }, { reading: limits }, { text: '±0.12', reading: deadband }]
+    });
+    observed.params[8] = { ...speed, values: [1] };
+    expect(inspect()).toMatchObject({ motorSpeed: { text: '1.00' }, mappedSpeed: 1 });
+    observed.params[8] = speed;
+    for (const values of [[0.4, 0.4], [1, -1], [NaN, 1], [0.3]]) {
+        observed.params[12] = { ...limits, values };
+        expect(inspect()).toMatchObject({ motorSpeed: { text: '0.00' }, mappedSpeed: undefined, limits: undefined, configuredLimits: { unavailable: true } });
+    }
+    delete observed.params[12];
+    expect(inspect()).toMatchObject({ motorSpeed: { text: '0.00' }, mappedSpeed: undefined, limits: undefined });
+});

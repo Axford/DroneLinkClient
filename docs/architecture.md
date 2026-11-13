@@ -147,6 +147,10 @@ Joystick plots observed scalar FLOAT X and Y (parameters 10 and 11) on equal, ce
 
 Receiver plots the first four observed FLOAT outputs (parameters 11–14) on a shared scale from −1 to +1. Each slot shows its signed value. Zero sits on the centre line. Values outside the scale retain their numeric reading and show an above-range or below-range cue. The observed FLOAT switch at parameter 29 selects Passthrough below 0.5 and Active otherwise. The raw PWM row preserves the order of all six parameter 20 bytes, multiplying each by 10 for microseconds. Reading Details keeps separate provenance for the mode, all six published outputs and the raw vector.
 
+### Motor speed input
+
+Motor reads the observed signed speed input from FLOAT parameter 8. The bar shows the derived speed after applying the firmware clamp and remap to the configured FLOAT limit pair at parameter 12. The scale includes zero for asymmetric and one-sided limits. The shaded band uses the absolute magnitude of FLOAT parameter 13. The mapped value represents the stage before deadband and inversion. Reading Details keeps each observation's source and receipt. A missing or invalid limit pair leaves the numeric input available and the scale unavailable.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

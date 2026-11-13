@@ -11,6 +11,7 @@ import WaterLevelGauge from './WaterLevelGauge';
 import NeopixelScene from './NeopixelScene';
 import JoystickPlot from './JoystickPlot';
 import ReceiverInstrument from './ReceiverInstrument';
+import MotorInstrument from './MotorInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -47,6 +48,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('motorSpeed' in summary) {
+        return <MotorInstrument label={label} summary={summary} />;
+    }
     if ('receiverOutputs' in summary) {
         return <ReceiverInstrument label={label} summary={summary} />;
     }

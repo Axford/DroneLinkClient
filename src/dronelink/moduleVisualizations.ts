@@ -23,13 +23,23 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface MotorSummary {
+    motorSpeed: ObservedSummary;
+    configuredLimits: ObservedSummary;
+    deadbandReading: ObservedSummary;
+    mappedSpeed?: number;
+    limits?: { min: number; max: number };
+    deadband?: number;
+    details: ObservedSummary[];
+}
 
 export interface ReceiverSummary {
     receiverOutputs: { value?: number; reading: ObservedSummary }[];
@@ -291,7 +301,40 @@ function receiverSummary(channel: ChannelState): ReceiverSummary {
     };
 }
 
+function motorSummary(channel: ChannelState): MotorSummary {
+    const speed = numericValue(channel.params[8], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const reading = channel.params[12];
+    let limits: MotorSummary['limits'];
+    if (hasReading(reading) && reading.msgType === DRONE_LINK_MSG_TYPE_FLOAT &&
+        reading.numValues === 2 && reading.values.length === 2) {
+        const min = reading.values[0];
+        const max = reading.values[1];
+        if (typeof min === 'number' && typeof max === 'number' && min >= -1 && max <= 1 && min < max) {
+            limits = { min, max };
+        }
+    }
+    const deadbandValue = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const deadband = deadbandValue === undefined ? undefined : Math.abs(deadbandValue);
+    // Match the firmware's clamp and remap before it applies deadband and inversion.
+    const mappedSpeed = limits && speed !== undefined
+        ? (Math.max(-1, Math.min(1, speed)) + 1) * (limits.max - limits.min) / 2 + limits.min
+        : undefined;
+    const motorSpeed = field(channel, 8, 'Speed input', speed?.toFixed(2));
+    const configuredLimits = field(channel, 12, 'Configured limits', limits && `${limits.min.toFixed(2)} to ${limits.max.toFixed(2)}`);
+    const deadbandReading = field(channel, 13, 'Deadband', deadband === undefined ? undefined : `±${deadband.toFixed(2)}`);
+    return {
+        motorSpeed,
+        configuredLimits,
+        deadbandReading,
+        mappedSpeed,
+        limits,
+        deadband,
+        details: [motorSpeed, configuredLimits, deadbandReading]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Motor', { inspector: motorSummary }],
     ['Receiver', { inspector: receiverSummary }],
     ['Joystick', {
         inspector(channel) {
