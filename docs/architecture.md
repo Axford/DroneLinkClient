@@ -163,6 +163,10 @@ The NMEA Summary keeps heading and satellite status alongside primary position, 
 
 LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent map binding retains priority 3. Reading Details shows the latest magnetic X/Y sample, recent samples from parameter 10, the X/Y calibration bounds and centre from parameters 13 and 14, and the quadrant limits ellipse from parameter 18. Axes have equal scale in microteslas. Invalid bounds and limits leave their geometry unavailable. The scatter shares the bounded observation window with the scalar instruments and collects receipts while the live Summary is expanded.
 
+### Expanded 3D diagnostics
+
+The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their observation mapping in their respective renderer slices.
+
 ### Shared heading and attitude displays
 
 NMEA, LSM9DS1 and CMPS12 use the same heading projection and compass face. Each registry entry supplies its own heading parameter and supporting observations. Map role selection still uses the independent bindings registry. The signed attitude dial shares geometry between pitch and roll. The caller supplies the zero direction, positive rotation and common scale for the bins. CMPS12 owns the signed vector decoding and receipt distribution.

@@ -1,0 +1,33 @@
+.dw-diagnostic-view {
+    margin-bottom: var(--dw-space-2);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+
+.dw-diagnostic-controls, .dw-diagnostic-key {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--dw-space-1) var(--dw-space-2);
+}
+
+.dw-diagnostic-trigger, .dw-diagnostic-controls button {
+    min-height: var(--dw-control-size);
+    padding-inline: var(--dw-space-2);
+    border: 0;
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-control);
+    color: var(--dw-color-text);
+}
+
+.dw-diagnostic-trigger:hover, .dw-diagnostic-controls button:hover { background: var(--dw-color-hover); color: var(--dw-color-text); }
+.dw-diagnostic-controls button[aria-pressed="true"] { background: var(--dw-color-primary); }
+.dw-diagnostic-trigger:focus-visible, .dw-diagnostic-controls button:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: 2px; }
+.dw-diagnostic-view svg { display: block; width: min(100%, 25rem); margin-inline: auto; }
+.dw-diagnostic-axis line { stroke: var(--dw-color-muted); }
+.dw-diagnostic-axis text { fill: var(--dw-color-text); font-size: 13px; }
+.dw-diagnostic-calibration { fill: none; stroke: var(--dw-color-danger); stroke-dasharray: 3 2; }
+.dw-diagnostic-sample { fill: var(--dw-color-instrument-blue); }
+.dw-diagnostic-vector { stroke: var(--dw-color-instrument-reading); stroke-width: 2; }
+.dw-diagnostic-latest { fill: var(--dw-color-instrument-reading); }
