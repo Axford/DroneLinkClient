@@ -47,7 +47,17 @@ const localMapStyle: maplibregl.StyleSpecification = {
   },
   layers: [
     { id: 'background', type: 'background', paint: { 'background-color': '#202832' } },
-    { id: 'streets', type: 'raster', source: 'streets', paint: { 'raster-brightness-max': 0.85 } },
+    {
+      id: 'streets', type: 'raster', source: 'streets',
+      // Reverse tile luminance so pale land becomes dark and street labels stay legible.
+      // Rotate the hue before inversion to keep water blue.
+      paint: {
+        'raster-brightness-min': 0.68,
+        'raster-brightness-max': 0.12,
+        'raster-hue-rotate': 180,
+        'raster-saturation': -0.25,
+      },
+    },
   ],
 };
 
