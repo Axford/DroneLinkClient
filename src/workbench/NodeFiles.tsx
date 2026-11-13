@@ -28,13 +28,14 @@ interface Props {
     available: boolean;
     uptimeMs?: number;
     domainId?: string;
+    readOnly?: boolean;
     connected?: { request: <T>(endpoint: string, options?: RequestInit, path?: string) => Promise<T> };
     activity: (busy: boolean, dirty: boolean) => void;
 }
 
 function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 
-export default function NodeFiles({ node, transport, available, uptimeMs, activity, domainId, connected }: Props) {
+export default function NodeFiles({ node, transport, available, uptimeMs, activity, domainId, readOnly = false, connected }: Props) {
     const codeEditor = React.useRef<Ace.Editor | null>(null);
     const narrow = useNarrowLayout();
     const [picker, setPicker] = useState(false);
@@ -62,14 +63,14 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     remoteRef.current = remote;
     const backupHistory = connected && domainId && stored?.editable
         ? `/api/domains/${encodeURIComponent(domainId)}/nodes/${node}/file-backups` : undefined;
-    const canAct = available && !!transport && !busy && (!domainId || !!connected);
-    const showingCloud = source === 'cloud';
+    const canAct = !readOnly && available && !!transport && !busy && (!domainId || !!connected);
+    const showingCloud = readOnly || source === 'cloud';
     const current = showingCloud ? cloudFile : stored;
     const currentDraft = showingCloud ? cloudDraft : draft;
     const setCurrentDraft = showingCloud ? setCloudDraft : setDraft;
     const configuration = current?.path === '/config.ini';
     const highlighted = /\.ini$/i.test(current?.path ?? '');
-    const editable = showingCloud ? !!cloudFile : !!stored?.editable;
+    const editable = !readOnly && (showingCloud ? !!cloudFile : !!stored?.editable);
     const cloudText = cloudFile?.text.includes('\r\n') ? cloudDraft.replace(/\n/g, '\r\n') : cloudDraft;
     const draftText = showingCloud ? cloudText : uploadText;
     const overview = React.useMemo(() => configuration ? inspectNodeConfiguration(draftText, node) : undefined,
@@ -201,6 +202,18 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         }, true);
     }
 
+    useEffect(() => {
+        if (!readOnly || !domainId) return;
+        let active = true;
+        setBusy(true);
+        void cloudNodeFiles(domainId, node).list().then(entries => {
+            if (active) setCloudEntries(entries);
+        }).catch(error => {
+            if (active) setFeedback({ text: error instanceof Error ? error.message : 'Could not load Cloud files.', error: true });
+        }).finally(() => { if (active) setBusy(false); });
+        return () => { active = false; };
+    }, [domainId, node, readOnly]);
+
     function chooseSource(next: 'node' | 'cloud') {
         setSource(next);
         setFeedback(undefined);
@@ -229,7 +242,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     }
 
     function saveCloud() {
-        if (!cloud || !cloudFile || !cloudDirty) return;
+        if (readOnly || !cloud || !cloudFile || !cloudDirty) return;
         void run(async () => {
             rememberCloud(await cloud.save(cloudFile.path, cloudText, cloudFile.revision));
             setFeedback({ text: 'Saved to Cloud.' });
@@ -237,7 +250,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     }
 
     function copyToCloud() {
-        if (!cloud || !stored || !stored.editable) return;
+        if (readOnly || !cloud || !stored || !stored.editable) return;
         if (cloudDirty && !window.confirm('Discard the unsaved Cloud draft to open the copy?')) return;
         if (!window.confirm(`Copy the current text to Cloud as ${stored.path}?`)) return;
         void run(async () => {
@@ -272,13 +285,13 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     }
 
     const explorer = <aside aria-label="File explorer" className="dw-file-browser">
-        <div className="dw-file-sources" role="group" aria-label="File location">
+        {!readOnly && <div className="dw-file-sources" role="group" aria-label="File location">
             <button type="button" className="btn" aria-pressed={!showingCloud} disabled={busy} onClick={() => chooseSource('node')}>On-node</button>
             <button type="button" className="btn" aria-pressed={showingCloud} disabled={busy || !cloud} title={cloud ? undefined : 'Cloud files require a hosted Domain'} onClick={() => chooseSource('cloud')}>Cloud</button>
-        </div>
+        </div>}
         {showingCloud ? <div className="dw-file-tree">
             <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={refreshCloud}>Refresh Cloud files</button>
-            {cloudEntries?.length === 0 && <p className="dw-meta">No Cloud files. Copy an on-node file to get started.</p>}
+            {cloudEntries?.length === 0 && <p className="dw-meta">No Cloud files.{!readOnly && ' Copy an on-node file to get started.'}</p>}
             <ul className="list-unstyled mb-0">{cloudEntries?.map(entry => <li key={entry.path}>
                 <button type="button" className="btn dw-file-row" disabled={busy} aria-current={cloudFile?.path === entry.path ? 'true' : undefined}
                     onClick={() => openCloud(entry.path)} title={entry.path}>
@@ -326,7 +339,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                 {current && <strong><code>{current.path}</code></strong>}
                 {(showingCloud ? cloudDirty : dirty) && <span className="dw-meta">Unsaved draft</span>}
                 <div className="dw-toolbar dw-file-actions">
-                    {showingCloud ? <>
+                    {readOnly ? null : showingCloud ? <>
                         <button type="button" className="btn btn-outline-secondary" disabled={!canAct || !cloudFile} onClick={loadCloudDraft}>Load into node draft…</button>
                         <button type="button" className="btn btn-primary" disabled={!cloudDirty || busy} onClick={saveCloud}>Save to Cloud</button>
                     </> : <>
@@ -344,6 +357,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                     </>}
                 </div>
             </header>
+            {readOnly && <p className="dw-meta">Archived Domain · Cloud files are read-only.</p>}
             {uptimeMs !== undefined && !showingCloud && <p className="dw-meta">{available ? 'Runtime' : 'Last seen runtime'} · Uptime <output aria-label="Last reported runtime uptime">{Math.floor(uptimeMs / 1000)} s</output></p>}
             {!available && !showingCloud && <p className="dw-meta">The selected route is unavailable.</p>}
             {busy && <p role="status">Working…</p>}
@@ -359,7 +373,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                     editorRef={codeEditor} label={editorLabel} text={currentDraft} onChange={setCurrentDraft}
                     readOnly={!editable || busy} diagnostics={diagnostics} /></Suspense> : plainEditor}
                 {configuration && <details className="dw-file-checks">
-                    <summary>{configurationError ? 'Fix configuration errors before uploading.' :
+                    <summary>{configurationError ? readOnly ? 'Configuration errors found.' : 'Fix configuration errors before uploading.' :
                         diagnostics.length ? `${diagnostics.length} configuration warning(s).` : 'No structural issues found.'}</summary>
                     <p className="dw-meta">Checks cover file structure, interval and subscription addresses. Module settings and live bindings are unverified.</p>
                     <ul className="list-unstyled mb-0">{diagnostics.map(({ line, severity, message }, index) => <li key={index}>

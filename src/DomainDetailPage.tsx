@@ -3,7 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
 import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
-import { DomainLensPanels, DomainWorkspace } from './components/DomainWorkspace';
+import { DomainLens, DomainLensPanels, DomainWorkspace } from './components/DomainWorkspace';
+import NodeSelector from './components/NodeSelector';
+import WorkbenchNetwork from './workbench/WorkbenchNetwork';
 import ObservedMap from './components/ObservedMap';
 import { NodeMapSettings, NodeMapSettingsProvider } from './components/NodeMapSettings';
 import { Domain, User } from './App';
@@ -32,10 +34,12 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+    const [lens, setLens] = useState<DomainLens>('map');
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
     const fileActivity = useRef({ busy: false, dirty: false });
-    const recordFileActivity = useCallback((busy: boolean, dirty: boolean) => { fileActivity.current = { busy, dirty }; }, []);
+    const [filesBusy, setFilesBusy] = useState(false);
+    const recordFileActivity = useCallback((busy: boolean, dirty: boolean) => { fileActivity.current = { busy, dirty }; setFilesBusy(busy); }, []);
     function selectNode(node: number | null) {
         if (node === selectedNodeId) return true;
         if (fileActivity.current.busy || (fileActivity.current.dirty && !window.confirm('Discard the unsaved node file draft?'))) return false;
@@ -64,7 +68,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         const controller = new AbortController();
         let active = true;
         refreshGeneration.current++;
-        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); reset();
+        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); setLens('map'); reset();
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -157,6 +161,30 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
 
     const state = workbench.mixed(droneLinkState.state);
     const local = selectedNodeId !== null && workbench.usesLocal(selectedNodeId);
+    const archived = domain.status === 'archived';
+    const canReadFiles = archived
+        ? user.isPlatformAdmin === true || domain.myRole === 'owner' || domain.myRole === 'editor'
+        : domain.canEdit;
+    const files = selectedNodeId === null || !canReadFiles
+        ? <div className="inspector-content">{selectedNodeId === null
+            ? 'Select a node to browse its files.'
+            : 'Node files are available to Domain Owners, Editors and Platform Admins.'}</div>
+        : <NodeFiles key={archived ? 'archived' : 'active'} node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
+            readOnly={archived} available={!archived && workbench.fileBackups && local && !!workbench.transport(selectedNodeId)}
+            transport={archived ? undefined : workbench.transport(selectedNodeId)}
+            connected={!archived && workbench.fileBackups ? { request: (endpoint, options, path) =>
+                workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />;
+    const lensContent = lens === 'map'
+        ? <ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
+            user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
+        : <div className="dw-workbench-lens">
+            {lens === 'network' && (workbench.network
+                ? <WorkbenchNetwork feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode} selectionDisabled={filesBusy} />
+                : <p>{archived ? 'Live gateway routes are unavailable for archived Domains. Select a node to inspect retained observations.'
+                    : 'Pair a local gateway to see live routes.'}</p>)}
+            <NodeSelector inline nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={selectNode}
+                selectionDisabled={filesBusy} now={Date.now()} />
+        </div>;
     return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={{
         userId: user._id, domainId: domain._id, canSubmit: editableDomain !== undefined, captureEditAccess: () => {
             const authority = editAuthority.current;
@@ -165,7 +193,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         canSettings: domain.status === 'active' && domain.canManageMembers, canTarget: canCloudTarget
     }}><WorkspaceShell user={user} activeDomain={domain}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
-            <DomainWorkspace name={domain.name} lenses={[{ id: 'map', label: 'Map' }]} activeLens="map" status={
+            <DomainWorkspace name={domain.name} activeLens={lens} onLensChange={setLens} status={
                     <div className="dw-toolbar">
                         <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
                         <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
@@ -179,8 +207,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </>}>
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
-                        <DomainLensPanels overMap lens={<ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
-                            user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />}
+                        <DomainLensPanels overMap={lens === 'map'} lens={lensContent}
                             inspector={<InspectorPanel key={`${domain._id}:${selectedNodeId}`} selectedNodeId={selectedNodeId}
                                 droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}
                                 canReset={domain.canEdit === true && domain.status !== 'archived'}
@@ -188,11 +215,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 localModules={local && selectedNodeId !== null ? <ConnectedLocalInspector node={selectedNodeId}
                                     workbench={workbench} state={state} canQuery={domain.canEdit} /> : undefined}
                                 localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}
-                                files={domain.canEdit && domain.status === 'active' && selectedNodeId !== null && <NodeFiles
-                                    node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
-                                    available={workbench.fileBackups && local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
-                                    connected={workbench.fileBackups ? { request: (endpoint, options, path) =>
-                                        workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />} />} />
+                                files={files} />} />
                     </InspectorSessionProvider>
                     </NodeMapSettingsProvider>
             </DomainWorkspace>

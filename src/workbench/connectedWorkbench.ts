@@ -197,5 +197,5 @@ export function useConnectedWorkbench(domainId?: string) {
         const response = await request(activePair, 'query-value', grant, signal, { node, channel, parameter, transport: selected });
         if (!response.ok) throw await localError(response);
     }
-    return { paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, fileRequest, fileBackups: activePair?.fileBackups === true };
+    return { network: activePair ? feed : undefined, paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, fileRequest, fileBackups: activePair?.fileBackups === true };
 }

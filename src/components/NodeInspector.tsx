@@ -27,7 +27,7 @@ export default function NodeInspector({ selected, actions, context, modules, fil
                 icon={minimized ? <ArrowsAngleExpand /> : <DashLg />} aria-expanded={!minimized}
                 onClick={() => setMinimized(value => !value)} />
         </header>
-        {selected ? <Tabs id={id} activeKey={active} onSelect={key => setView(key === 'files' ? 'files' : 'modules')}
+        {selected || files ? <Tabs id={id} activeKey={active} onSelect={key => setView(key === 'files' ? 'files' : 'modules')}
             transition={false} className="dw-inspector-tabs" aria-label="Node views">
             <Tab eventKey="modules" title="Modules">{modules}</Tab>
             {files && <Tab eventKey="files" title={filesAvailable ? 'Files' : null} mountOnEnter>{files}</Tab>}

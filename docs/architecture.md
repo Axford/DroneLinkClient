@@ -267,3 +267,9 @@ The map enables dragging when the selected Nav reports a valid guarded move capa
 ### Verified route preview
 
 The Domain map requests geometry for the selected node's reported Waypoint digest. It removes the preview when that digest changes or the node selection changes. The cloud must have received the digest and hold a matching backup. The preview reports the digest receipt and backup capture times. The existing Nav overlay continues to display the observed leg and target. See the [route preview contract](../../DroneLinkDatastore/docs/contracts/workbench.md#verified-route-preview).
+
+## Cloud and Workbench lenses
+
+The Cloud workspace and standalone Workbench share the Nodes, Map and Network toolbar. Switching lenses preserves the selected node and Inspector. Network uses the same gateway routes and diagnostics in Workbench and paired active Domains. In Cloud, the observed node selector remains available independently of live routes, including when viewing an archived Domain.
+
+The Cloud Inspector exposes Files with a prompt when a node or file access is unavailable. In archived Domains, Owners, Editors and Platform Admins can browse and open Cloud files in the read-only Explorer. The archived view omits node operations and Cloud save controls. Hosted authorization also enforces the role and active-Domain requirements on writes.

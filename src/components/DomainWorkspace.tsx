@@ -2,26 +2,23 @@ import React from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import useNarrowLayout from './ui/useNarrowLayout';
 
-export interface DomainLens {
-    id: string;
-    label: string;
-}
+const lenses = [{ id: 'nodes', label: 'Nodes' }, { id: 'map', label: 'Map' }, { id: 'network', label: 'Network' }] as const;
+export type DomainLens = typeof lenses[number]['id'];
 
-export function DomainWorkspace({ name, status, notices, lenses, activeLens, onLensChange, children }: {
+export function DomainWorkspace({ name, status, notices, activeLens, onLensChange, children }: {
     name: string;
     status?: React.ReactNode;
     notices?: React.ReactNode;
-    lenses: readonly DomainLens[];
-    activeLens: string;
-    onLensChange?: (id: string) => void;
+    activeLens: DomainLens;
+    onLensChange: (id: DomainLens) => void;
     children: React.ReactNode;
 }) {
     return <div className="dw-operations">
         <header className="dw-operations-header"><h1>{name}</h1>{status}</header>
         {notices}
         <nav className="dw-lens-nav" aria-label="Domain lenses">
-            {lenses.map(({ id, label }) => <button key={id} type="button" aria-current={id === activeLens ? 'page' : undefined} aria-disabled={!onLensChange && id === activeLens ? true : undefined}
-                onClick={() => onLensChange?.(id)}>{label}</button>)}
+            {lenses.map(({ id, label }) => <button key={id} type="button" aria-current={id === activeLens ? 'page' : undefined}
+                onClick={() => onLensChange(id)}>{label}</button>)}
         </nav>
         <div className="dw-operation-panels">{children}</div>
     </div>;

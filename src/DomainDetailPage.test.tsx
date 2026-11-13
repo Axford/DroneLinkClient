@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import DomainDetailPage from './DomainDetailPage';
 import mapboxgl from 'mapbox-gl';
@@ -8,7 +8,9 @@ jest.mock('mapbox-gl', () => ({ Map: jest.fn(), NavigationControl: jest.fn() }))
 jest.mock('./components/DomainCollaboration', () => () => <div>Collaboration</div>);
 jest.mock('./components/InspectorPanel', () => {
   const { ParameterCommands } = jest.requireActual('./commands/CommandControls');
-  return () => <div>Inspector{['demotion', 'archive', 'navigation', 'revocation'].includes(
+  const Inspector = jest.requireActual('./components/InspectorPanel').default;
+  return (props: any) => jest.requireActual('./commands/session').useCommandScope()?.userId === 'lens-user'
+    ? <Inspector {...props} /> : <div>Inspector{['demotion', 'archive', 'navigation', 'revocation'].includes(
     jest.requireActual('./commands/session').useCommandScope()?.userId
   ) && <ParameterCommands target={{ nodeAddress: 7, channel: 4, param: 8 }} />}</div>;
 });
@@ -154,7 +156,7 @@ test.each(['demotion', 'archive', 'navigation', 'revocation'])('a delayed reserv
     return Promise.resolve(reply({ _id: id, name: id === 'a' ? 'Alpha' : 'Bravo',
       status: archived ? 'archived' : 'active', canEdit: editable }));
   });
-  global.fetch = requests;
+  global.fetch = requests as unknown as typeof fetch;
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'Query value' }));
   await waitFor(() => expect(requests.mock.calls.some(([url]) => url.endsWith('/command-submissions'))).toBe(true));
@@ -174,4 +176,37 @@ test.each(['demotion', 'archive', 'navigation', 'revocation'])('a delayed reserv
   }
   await act(async () => finish(reply({ submissionId: 's'.repeat(43), firstUseExpiresAt: '2099-01-01T00:00:00Z' })));
   expect(requests.mock.calls.some(([url, options]) => url.endsWith('/commands') && options?.method === 'POST')).toBe(false);
+});
+
+test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected node and see the Files tab', async role => {
+  const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data });
+  const requests = jest.fn(async (url: string) => {
+    if (url.endsWith('/observations')) {
+      const snapshot = await sharedSnapshot().json();
+      return reply({ ...snapshot, data: { ...snapshot.data, nodes: [{ nodeAddress: 11, generation: 0, revision: 1, droneId: 'drone-11', lastReceivedAt: '2026-11-13T10:00:00Z' }] } });
+    }
+    if (url.endsWith('/cloud-files')) return reply({ data: [] });
+    if (observationReply(url)) return observationReply(url);
+    if (url === '/api/user') return reply({ _id: 'lens-user', displayName: 'Lens user' });
+    if (url === '/api/config') return reply({ data: { mapboxAccessToken: null } });
+    return reply({ data: { _id: 'a', name: 'Alpha', status: 'archived', myRole: role, canEdit: false } });
+  });
+  global.fetch = requests as unknown as typeof fetch;
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  const lenses = within(await screen.findByRole('navigation', { name: 'Domain lenses' }));
+  expect(lenses.getAllByRole('button').map(button => button.textContent)).toEqual(['Nodes', 'Map', 'Network']);
+  expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
+  fireEvent.click(lenses.getByRole('button', { name: 'Nodes' }));
+  fireEvent.click(screen.getByRole('button', { name: /^Inspect node 11:/ }));
+  fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
+  expect(screen.getByText(/Live gateway routes are unavailable for archived Domains/)).toBeVisible();
+  expect(screen.getByRole('button', { name: /^Inspect node 11:/ })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('tab', { name: 'Files' }));
+  if (role === 'editor') {
+    expect(await screen.findByText('No Cloud files.')).toBeVisible();
+    expect(screen.getByText(/Cloud files are read-only/)).toBeVisible();
+  } else {
+    expect(screen.getByText(/Node files are available to Domain Owners/)).toBeVisible();
+    expect(requests.mock.calls.some(([url]) => url.includes('/cloud-files'))).toBe(false);
+  }
 });

@@ -152,3 +152,24 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         global.fetch = previousFetch;
     }
 });
+
+it('opens archived Cloud files read-only without node or save actions', async () => {
+    const previous = global.fetch;
+    const entry = { path: '/config.ini', modifiedAt: '2026-11-13T10:00:00Z' };
+    const fetchMock = jest.fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [entry] }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ data: { ...stored, ...entry, text: 'node = 11\n' } }) });
+    global.fetch = fetchMock;
+    try {
+        render(<NodeFiles domainId="archive" node={11} readOnly available={false} activity={jest.fn()} />);
+        fireEvent.click(await screen.findByRole('button', { name: /^\/config\.ini/ }));
+        const editor = await screen.findByTestId('configuration-editor');
+        expect(editor).toHaveAttribute('readonly');
+        expect(editor).toHaveValue('node = 11\n');
+        expect(screen.queryByRole('button', { name: /Save to Cloud|Load into node draft|Node actions|On-node/ })).not.toBeInTheDocument();
+        expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+            '/api/domains/archive/nodes/11/cloud-files',
+            '/api/domains/archive/nodes/11/cloud-files?path=%2Fconfig.ini',
+        ]);
+    } finally { global.fetch = previous; }
+});

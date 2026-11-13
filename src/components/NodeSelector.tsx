@@ -17,6 +17,7 @@ interface NodeSelectorProps {
     onLocate?: (nodeId: number) => void;
     canLocate?: (nodeId: number) => boolean;
     inline?: boolean;
+    local?: boolean;
     status?: (nodeId: number) => string;
     selectionDisabled?: boolean;
     now: number;
@@ -27,7 +28,7 @@ function nodeLabel(node: NodeState) {
 }
 
 /** Node selection remains available independently of basemap/position availability. */
-export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLocate, canLocate, now, inline, status, selectionDisabled }: NodeSelectorProps) {
+export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLocate, canLocate, now, inline, local, status, selectionDisabled }: NodeSelectorProps) {
     const listId = useId();
     const narrow = useNarrowLayout();
     const settings = useVisualizationSettings();
@@ -36,7 +37,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
     const selected = nodes.find(node => node.id === selectedNodeId);
     const selectedLabel = selected ? nodeLabel(selected) : 'Choose a node';
 
-    const label = inline ? "Local nodes" : "Observed nodes";
+    const label = local ? "Local nodes" : "Observed nodes";
     const items = <ul id={listId} className="dw-node-items">
         {[...nodes].sort((a, b) => a.id - b.id).map(node => {
             const receipt = node.interface === 'Local' ? 'Gateway receipt' : 'Server receipt';
@@ -54,7 +55,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
                     onClick={() => { onLocate(node.id); if (narrow) setExpanded(false); }} />}
             <SummaryChips nodeId={node.id} summaries={moduleSummaries(node, settings?.get)} now={now} />
         </li>; })}
-        {nodes.length === 0 && <li className="dw-meta dw-node-list-empty">{inline ? "Waiting for local routes." : "No observed nodes"}</li>}
+        {nodes.length === 0 && <li className="dw-meta dw-node-list-empty">{local ? "Waiting for local routes." : "No observed nodes"}</li>}
     </ul>;
     const toggle = <IconButton label={expanded ? 'Collapse node list' : 'Expand node list'} icon={expanded ? <ChevronUp /> : <ChevronDown />}
         aria-expanded={expanded} aria-controls={expanded ? listId : undefined} aria-haspopup={narrow ? 'dialog' : undefined}
