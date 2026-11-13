@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import DiagnosticScene, { DiagnosticSceneData } from './DiagnosticScene';
+import DiagnosticScene from './DiagnosticScene';
+import type { DiagnosticSceneData } from '../../dronelink/diagnosticScene';
 
 const magnetic: DiagnosticSceneData = {
   extent: 40,

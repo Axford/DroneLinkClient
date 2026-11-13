@@ -64,7 +64,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                 </div>
                 {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} />}
             </div>}
-            {summary ? <ChannelSummary channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
+            {summary ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>

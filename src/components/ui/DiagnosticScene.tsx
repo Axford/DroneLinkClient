@@ -1,16 +1,7 @@
 import React, { useId, useState } from 'react';
 import SettingsDialog from './SettingsDialog';
 import './DiagnosticScene.css';
-
-export type DiagnosticVector = readonly [number, number, number];
-
-export interface DiagnosticSceneData {
-  /** Half-width of the reference axes, in the same units as the vectors. */
-  extent: number;
-  samples?: readonly DiagnosticVector[];
-  vector?: { from: DiagnosticVector; to: DiagnosticVector };
-  calibration?: { centre: DiagnosticVector; radii: DiagnosticVector };
-}
+import type { DiagnosticSceneData, DiagnosticVector } from '../../dronelink/diagnosticScene';
 
 interface DiagnosticSceneProps {
   title: string;
@@ -32,11 +23,12 @@ function SceneView({ scene, title }: Pick<DiagnosticSceneProps, 'scene' | 'title
   const elevation = view.elevation * Math.PI / 180;
   const { extent, vector, calibration } = scene;
   const samples = (scene.samples ?? []).filter(isFiniteVector);
-  const live = vector && isFiniteVector(vector.from) && isFiniteVector(vector.to) ? vector : undefined;
+  const live = vector && isFiniteVector(vector.to) ? vector : undefined;
+  const origin = live?.from && isFiniteVector(live.from) ? live.from : undefined;
   const bounds = calibration && isFiniteVector(calibration.centre) &&
     calibration.radii.every((radius, index) => radius > 0 && Number.isFinite(Math.abs(calibration.centre[index]) + radius)) ? calibration : undefined;
   const scale = Math.max(Number.isFinite(extent) && extent > 0 ? extent : 1,
-    ...samples.flatMap(point => point.map(Math.abs)), ...(live ? [...live.from, ...live.to].map(Math.abs) : []),
+    ...samples.flatMap(point => point.map(Math.abs)), ...(live ? [...(origin ?? []), ...live.to].map(Math.abs) : []),
     ...(bounds ? bounds.centre.map((value, index) => Math.abs(value) + bounds.radii[index]) : []));
   const project = ([x, y, z]: DiagnosticVector): [number, number] => {
     const u = x / scale;
@@ -100,7 +92,7 @@ function SceneView({ scene, title }: Pick<DiagnosticSceneProps, 'scene' | 'title
         return <circle key={index} className="dw-diagnostic-sample" cx={cx} cy={cy} r="2" />;
       })}
       {live && endpoint && <>
-        <line className="dw-diagnostic-vector" {...line(live.from, live.to)} />
+        {origin && <line className="dw-diagnostic-vector" {...line(origin, live.to)} />}
         <rect className="dw-diagnostic-latest" x={endpoint[0] - 3} y={endpoint[1] - 3} width="6" height="6" />
       </>}
     </svg>

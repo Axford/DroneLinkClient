@@ -15,6 +15,7 @@ import ReceiverInstrument from './ReceiverInstrument';
 import MotorInstrument from './MotorInstrument';
 import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
+import Hmc5883lInstrument from './Hmc5883lInstrument';
 import ServoInstrument from './ServoInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
@@ -47,8 +48,11 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
     </dd>;
 }
 
-export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
+export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('magneticHeading' in summary) {
+        return <Hmc5883lInstrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} scope={sampleScope} />;
+    }
     if ('servoPosition' in summary) {
         return <ServoInstrument label={label} summary={summary} />;
     }

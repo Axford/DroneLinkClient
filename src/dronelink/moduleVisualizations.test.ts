@@ -339,3 +339,21 @@ test.each([['NMEA', 10], ['LSM9DS1', 11], ['CMPS12', 10]] as const)(
         }
     }
 );
+
+test('HMC5883L keeps raw vector origin separate from the calibration bounds', () => {
+    const observed = channel(6, 0, 'HMC5883L');
+    const scalar = observed.params[15];
+    const reading = (param: number, values: number[]) => ({ ...scalar, param, values, numValues: values.length });
+    Object.assign(observed.params, {
+        10: reading(10, [0.2, 0.7, 0.5, 80]), 11: reading(11, [138]),
+        13: reading(13, [-6, 2, 6]), 14: reading(14, [-3, 0, 3]), 15: reading(15, [-4, 0, 4]),
+        21: reading(21, [1, -2, 3, 0]), 22: reading(22, [12]), 24: reading(24, [-17])
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        magneticHeading: { bearing: 138 }, pitchDegrees: 12, rollDegrees: -17, quality: { severity: 'warning' },
+        scene: { vector: { from: [2, 0, 0], to: [1, -2, 3] }, calibration: { centre: [0, 0, 0], radii: [6, 3, 4] } }
+    });
+    observed.params[15] = reading(15, [4, 0, -4]);
+    expect(inspect()).toMatchObject({ scene: { calibration: undefined, vector: { from: undefined, to: [1, -2, 3] } } });
+});

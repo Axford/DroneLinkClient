@@ -1,6 +1,7 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
-import { magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
+import type { DiagnosticSceneData, DiagnosticVector } from './diagnosticScene';
+import { observedFloatVector, magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
 import type { VisualizationSetting, VisualizationSettingsDefinition, VisualizationTarget, VoltageThresholds } from './visualizationSettings';
 
@@ -28,13 +29,28 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface Hmc5883lSummary {
+    magneticHeading: ObservedSummary;
+    pitch: ObservedSummary;
+    roll: ObservedSummary;
+    pitchDegrees?: number;
+    rollDegrees?: number;
+    quality: ObservedSummary;
+    vector: ObservedSummary;
+    calibrated?: DiagnosticVector;
+    diagnosticReadings: ObservedSummary[];
+    rawReading?: ParameterState;
+    scene: DiagnosticSceneData;
+    details: ObservedSummary[];
+}
 
 export interface ServoSummary {
     servoPosition: ObservedSummary;
@@ -475,7 +491,56 @@ function cmps12Summary(channel: ChannelState): InspectorSummary {
     };
 }
 
+export function hmc5883lRawVector(reading: ParameterState | undefined): DiagnosticVector | undefined {
+    const values = observedFloatVector(reading, 4);
+    if (values) return [values[0], values[1], values[2]];
+}
+
+function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
+    const magneticHeading = headingReading(channel, 11);
+    const pitchDegrees = numericValue(channel.params[22], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const rollDegrees = numericValue(channel.params[24], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const angleText = (value: number | undefined) => value === undefined ? undefined : `${value.toFixed(1)}°`;
+    const pitch = field(channel, 22, 'Pitch', angleText(pitchDegrees));
+    const roll = field(channel, 24, 'Roll', angleText(rollDegrees));
+    const vectorText = (vector: DiagnosticVector | undefined) => vector?.map((value, index) =>
+        `${'XYZ'[index]} ${value.toFixed(2)}`).join(' · ');
+    const values = observedFloatVector(channel.params[10], 4);
+    const calibrated: DiagnosticVector | undefined = values && [values[0], values[1], values[2]];
+    const score = values?.[3];
+    const quality = field(channel, 10, 'Calibration quality', score !== undefined && score >= 0 ? score.toFixed(0) : undefined);
+    if (!quality.unavailable && score !== undefined && score <= 80) {
+        quality.severity = 'warning';
+        quality.status = 'Low calibration quality';
+    }
+    const vector = field(channel, 10, 'Calibrated vector', vectorText(calibrated));
+    const rawReading = channel.params[21];
+    const raw = hmc5883lRawVector(rawReading);
+    const [x, y, z] = [13, 14, 15].map(id => calibrationAxis(channel.params[id]));
+    const centre: DiagnosticVector | undefined = x && y && z ? [x.centre, y.centre, z.centre] : undefined;
+    const calibration = x && y && z ? {
+        centre: [(x.min + x.max) / 2, (y.min + y.max) / 2, (z.min + z.max) / 2] as DiagnosticVector,
+        radii: [(x.max - x.min) / 2, (y.max - y.min) / 2, (z.max - z.min) / 2] as DiagnosticVector
+    } : undefined;
+    const diagnosticReadings = [
+        field(channel, 21, 'Raw magnetic vector', vectorText(raw)),
+        ...[x, y, z].map((axis, index) => field(channel, 13 + index, `${'XYZ'[index]} calibration`,
+            axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} · Centre ${axis.centre.toFixed(2)}`))
+    ];
+    return {
+        magneticHeading, pitch, roll, pitchDegrees, rollDegrees, quality, vector, calibrated, rawReading, diagnosticReadings,
+        scene: { extent: 1, calibration, vector: raw ? { from: centre, to: raw } : undefined },
+        details: [
+            magneticHeading, pitch, roll,
+            { ...vector, label: 'Calibrated vector and calibration quality', text: values ? `${vector.text} · Quality ${quality.text}` : vector.text,
+                status: quality.status ?? vector.status },
+            ...diagnosticReadings
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['HMC5883L', { inspector: hmc5883lSummary }],
     ['CMPS12', { inspector: cmps12Summary }],
     ['LSM9DS1', { inspector: lsm9ds1Summary }],
     ['Servo', { inspector: servoSummary }],

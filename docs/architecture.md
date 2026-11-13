@@ -175,6 +175,10 @@ NMEA, LSM9DS1 and CMPS12 use the same heading projection and compass face. Each 
 
 CMPS12 shows the reported heading at FLOAT parameter 10. Firmware already applies declination and the trim at parameter 12 to that heading. The pitch and roll dials use the signed degrees from FLOAT parameter 13 in vector order. Positive pitch rises from the rightward horizontal reference and positive roll moves clockwise from the upright reference. The polar distributions count observed vector receipts in 15-degree bins using the shared five-minute window and the same radial count scale for both dials. Reading Details keeps the heading, trim and attitude vector provenance.
 
+### HMC5883L heading and magnetic calibration
+
+HMC5883L uses the reported heading at parameter 11, signed pitch and roll at 22 and 24, and the calibrated vector and quality score at 10. The calibration dialog projects the raw magnetic observations at 21. Its ellipsoid uses observed min/max bounds at 13–15. The line to the latest raw point starts at the reported calibration centre when available. Recent points use the shared five-minute observation window, and Reading Details retains the provenance of each input.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.
