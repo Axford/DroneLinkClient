@@ -250,3 +250,30 @@ test('Motor preserves input and provenance when the configured scale cannot be d
     delete observed.params[12];
     expect(inspect()).toMatchObject({ motorSpeed: { text: '0.00' }, mappedSpeed: undefined, limits: undefined });
 });
+
+test('Servo projects the configured map and keeps independently reported values', () => {
+    const observed = channel(6, 0, 'Servo');
+    const scalar = observed.params[15];
+    const position = { ...scalar, param: 8 };
+    const map = { ...scalar, param: 12, numValues: 4, values: [0, 60, 120, 180] };
+    const centre = { ...scalar, param: 13, values: [-10] };
+    const angle = { ...scalar, param: 14, values: [67.5], source: 'Local' };
+    Object.assign(observed.params, { 8: position, 12: map, 13: centre, 14: angle });
+    const inspect = () => {
+        const summary = channelVisualization(observed)?.inspector?.(observed);
+        if (!summary || !('servoPosition' in summary)) throw new Error('Servo summary unavailable');
+        return summary;
+    };
+    const { curve, details } = inspect();
+    expect([curve?.[0], curve?.[30], curve?.[60]]).toEqual([0, 80, 170]);
+    expect(details).toMatchObject([{ reading: position }, { text: '67.5°', reading: angle }, { reading: map }, { reading: centre }]);
+    observed.params[13] = { ...centre, values: [30] };
+    expect(inspect().curve?.[60]).toBe(180);
+    observed.params[12] = { ...map, values: [0, 0, 0, 0] };
+    expect(inspect().curve).toEqual(Array(61).fill(30));
+    observed.params[12] = { ...map, values: [0, 60, 120] };
+    expect(inspect()).toMatchObject({ curve: undefined, position: 0, angle: 67.5 });
+    observed.params[12] = map;
+    delete observed.params[13];
+    expect(inspect().curve).toBeUndefined();
+});

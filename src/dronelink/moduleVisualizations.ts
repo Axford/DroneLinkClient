@@ -23,13 +23,23 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface ServoSummary {
+    servoPosition: ObservedSummary;
+    pwmAngle: ObservedSummary;
+    position?: number;
+    angle?: number;
+    curve?: number[];
+    controlPoints?: number[];
+    details: ObservedSummary[];
+}
 
 export interface MotorSummary {
     motorSpeed: ObservedSummary;
@@ -333,7 +343,46 @@ function motorSummary(channel: ChannelState): MotorSummary {
     };
 }
 
+function servoSummary(channel: ChannelState): ServoSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const position = readFloat(8);
+    const angle = readFloat(14);
+    const centre = readFloat(13);
+    const reading = channel.params[12];
+    let map: number[] | undefined;
+    if (hasReading(reading) && reading.msgType === DRONE_LINK_MSG_TYPE_FLOAT &&
+        reading.numValues === 4 && reading.values.length === 4) {
+        const values = Array.from<number | string>(reading.values);
+        if (values.every((value): value is number => typeof value === 'number' && Number.isFinite(value))) map = values;
+    }
+    const controlPoints = map;
+    const curve = controlPoints && centre !== undefined ? Array.from({ length: 61 }, (_, index) => {
+        const [a, b, c, d] = controlPoints;
+        const t = index / 60;
+        const u = 1 - t;
+        const target = a * u ** 3 + 3 * b * u ** 2 * t + 3 * c * u * t ** 2 + d * t ** 3 + centre;
+        return Math.trunc(Math.min(180, Math.max(0, target)));
+    }) : undefined;
+    const servoPosition = field(channel, 8, 'Reported position', position?.toFixed(2));
+    const pwmAngle = field(channel, 14, 'PWM output angle', angle === undefined ? undefined : `${angle.toFixed(1)}°`);
+    return {
+        servoPosition,
+        pwmAngle,
+        position,
+        angle,
+        curve,
+        controlPoints,
+        details: [
+            servoPosition,
+            pwmAngle,
+            field(channel, 12, 'Map control points', map?.map(point => `${point.toFixed(1)}°`).join(' · ')),
+            field(channel, 13, 'Centre adjustment', centre === undefined ? undefined : `${centre.toFixed(1)}°`)
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Servo', { inspector: servoSummary }],
     ['Motor', { inspector: motorSummary }],
     ['Receiver', { inspector: receiverSummary }],
     ['Joystick', {

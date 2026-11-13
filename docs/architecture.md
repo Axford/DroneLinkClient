@@ -151,6 +151,10 @@ Receiver plots the first four observed FLOAT outputs (parameters 11–14) on a s
 
 Motor reads the observed signed speed input from FLOAT parameter 8. The bar shows the derived speed after applying the firmware clamp and remap to the configured FLOAT limit pair at parameter 12. The scale includes zero for asymmetric and one-sided limits. The shaded band uses the absolute magnitude of FLOAT parameter 13. The mapped value represents the stage before deadband and inversion. Reading Details keeps each observation's source and receipt. A missing or invalid limit pair leaves the numeric input available and the scale unavailable.
 
+### Servo mapping and PWM output angle
+
+Servo plots normalized input from −1 to +1 against output angle from 0 to 180°. The configured curve uses the four observed FLOAT control points at parameter 12 and the centre adjustment at parameter 13. It samples the firmware's cubic mapping, truncation and bounds. The independently observed position input at parameter 8 and PWM controller angle at parameter 14 provide separate guides and readouts. The reported output can lag the configured mapping while the firmware applies its movement rate limit. Each observation has its own source and receipt in Reading Details.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.
