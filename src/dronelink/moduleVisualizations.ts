@@ -1,5 +1,5 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_LINK_MSG_MAX_PAYLOAD, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
 import type { DiagnosticSceneData, DiagnosticVector } from './diagnosticScene';
 import { observedFloatVector, magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
@@ -22,7 +22,7 @@ export interface ObservedSummary {
 }
 
 export type InspectorSummary = {
-    layout?: 'compact';
+    layout?: 'compact' | 'paired';
     additionalDetails?: ObservedSummary[];
     magneticCalibration?: MagneticCalibration;
     attitudeReading?: ParameterState;
@@ -174,6 +174,15 @@ const resetReasons: Record<number, string> = {
     11: 'Timer group CPU watchdog', 12: 'Software CPU reset', 13: 'RTC CPU watchdog',
     14: 'CPU reset by other core', 15: 'Brownout', 16: 'RTC module watchdog'
 };
+
+function firmwareBuild(reading: ParameterState | undefined): string | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_CHAR || reading.values.length !== 1) return;
+    const build = reading.values[0];
+    // DroneNode reports an abbreviated Git commit. CHAR decoding removes trailing NUL padding.
+    if (typeof build === 'string' && /^[0-9a-f]{4,16}$/i.test(build) &&
+        Number.isInteger(reading.numValues) && reading.numValues >= build.length &&
+        reading.numValues <= DRONE_LINK_MSG_MAX_PAYLOAD) return build;
+}
 
 function uptimeText(seconds: number | undefined): string | undefined {
     if (seconds === undefined || !Number.isInteger(seconds) || seconds < 0 || seconds > 0xffffffff) return;
@@ -716,10 +725,16 @@ const visualizations = new Map<string, ModuleVisualization>([
             const reset = byteArray(channel.params[10], 3);
             const reasons = reset?.slice(1).map((code, core) => `Core ${core}: ${resetReasons[code] ?? `Code ${code}`}`);
             const ip = byteArray(channel.params[12], 4);
+            const noAddress = ip?.every(byte => byte === 0);
+            const address = field(channel, 12, 'IP address', noAddress ? undefined : ip?.join('.'));
+            const build = field(channel, 9, 'Firmware build', firmwareBuild(channel.params[9]));
+            const resetSummary = { ...field(channel, 10, 'Reset reasons', reasons?.join(' · ')), lines: reasons };
             return {
+                layout: build.unavailable ? undefined : 'paired',
                 primary: [field(channel, 13, 'Last reported uptime', uptimeText(numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_UINT32_T]))),
-                    field(channel, 12, 'IP address', ip?.join('.'))],
-                supporting: [{ ...field(channel, 10, 'Reset reasons', reasons?.join(' · ')), lines: reasons }]
+                    noAddress ? { ...address, text: 'No IP assigned' } : address],
+                supporting: build.unavailable ? [resetSummary] : [build, resetSummary],
+                additionalDetails: build.unavailable && build.reading ? [build] : undefined
             };
         }
     }]

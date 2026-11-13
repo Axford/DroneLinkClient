@@ -158,6 +158,37 @@ test('supported channels open to their own observed readings and expose the save
     expect(details.getAllByText(/Value last changed/)[0]).toHaveTextContent(new Date(500).toLocaleString());
 });
 
+test('Management shows the firmware build from its own channel with independent receipt provenance', () => {
+    const primary = specialist(1, 'Management', {
+        9: { ...reading(9, DRONE_LINK_MSG_TYPE_CHAR, ['69cd31f']), numValues: 7, source: 'HTTP', lastHeard: 1500 },
+        10: reading(10, DRONE_LINK_MSG_TYPE_UINT8_T, [0, 1, 3]),
+        12: reading(12, DRONE_LINK_MSG_TYPE_UINT8_T, [192, 0, 2, 11]),
+        13: reading(13, DRONE_LINK_MSG_TYPE_UINT32_T, [0])
+    });
+    const peer = specialist(2, 'Management', {
+        9: { ...reading(9, DRONE_LINK_MSG_TYPE_CHAR, ['preview']), numValues: 7 },
+        12: reading(12, DRONE_LINK_MSG_TYPE_UINT8_T, [0, 0, 0, 0])
+    });
+    const current = node(7, { 1: primary, 2: peer });
+    const view = render(session(current));
+    const first = within(screen.getByLabelText('Observed readings for channel 1'));
+    const second = within(screen.getByLabelText('Observed readings for channel 2'));
+    expect(first.getByText('69cd31f')).toBeVisible();
+    expect(first.getByText('0s')).toBeVisible();
+    expect(second.getByText('No IP assigned')).toBeVisible();
+    expect(second.queryByText('Firmware build')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 1 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 1 reading details' }));
+    expect(details.getByText(/^7>1\.9 · HTTP/)).toHaveTextContent(new Date(1500).toLocaleString());
+    fireEvent.click(details.getByRole('button', { name: 'Close Channel 1 reading details' }));
+    const updated = node(7, { 1: primary, 2: { ...peer, params: {
+        ...peer.params, 9: { ...peer.params[9], numValues: 16, values: ['deadbeef12'] }
+    } } });
+    view.rerender(session(updated));
+    expect(second.getByText('deadbeef12')).toBeVisible();
+    expect(first.getByText('69cd31f')).toBeVisible();
+});
+
 test('invalid readings stay unavailable and view choice follows the channel only for its current identity', () => {
     const gps = specialist(4, 'NMEA', { 8: reading(8, DRONE_LINK_MSG_TYPE_FLOAT, [-1, 51]),
         9: reading(9, DRONE_LINK_MSG_TYPE_FLOAT, [3.2]), 10: reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [999]),
