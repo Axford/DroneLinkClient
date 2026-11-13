@@ -1,6 +1,7 @@
 import React from 'react';
 import { hmc5883lRawVector, type Hmc5883lSummary } from '../dronelink/moduleVisualizations';
 import { sampleWindowMinutes } from '../dronelink/sampledObservations';
+import ArtificialHorizon from './ArtificialHorizon';
 import HeadingCompass from './HeadingCompass';
 import { SummaryDetails } from './NodeSummary';
 import { useProjectedSamples } from './useObservationSamples';
@@ -16,8 +17,11 @@ export default function Hmc5883lInstrument({ nodeId, label, summary, scope }: {
     const { magneticHeading, pitch, roll, pitchDegrees, rollDegrees, quality, vector, calibrated } = summary;
     const samples = useProjectedSamples(scope, summary.rawReading, hmc5883lRawVector)
         .flatMap(sample => sample.value === null ? [] : [sample.value]);
-    const horizon = pitchDegrees !== undefined && rollDegrees !== undefined &&
-        Math.abs(pitchDegrees) <= 90 && Math.abs(rollDegrees) <= 180;
+    const horizonAttitude = {
+        ...summary,
+        pitchDegrees: pitchDegrees !== undefined && Math.abs(pitchDegrees) <= 90 ? pitchDegrees : undefined,
+        rollDegrees: rollDegrees !== undefined && Math.abs(rollDegrees) <= 180 ? rollDegrees : undefined
+    };
     const vectorScale = calibrated && Math.max(1, Math.abs(calibrated[0]), Math.abs(calibrated[1]));
 
     return <section className="dw-hmc" aria-label={label}>
@@ -32,13 +36,7 @@ export default function Hmc5883lInstrument({ nodeId, label, summary, scope }: {
             <div className="dw-hmc-attitude">
                 <dt className="visually-hidden">Artificial horizon</dt>
                 <dd>
-                    {horizon ? <svg viewBox="0 0 160 72" role="img" aria-label={`Artificial horizon. Pitch ${pitch.text}, roll ${roll.text}.`}>
-                        <g className="dw-hmc-horizon" transform={`translate(80 ${36 + 72 * Math.sin(pitchDegrees * Math.PI / 180)}) rotate(${rollDegrees})`}>
-                            <rect x="-250" width="500" height="250" />
-                            <line x1="-250" x2="250" y1="0" y2="0" />
-                        </g>
-                        <path className="dw-hmc-reference" d="M 52 36 H 69 M 91 36 H 108 M 75 36 H 85 M 60 24 H 100 M 60 48 H 100" />
-                    </svg> : <span className="dw-meta">Horizon unavailable</span>}
+                    <ArtificialHorizon attitude={horizonAttitude} />
                 </dd>
                 <dt className="dw-meta">Pitch</dt><dd data-unavailable={pitch.unavailable || undefined}>{pitch.text}</dd>
                 <dt className="dw-meta">Roll</dt><dd data-unavailable={roll.unavailable || undefined}>{roll.text}</dd>

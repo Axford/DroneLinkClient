@@ -1,0 +1,4 @@
+.dw-artificial-horizon { display: block; width: min(100%, 10rem); overflow: hidden; }
+.dw-horizon-plane rect { fill: var(--dw-color-instrument-blue); fill-opacity: 0.42; }
+.dw-horizon-plane line { stroke: var(--dw-color-text); }
+.dw-horizon-reference { fill: none; stroke: var(--dw-color-muted); }

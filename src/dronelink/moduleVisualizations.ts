@@ -29,7 +29,7 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
@@ -37,12 +37,22 @@ export type InspectorSummary = {
     details: ObservedSummary[];
 };
 
-export interface Hmc5883lSummary {
-    magneticHeading: ObservedSummary;
+export interface HorizonReadings {
     pitch: ObservedSummary;
     roll: ObservedSummary;
     pitchDegrees?: number;
     rollDegrees?: number;
+}
+
+export interface Mpu6050Summary extends HorizonReadings {
+    temperature: ObservedSummary;
+    scene: DiagnosticSceneData;
+    diagnosticReadings: ObservedSummary[];
+    details: ObservedSummary[];
+}
+
+export interface Hmc5883lSummary extends HorizonReadings {
+    magneticHeading: ObservedSummary;
     quality: ObservedSummary;
     vector: ObservedSummary;
     calibrated?: DiagnosticVector;
@@ -496,13 +506,21 @@ export function hmc5883lRawVector(reading: ParameterState | undefined): Diagnost
     if (values) return [values[0], values[1], values[2]];
 }
 
+function horizonReadings(channel: ChannelState, pitchId: number, rollId: number): HorizonReadings {
+    const pitchDegrees = numericValue(channel.params[pitchId], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const rollDegrees = numericValue(channel.params[rollId], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const angleText = (value: number | undefined) => value === undefined ? undefined : `${value.toFixed(1)}°`;
+    return {
+        pitch: field(channel, pitchId, 'Pitch', angleText(pitchDegrees)),
+        roll: field(channel, rollId, 'Roll', angleText(rollDegrees)),
+        pitchDegrees, rollDegrees
+    };
+}
+
 function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
     const magneticHeading = headingReading(channel, 11);
-    const pitchDegrees = numericValue(channel.params[22], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const rollDegrees = numericValue(channel.params[24], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const angleText = (value: number | undefined) => value === undefined ? undefined : `${value.toFixed(1)}°`;
-    const pitch = field(channel, 22, 'Pitch', angleText(pitchDegrees));
-    const roll = field(channel, 24, 'Roll', angleText(rollDegrees));
+    const attitude = horizonReadings(channel, 22, 24);
+    const { pitch, roll } = attitude;
     const vectorText = (vector: DiagnosticVector | undefined) => vector?.map((value, index) =>
         `${'XYZ'[index]} ${value.toFixed(2)}`).join(' · ');
     const values = observedFloatVector(channel.params[10], 4);
@@ -528,7 +546,7 @@ function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
             axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} · Centre ${axis.centre.toFixed(2)}`))
     ];
     return {
-        magneticHeading, pitch, roll, pitchDegrees, rollDegrees, quality, vector, calibrated, rawReading, diagnosticReadings,
+        ...attitude, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings,
         scene: { extent: 1, calibration, vector: raw ? { from: centre, to: raw } : undefined },
         details: [
             magneticHeading, pitch, roll,
@@ -539,7 +557,43 @@ function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
     };
 }
 
+function mpu6050Temperature(channel: ChannelState, decimals = 0): ObservedSummary {
+    const value = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const temperature = field(channel, 12, 'Temperature', value === undefined ? undefined : `${value.toFixed(decimals)} °C`);
+    if (value !== undefined && value > 40) return { ...temperature, severity: 'danger', status: 'Critical temperature' };
+    if (value !== undefined && value > 30) return { ...temperature, severity: 'warning', status: 'High temperature' };
+    return temperature;
+}
+
+function mpu6050Summary(channel: ChannelState): Mpu6050Summary {
+    const attitude = horizonReadings(channel, 13, 14);
+    const temperature = mpu6050Temperature(channel, 1);
+    const acceleration = observedFloatVector(channel.params[10], 3);
+    const vector = acceleration && {
+        from: [0, 0, 0] as DiagnosticVector,
+        to: [acceleration[0], acceleration[1], acceleration[2]] as DiagnosticVector
+    };
+    const calibrationIds = [16, 17, 18];
+    const [x, y, z] = calibrationIds.map(id => calibrationAxis(channel.params[id]));
+    const calibration = x && y && z ? {
+        centre: [x.centre, y.centre, z.centre] as DiagnosticVector,
+        radii: [(x.max - x.min) / 2, (y.max - y.min) / 2, (z.max - z.min) / 2] as DiagnosticVector
+    } : undefined;
+    const diagnosticReadings = [
+        field(channel, 10, 'Acceleration', acceleration && `${acceleration.map((value, index) =>
+            `${'XYZ'[index]} ${value.toFixed(1)}`).join(' · ')} · Magnitude ${Math.hypot(...acceleration).toFixed(1)} m/s²`),
+        ...[x, y, z].map((axis, index) => field(channel, calibrationIds[index], `${'XYZ'[index]} calibration`,
+            axis && `Radius ${((axis.max - axis.min) / 2).toFixed(2)} · Centre ${axis.centre.toFixed(2)} m/s²`))
+    ];
+    return {
+        ...attitude, temperature, scene: { extent: 1, vector, calibration },
+        diagnosticReadings: [attitude.pitch, attitude.roll, ...diagnosticReadings],
+        details: [attitude.pitch, attitude.roll, temperature, ...diagnosticReadings]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
     ['HMC5883L', { inspector: hmc5883lSummary }],
     ['CMPS12', { inspector: cmps12Summary }],
     ['LSM9DS1', { inspector: lsm9ds1Summary }],

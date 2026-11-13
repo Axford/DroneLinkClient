@@ -12,9 +12,6 @@
 .dw-hmc-attitude dt { text-align: end; }
 .dw-hmc-attitude dd { justify-content: start; }
 .dw-hmc-attitude dd:first-of-type { grid-column: 1 / -1; justify-content: center; }
-.dw-hmc-attitude svg { display: block; width: min(100%, 10rem); overflow: hidden; }
-.dw-hmc-horizon rect { fill: var(--dw-color-instrument-blue); fill-opacity: 0.42; }
-.dw-hmc-horizon line { stroke: var(--dw-color-text); }
 .dw-hmc-reference { fill: none; stroke: var(--dw-color-muted); }
 .dw-hmc-vector { grid-column: 1 / -1; align-content: center; }
 .dw-hmc-vector svg { display: block; width: min(100%, 6rem); }

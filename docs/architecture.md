@@ -165,7 +165,7 @@ LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent m
 
 ### Expanded 3D diagnostics
 
-The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their observation mapping in their respective renderer slices.
+The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their own observation mappings.
 
 ### Shared heading and attitude displays
 
@@ -178,6 +178,10 @@ CMPS12 shows the reported heading at FLOAT parameter 10. Firmware already applie
 ### HMC5883L heading and magnetic calibration
 
 HMC5883L uses the reported heading at parameter 11, signed pitch and roll at 22 and 24, and the calibrated vector and quality score at 10. The calibration dialog projects the raw magnetic observations at 21. Its ellipsoid uses observed min/max bounds at 13–15. The line to the latest raw point starts at the reported calibration centre when available. Recent points use the shared five-minute observation window, and Reading Details retains the provenance of each input.
+
+### MPU6050 attitude and acceleration
+
+MPU6050 shares the artificial horizon with HMC5883L and displays signed pitch and roll from parameters 13 and 14. Temperature at parameter 12 drives both the Summary and node chip. The legacy chip thresholds are above 30 °C for warning and above 40 °C for danger. The diagnostic projects the calibrated acceleration at parameter 10 from the origin. Its calibration ellipsoid uses the reported centres and half-spans from parameters 16–18. Invalid calibration hides the ellipsoid while independently observed acceleration remains visible. Calibration mode stays in the generic parameter workflow.
 
 ### INA219 voltage and usage
 

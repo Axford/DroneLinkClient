@@ -357,3 +357,47 @@ test('HMC5883L keeps raw vector origin separate from the calibration bounds', ()
     observed.params[15] = reading(15, [4, 0, -4]);
     expect(inspect()).toMatchObject({ scene: { calibration: undefined, vector: { from: undefined, to: [1, -2, 3] } } });
 });
+
+test('MPU6050 uses signed independent angles and calibrated acceleration from the origin', () => {
+    const observed = channel(6, 0, 'MPU6050');
+    const scalar = observed.params[15];
+    const reading = (param: number, values: number[]) => ({ ...scalar, param, values, numValues: values.length });
+    Object.assign(observed.params, {
+        10: reading(10, [2, -3, 6]), 13: reading(13, [14]), 14: { ...reading(14, [-19]), source: 'Local', lastHeard: 600 },
+        15: reading(15, [9, 9, 9, 0]), 16: reading(16, [-8, 2, 12]), 17: reading(17, [-10, 0, 10]), 18: reading(18, [-6, 1, 8])
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        pitch: { text: '14.0°', reading: observed.params[13] },
+        roll: { text: '-19.0°', reading: observed.params[14] },
+        scene: { vector: { from: [0, 0, 0], to: [2, -3, 6] }, calibration: { centre: [2, 0, 1], radii: [10, 10, 7] } },
+        diagnosticReadings: expect.arrayContaining([
+            expect.objectContaining({ parameterId: 10, reading: observed.params[10], text: 'X 2.0 · Y -3.0 · Z 6.0 · Magnitude 7.0 m/s²' })
+        ])
+    });
+    observed.params[18] = reading(18, [8, 1, -6]);
+    expect(inspect()).toMatchObject({ scene: { calibration: undefined, vector: { from: [0, 0, 0], to: [2, -3, 6] } } });
+    observed.params[10] = reading(10, [2, NaN, 6]);
+    expect(inspect()).toMatchObject({ scene: { vector: undefined } });
+});
+
+test.each([[0, undefined], [30, undefined], [30.01, 'warning'], [40, 'warning'], [40.01, 'danger'], [NaN, undefined]])(
+    'MPU6050 temperature %s uses the unrounded reading in the node chip and Inspector',
+    (value, severity) => {
+        const observed = channel(6, 0, 'MPU6050');
+        const temperature = { ...observed.params[15], param: 12, values: [value] };
+        observed.params[12] = temperature;
+        const node: NodeState = { id: 7, channels: { 6: observed }, lastHeard: 1000 };
+        const valid = Number.isFinite(value);
+        const chip = moduleSummaries(node)[0];
+        const inspector = channelVisualization(observed)?.inspector?.(observed);
+        const summary = inspector && 'temperature' in inspector ? inspector.temperature : undefined;
+        expect(chip.severity).toBe(severity);
+        expect(summary?.severity).toBe(severity);
+        expect(chip).toMatchObject({ reading: temperature, unavailable: !valid,
+            text: valid ? value.toFixed(0) + ' °C' : '—' });
+        expect(summary).toMatchObject({
+            reading: temperature, unavailable: !valid, text: valid ? value.toFixed(1) + ' °C' : '—'
+        });
+    }
+);
