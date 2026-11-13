@@ -11,18 +11,20 @@ type Subscription = Module['subscriptions'][number];
 type ModuleNode = Node<{
     module: Module;
     outputs: string[];
+    onSelect: (channel: number) => void;
     onInput: (module: Module, subscription: Subscription) => void;
 }, 'module'>;
 
 function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
-    const { module, outputs, onInput } = data;
+    const { module, outputs, onInput, onSelect } = data;
     const updateHandles = useUpdateNodeInternals();
     const handles = JSON.stringify([module.subscriptions.map(input => [input.line, input.sourceChannel !== undefined]), outputs]);
     useEffect(() => { updateHandles(id); }, [id, handles, updateHandles]);
 
     return <div className="dw-config-graph-module">
         <div className="dw-config-graph-title">
-            <strong>{module.name || module.type}</strong>
+            <button type="button" className="btn btn-sm nodrag nopan p-0 text-start fw-semibold"
+                onClick={event => { event.stopPropagation(); onSelect(module.channel); }}>{module.name || module.type}</button>
             <small>{module.name && `${module.type} · `}Channel {module.channel}</small>
         </div>
         {module.subscriptions.map(input =>
@@ -81,11 +83,11 @@ export default function ConfigurationGraph({ modules, selected, onSelect, onInpu
                 position: { x: column * 295, y },
                 selected: selected === module.channel,
                 ariaLabel: `${module.name || module.type}, channel ${module.channel}`,
-                data: { module, outputs: outputPorts, onInput },
+                data: { module, outputs: outputPorts, onInput, onSelect },
             };
         });
         return { nodes, edges };
-    }, [modules, onInput, selected]);
+    }, [modules, onInput, onSelect, selected]);
 
     if (!modules.length) return <p>No valid module declarations in the draft.</p>;
 
@@ -93,8 +95,7 @@ export default function ConfigurationGraph({ modules, selected, onSelect, onInpu
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="dark"
             fitView fitViewOptions={{ maxZoom: 1 }} minZoom={0.2}
             nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
-            onNodeClick={(_, node) => onSelect(Number(node.id))}
-            onSelectionChange={({ nodes }) => { if (nodes.length === 1) onSelect(Number(nodes[0].id)); }}>
+            onNodeClick={(_, node) => onSelect(Number(node.id))}>
             <Background />
             <Controls showInteractive={false} />
         </ReactFlow>
