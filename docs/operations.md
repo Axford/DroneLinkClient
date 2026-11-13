@@ -228,6 +228,8 @@ The Network panel shows the configured interfaces, packet counters and local pat
 
 In standalone Workbench, select a node and list its stored files. Open a text file from the node, edit the draft, and explicitly upload it. Readback verifies what is stored. The runtime uptime is shown separately. Restart is a separate confirmed action. If the route drops or Upload fails, the editor keeps the draft for the current page. No local project folder is needed.
 
+Use **Open node configuration** to open the selected node's existing `/config.ini`. Click a diagnostic to jump to its line. Correct structural errors before Upload. Warnings identify addresses that need review; the editor has no firmware-matched module catalog and cannot confirm that settings or subscriptions will work at runtime. Upload writes the draft and verifies stored bytes. Restart separately when ready to activate the change, then check fresh observations. Other files, including `/safeMode.ini`, use the generic editor.
+
 ### Connected Workbench
 
 Open the active hosted Domain and select **Connect local gateway**. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)

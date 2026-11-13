@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { authenticatedFetchJson } from '../utils/api';
+import { inspectNodeConfiguration } from './nodeConfiguration';
 import { Transport, transportLabel } from './useWorkbenchFeed';
 
 interface Entry { path: string; directory: boolean; bytes?: number }
@@ -19,6 +20,7 @@ interface Props {
 function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 
 export default function NodeFiles({ node, transport, available, uptimeMs, activity, connected }: Props) {
+    const editorRef = React.useRef<HTMLTextAreaElement>(null);
     const [directory, setDirectory] = useState<Directory>();
     const [stored, setStored] = useState<StoredFile>();
     const [draft, setDraft] = useState('');
@@ -37,6 +39,24 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     const backupHistory = domainId && stored?.editable
         ? `/api/domains/${encodeURIComponent(domainId)}/nodes/${node}/file-backups` : undefined;
     const canAct = available && !!transport && !busy;
+    const configuration = stored?.path === '/config.ini';
+    const uploadText = (versionText ?? stored?.text)?.includes('\r\n') ? draft.replace(/\n/g, '\r\n') : draft;
+    const diagnostics = React.useMemo(() => configuration ? inspectNodeConfiguration(uploadText, node) : [],
+        [configuration, uploadText, node]);
+    const configurationError = diagnostics.some(item => item.severity === 'error');
+
+    function goToLine(line: number) {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const lines = draft.split('\n');
+        const start = lines.slice(0, line - 1).reduce((offset, text) => offset + text.length + 1, 0);
+        editor.focus();
+        editor.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
+        // Move the textarea viewport as well as its selection, including for keyboard users.
+        const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
+        editor.scrollTop = (line - 1) * lineHeight;
+        editor.scrollLeft = 0;
+    }
 
     useEffect(() => { activity(busy, dirty); return () => activity(false, false); }, [activity, busy, dirty]);
     useEffect(() => {
@@ -98,10 +118,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     }
 
     function upload() {
-        if (!stored?.editable || !dirty) return;
+        if (!stored?.editable || !dirty || configurationError) return;
         void run(async () => {
-            const text = (versionText ?? stored.text).includes('\r\n') ? draft.replace(/\n/g, '\r\n') : draft;
-            const file = await request<StoredFile>('file', { method: 'PUT', body: JSON.stringify({ path: stored.path, revision: stored.revision, text }) });
+            const file = await request<StoredFile>('file', { method: 'PUT', body: JSON.stringify({ path: stored.path, revision: stored.revision, text: uploadText }) });
             setBackupStatus(undefined);
             setStored(file);
             setVersionText(undefined);
@@ -146,6 +165,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
             <h2>Node files</h2>
             {transport && <span className="dw-meta">Node {node} · {transportLabel[transport]}</span>}
             <button type="button" className="btn btn-outline-secondary" disabled={!canAct} onClick={() => browse(path)}>{directory ? 'Refresh files' : 'List files'}</button>
+            <button type="button" className="btn btn-outline-secondary" disabled={!canAct} onClick={() => open('/config.ini')}>Open node configuration</button>
             <button type="button" className="btn btn-outline-danger" disabled={!canAct} onClick={restart}>Restart node</button>
         </header>
         {uptimeMs !== undefined && <p className="dw-meta">{available ? 'Runtime' : 'Last seen runtime'} · Uptime <output aria-label="Last reported runtime uptime">{Math.floor(uptimeMs / 1000)} s</output></p>}
@@ -174,10 +194,20 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         </div>}
         {stored && <div>
             <label htmlFor={`node-file-${node}`}>Stored file <code>{stored.path}</code>{dirty && ' · Unsaved draft'}</label>
-            <textarea id={`node-file-${node}`} className="form-control font-monospace" rows={12} spellCheck={false}
+            <textarea ref={editorRef} wrap={configuration ? 'off' : undefined} aria-invalid={configurationError || undefined} aria-describedby={configuration ? `node-config-checks-${node}` : undefined} id={`node-file-${node}`} className="form-control font-monospace" rows={12} spellCheck={false}
                 value={draft} readOnly={!stored.editable || busy} onChange={event => setDraft(event.target.value)} />
+            {configuration && <section aria-label="Configuration checks">
+                <p id={`node-config-checks-${node}`} className="dw-meta">Checks cover file structure, the shared interval setting and subscription addresses. Other module settings and live bindings are not verified against the node’s firmware.</p>
+                <p role="status">{configurationError ? 'Fix configuration errors before uploading.' :
+                    diagnostics.length ? `${diagnostics.length} configuration warning(s).` : 'No structural issues found.'}</p>
+                {diagnostics.length > 0 && <ul className="list-unstyled">
+                    {diagnostics.map(({ line, severity, message }, index) => <li key={index}>
+                        <button type="button" className="btn btn-link text-start" onClick={() => goToLine(line)}>Line {line}: {severity} — {message}</button>
+                    </li>)}
+                </ul>}
+            </section>}
             <div className="dw-toolbar dw-workbench-file-actions">
-                <button type="button" className="btn btn-primary" disabled={!canAct || !dirty || !stored.editable} onClick={upload}>Upload to node</button>
+                <button type="button" className="btn btn-primary" disabled={!canAct || !dirty || !stored.editable || configurationError} onClick={upload}>Upload to node</button>
                 <button type="button" className="btn btn-outline-secondary" disabled={!canAct} onClick={() => open(stored.path)}>Reopen from node</button>
                 {backupHistory && <button type="button" className="btn btn-outline-secondary" disabled={!canAct} onClick={loadVersions}>Backup history</button>}
                 {!stored.editable && <span className="dw-meta">The firmware reserves this file for upload recovery.</span>}
