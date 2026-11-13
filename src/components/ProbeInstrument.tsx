@@ -6,7 +6,7 @@ import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions'
 const pins = [4, 13, 14, 15, 16, 25, 26, 32, 33, 34, 35] as const;
 const modes = ['Digital', 'Analog', 'Serial'] as const;
 const resultBase = 10;
-const baudBase = 46;
+const serialBauds = [1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400];
 const statuses = ['Waiting for sample', '', 'No transitions observed', 'Transitions seen, no bytes decoded',
     'Incomplete capture', 'Pin unavailable', 'Measurement failed'];
 
@@ -50,14 +50,16 @@ export default function ProbeInstrument({ channel, now, disabled }: {
     now: number;
     disabled: boolean;
 }) {
-    const rows = pins.flatMap((gpio, index) => {
+    const rows = pins.flatMap(gpio => {
         const result = channel.params[resultBase + gpio];
         if (!result) return [];
         const payload = bytes(result);
         if (payload?.length === 1 && payload[0] === 0) return [];
         const [header, ...data] = payload ?? [0];
-        const mode = header >> 4;
-        return [{ gpio, result, mode, status: header & 15, data, baud: unsigned32(channel.params[baudBase + index]) }];
+        const modeCode = header >> 4;
+        const baud = serialBauds[modeCode - 3];
+        const mode = baud ? 3 : modeCode;
+        return [{ gpio, result, mode, status: header & 15, data, baud }];
     });
     const interval = unsigned32(channel.params[6]);
     const eligibleCount = rows.filter(row => row.mode && row.status !== 5).length;
