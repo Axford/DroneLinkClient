@@ -481,3 +481,32 @@ test('Nav compares independent bearings and uses observed target subscription by
     observed.params[13] = { ...targetSource, values: [7, 22, 4] };
     expect(inspect()).toMatchObject({ following: { unavailable: true } });
 });
+
+
+test('Waypoint keeps route progress and ETA distinct across first, last, empty and one-point routes', () => {
+    const observed = channel(6, 0, 'Waypoint');
+    const scalar = observed.params[15];
+    const byte = (param: number, value: number) => ({ ...scalar, param, msgType: DRONE_LINK_MSG_TYPE_UINT8_T, values: [value] });
+    const distances = (values: number[]) => ({ ...scalar, values, numValues: values.length });
+    Object.assign(observed.params, {
+        9: byte(9, 6), 10: byte(10, 0), 14: byte(14, 1),
+        15: distances([300, 4500, 4200]), 16: { ...scalar, param: 16, values: [0] }
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        waypoint: { text: '1 of 6' }, loop: { text: 'Loop' }, eta: undefined,
+        routeProgress: { completed: 0, next: 0 }
+    });
+    observed.params[10] = byte(10, 5);
+    observed.params[15] = distances([0, 0, 4200]);
+    expect(inspect()).toMatchObject({ waypoint: { text: '6 of 6' }, routeProgress: { completed: 1, next: 1 } });
+    observed.params[9] = byte(9, 1);
+    observed.params[10] = byte(10, 0);
+    observed.params[15] = distances([250, 250, 0]);
+    observed.params[16] = { ...scalar, param: 16, values: [2] };
+    expect(inspect()).toMatchObject({ waypoint: { text: '1 of 1' }, routeProgress: undefined, eta: '02:05' });
+    observed.params[9] = byte(9, 0);
+    expect(inspect()).toMatchObject({ waypoint: { text: 'No route' }, remaining: { unavailable: true },
+        routeProgress: undefined, eta: undefined, speed: { unavailable: true },
+        details: expect.arrayContaining([expect.objectContaining({ parameterId: 15, reading: observed.params[15] })]) });
+});

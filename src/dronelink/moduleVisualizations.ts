@@ -30,13 +30,26 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface WaypointSummary {
+    waypoint: ObservedSummary;
+    total: ObservedSummary;
+    speed: ObservedSummary;
+    eta?: string;
+    loop: ObservedSummary;
+    covered: ObservedSummary;
+    remaining: ObservedSummary;
+    leg: ObservedSummary;
+    routeProgress?: { completed: number; next: number };
+    details: ObservedSummary[];
+}
 
 export interface NavSummary {
     navigationBearings: Record<'heading' | 'adjusted' | 'wind', ObservedSummary>;
@@ -694,7 +707,65 @@ function navSummary(channel: ChannelState): NavSummary {
         details: [...Object.values(navigationBearings), crossTrack, distance, following] };
 }
 
+function waypointDistance(metres: number | undefined): string | undefined {
+    if (metres === undefined) return;
+    return metres < 1000 ? `${Math.round(metres)} m` : `${(metres / 1000).toFixed(1)} km`;
+}
+
+function waypointSummary(channel: ChannelState): WaypointSummary {
+    const count = byteArray(channel.params[9], 1)?.[0];
+    const index = byteArray(channel.params[10], 1)?.[0];
+    const active = index !== undefined && count !== undefined && index < count;
+    const waypoint = field(channel, 10, 'Waypoint', count === 0 ? 'No route' : active ? `${index + 1} of ${count}` : undefined);
+    const loopMode = byteArray(channel.params[14], 1)?.[0];
+    const loop = field(channel, 14, 'Route mode', loopMode === 0 ? 'Once' : loopMode === 1 ? 'Loop' : undefined);
+    const vector = observedFloatVector(channel.params[15], 3);
+    const distances = vector?.every(value => value >= 0) ? vector : undefined;
+    const [legMetres, remainingMetres, totalMetres] = distances ?? [];
+    const distance = (label: string, metres: number | undefined) =>
+        field(channel, 15, label, count === 0 ? undefined : waypointDistance(metres));
+    const leg = distance('To next waypoint', legMetres);
+    const remaining = distance('Remaining', remainingMetres);
+    const total = distance('Total', totalMetres);
+    // Remaining includes the approach to the first waypoint, which can exceed the planned route length.
+    const validLeg = distances !== undefined && legMetres <= remainingMetres;
+    const onRouteScale = active && validLeg && totalMetres > 0;
+    const completed = onRouteScale ? Math.max(0, totalMetres - remainingMetres) : undefined;
+    const covered = distance('Est. covered', completed);
+    const routeProgress = completed !== undefined ? {
+        completed: completed / totalMetres,
+        next: Math.max(0, totalMetres - remainingMetres + legMetres) / totalMetres
+    } : undefined;
+    const metresPerSecond = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const speed = field(channel, 16, 'Speed', metresPerSecond !== undefined && metresPerSecond >= 0 ?
+        `${(metresPerSecond * knotsPerMetrePerSecond).toFixed(1)} kn` : undefined);
+    const seconds = metresPerSecond !== undefined && metresPerSecond > 0 && active && validLeg ?
+        Math.round(remainingMetres / metresPerSecond) : undefined;
+    const eta = seconds !== undefined && Number.isSafeInteger(seconds) ? waypointEtaText(seconds) : undefined;
+    return {
+        waypoint, total, speed: count === 0 ? field(channel, 16, speed.label) : speed, eta, loop, covered, remaining, leg, routeProgress,
+        details: [
+            field(channel, 10, 'Active waypoint', active ? String(index + 1) : undefined),
+            field(channel, 9, 'Waypoint count', count?.toString()),
+            loop,
+            field(channel, 15, 'Route distances', distances ?
+                `To next waypoint: ${waypointDistance(legMetres)} · Remaining: ${waypointDistance(remainingMetres)} · Total: ${waypointDistance(totalMetres)}` : undefined),
+            speed
+        ]
+    };
+}
+
+function waypointEtaText(seconds: number): string {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor(seconds / 3600) % 24;
+    const minutes = Math.floor(seconds / 60) % 60;
+    const two = (value: number) => String(value).padStart(2, '0');
+    const clock = `${two(minutes)}:${two(seconds % 60)}`;
+    return days ? `${days}d ${two(hours)}:${clock}` : hours ? `${two(hours)}:${clock}` : clock;
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Waypoint', { inspector: waypointSummary }],
     ['Nav', { inspector: navSummary, overlay: navDistance }],
     ['Wind', { inspector: windDirectionSummary }],
     ['WindFromWing', {

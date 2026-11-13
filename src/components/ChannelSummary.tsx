@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import WaypointInstrument from './WaypointInstrument';
 import NavInstrument from './NavInstrument';
 import WindDials from './WindDials';
 import DepthTrace from './DepthTrace';
@@ -54,6 +55,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('waypoint' in summary) {
+        return <WaypointInstrument label={label} summary={summary} />;
+    }
     if ('navigationBearings' in summary) {
         return <NavInstrument nodeId={nodeId} label={label} summary={summary} />;
     }
@@ -155,6 +159,10 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary, sampleScope 
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
+            {'waypoint' in summary && <p className="dw-meta">
+                Estimated distance covered is the planned route length minus the reported remaining distance, with a minimum of zero.
+                ETA divides the remaining distance by the reported route speed.
+            </p>}
             {magnetic && <MagneticScatter calibration={magnetic} samples={samples} />}
             {'columns' in summary && summary.note && <p className="dw-meta">{summary.note}</p>}
             {'inputs' in summary ? summary.inputs.map(input => <section key={input.label} role="group" aria-label={input.label}>

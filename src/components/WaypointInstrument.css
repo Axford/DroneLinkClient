@@ -1,0 +1,32 @@
+.dw-waypoint {
+    display: grid;
+    gap: var(--dw-space-2);
+    background: var(--dw-color-instrument-face);
+    border-radius: var(--dw-radius-small);
+    padding: var(--dw-space-2);
+}
+.dw-waypoint dl {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--dw-space-1);
+    margin: 0;
+    text-align: center;
+}
+.dw-waypoint dt { font-weight: 400; }
+.dw-waypoint dd { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dw-waypoint dd[data-unavailable] { color: var(--dw-color-muted); }
+.dw-waypoint-status dd { font-weight: 600; }
+.dw-waypoint-track {
+    position: relative;
+    min-height: 1rem;
+    margin: 0 var(--dw-space-1);
+    border: 1px solid var(--dw-color-muted);
+    border-radius: var(--dw-radius-small);
+}
+.dw-waypoint-completed { position: absolute; inset: 0 auto 0 0; background: var(--dw-color-instrument-reading); }
+.dw-waypoint-next { position: absolute; inset-block: -2px; width: 3px; translate: -50% 0; background: var(--dw-color-instrument-trace); }
+.dw-waypoint-key { display: inline-block; height: 0.75em; border-left: 2px solid var(--dw-color-instrument-trace); margin-right: var(--dw-space-1); }
+.dw-waypoint-empty { margin: 0; text-align: center; }
+@container (max-width: 300px) {
+    .dw-waypoint dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

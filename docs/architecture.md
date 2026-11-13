@@ -191,6 +191,10 @@ The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The
 
 The INA3221 Summary presents the firmware's three ordered input slots, each with the INA219 0–5 V dial and its own load voltage, current, power, signed usage and observed alarm. Wide cards align the input rows. Input numbers and unit-redundant labels are available to assistive technology and in Reading Details. The Summary shows a label where a missing value would otherwise be ambiguous, and for the unitless alarm. Narrow cards stack the inputs and place supporting values beside their dial where space allows. Each reading retains provenance from its source parameter vector. Invalid vector shapes show unavailable for that parameter, while other vectors and valid individual entries remain visible. INA219 display thresholds remain specific to INA219.
 
+### Waypoint route progress
+
+Waypoint displays a one-based index from parameter 10 and count from 9, loop mode from 14, and estimated route speed from 16. Parameter 15 supplies the distance to the next waypoint, remaining distance and planned route length in metres. The track shows estimated distance covered and the next waypoint on the same scale. Before the route starts, the approach distance can exceed the planned length. A zero-length route has no proportional track but can still have an ETA with positive speed and a valid active waypoint. An empty route suppresses stale distance and speed readouts while Reading Details retains their observations. Route actions retain their separate scope.
+
 ### Nav bearing comparison
 
 The Nav Summary shares the circular guides used by the wind dials. It compares north-referenced heading (8), adjusted heading (20) and wind (21) with distinct hands. It shows the signed cross-track value (17) as reported because firmware may normalize it against the target corridor. Distance to target (9) also drives the node chip. Following reflects the observed target subscription (13) and resolves names only in the current Inspector scope. The map context actions still use their existing command path. Reading Details uses the observed address and independent receipts.
