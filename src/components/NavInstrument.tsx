@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import type { NavSummary, ObservedSummary } from '../dronelink/moduleVisualizations';
-import { CircularDialGuides } from './AttitudeDial';
+import { CircularDialGuides, DialHand } from './AttitudeDial';
 import { ObservationNamesContext } from './parameterPresentation';
 import './NavInstrument.css';
 
@@ -38,8 +38,7 @@ export default function NavInstrument({ nodeId, label, summary }: {
                     <CircularDialGuides ticks />
                     {hands.map(({ role, inner, outer }) => {
                         const { bearing, parameterId } = navigationBearings[role];
-                        return bearing !== undefined && <line key={parameterId} className="dw-nav-hand" data-hand={role}
-                            x1="50" x2="50" y1={50 - inner} y2={50 - outer} transform={`rotate(${bearing} 50 50)`} />;
+                        return bearing !== undefined && <DialHand key={parameterId} className="dw-nav-hand" role={role} bearing={bearing} inner={inner} outer={outer} />;
                     })}
                 </svg>
                 <span className="dw-meta dw-nav-north" aria-hidden="true">N ↑</span>

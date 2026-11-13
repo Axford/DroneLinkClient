@@ -30,13 +30,25 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface SailorSummary {
+    sailBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'courseWind' | 'wing', ObservedSummary>;
+    sheet: ObservedSummary;
+    rudder: ObservedSummary;
+    rudderOutput?: number;
+    gybing: boolean;
+    polar?: number[];
+    speeds: [number[] | undefined, number[] | undefined];
+    context: ObservedSummary[];
+    details: ObservedSummary[];
+}
 
 export interface WaypointSummary {
     waypoint: ObservedSummary;
@@ -681,13 +693,17 @@ function navDistance(channel: ChannelState): ObservedSummary {
     return field(channel, 9, 'Distance to target', text);
 }
 
+function signedBearingReading(channel: ChannelState, id: number, label: string): ObservedSummary {
+    // Nav's atan2 output can feed Sailor's target and be copied into its course.
+    const angle = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const bearing = angle !== undefined && angle >= -180 && angle < 0 ? angle + 360 : undefined;
+    return bearingReading(channel, id, label, bearing);
+}
+
 function navSummary(channel: ChannelState): NavSummary {
-    const adjusted = numericValue(channel.params[20], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    // The firmware publishes atan2 degrees; the dial uses clockwise bearings from north.
-    const adjustedBearing = adjusted !== undefined && adjusted >= -180 && adjusted < 0 ? adjusted + 360 : undefined;
     const navigationBearings = {
         heading: bearingReading(channel, 8, 'Heading'),
-        adjusted: bearingReading(channel, 20, 'Adjusted heading', adjustedBearing),
+        adjusted: signedBearingReading(channel, 20, 'Adjusted heading'),
         wind: bearingReading(channel, 21, 'Wind')
     };
     const reportedCrossTrack = numericValue(channel.params[17], [DRONE_LINK_MSG_TYPE_FLOAT]);
@@ -764,7 +780,60 @@ function waypointEtaText(seconds: number): string {
     return days ? `${days}d ${two(hours)}:${clock}` : hours ? `${two(hours)}:${clock}` : clock;
 }
 
+function sailorSummary(channel: ChannelState): SailorSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    // The firmware declares five flag bytes but only copies four in its live update.
+    const flags = byteArray(channel.params[21], 5) ?? byteArray(channel.params[21], 4);
+    const courseWind = flags && flags[3] * 360 / 255;
+    const wind = bearingReading(channel, 12, 'Wind');
+    const wing = readFloat(22);
+    const wingAngle = wind.bearing !== undefined && (wing === -1 || wing === 1)
+        ? (wind.bearing + 180 - wing * 30) % 360 : undefined;
+    const sailBearings = {
+        heading: bearingReading(channel, 10, 'Heading'),
+        target: signedBearingReading(channel, 8, 'Target'),
+        course: signedBearingReading(channel, 16, 'Course'),
+        wind,
+        courseWind: { ...field(channel, 21, 'Course wind', courseWind === undefined ? undefined : `${courseWind.toFixed(0)}°`), bearing: courseWind },
+        wing: { ...field(channel, 22, 'Estimated wing', wing === 0 ? 'Neutral' : wingAngle === undefined ? undefined : `${wingAngle.toFixed(0)}°`), bearing: wingAngle }
+    };
+    const control = (id: number) => {
+        const value = readFloat(id);
+        if (value !== undefined && Math.abs(value) <= 1) return value;
+    };
+    const sheet = field(channel, 17, 'Sheet', control(17)?.toFixed(1));
+    const rudderOutput = control(24);
+    const rudder = field(channel, 24, 'Rudder', rudderOutput?.toFixed(2));
+    const crossTrack = field(channel, 14, 'Cross-track', readFloat(14)?.toFixed(1));
+    const flag = (index: number, label: string, states: string[]) =>
+        field(channel, 21, label, flags && states[flags[index]]);
+    const manoeuvres = [
+        flag(0, 'Course state', ['Planning', 'Set', 'Underway']),
+        flag(1, 'Tack', ['Undefined', 'Starboard', 'Port']),
+        flag(2, 'Helm', ['Normal', 'Possible gybe', 'Gybing']),
+        flag(4, 'Crossing wind', ['No', 'Yes'])
+    ];
+    const polar = byteArray(channel.params[18], 16);
+    const speeds: SailorSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
+    const curveDetails = (id: number, label: string, bytes: number[] | undefined) =>
+        field(channel, id, label, bytes?.join(', '));
+    return {
+        sailBearings, sheet, rudder, rudderOutput, gybing: flags?.[2] === 2,
+        polar, speeds, context: [crossTrack, ...manoeuvres],
+        details: [
+            sailBearings.heading, sailBearings.target, sailBearings.course, wind, sheet, crossTrack, rudder,
+            field(channel, 22, 'Wing output', wing === 0 || wing === -1 || wing === 1 ? String(wing) : undefined),
+            field(channel, 21, 'Course wind and manoeuvre flags', flags && [sailBearings.courseWind.text,
+                ...manoeuvres.map(reading => `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`)].join(' · ')),
+            curveDetails(18, 'Polar profile, starboard 0–180° (0–255)', polar),
+            curveDetails(19, 'Estimated speed 0–180° (relative scale 0–255)', speeds[0]),
+            curveDetails(20, 'Estimated speed 180–360° (relative scale 0–255)', speeds[1])
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Sailor', { inspector: sailorSummary }],
     ['Waypoint', { inspector: waypointSummary }],
     ['Nav', { inspector: navSummary, overlay: navDistance }],
     ['Wind', { inspector: windDirectionSummary }],

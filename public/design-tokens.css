@@ -31,6 +31,8 @@
   --dw-color-instrument-reading: #88ff88;
   --dw-color-instrument-trace: #ffff55;
   --dw-color-instrument-blue: #8181ff;
+  --dw-color-instrument-course: #55ffff;
+  --dw-color-instrument-wing: #ff7878;
   --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --dw-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --dw-font-size-base: 14px;

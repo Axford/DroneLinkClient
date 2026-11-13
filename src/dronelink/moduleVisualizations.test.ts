@@ -510,3 +510,27 @@ test('Waypoint keeps route progress and ETA distinct across first, last, empty a
         routeProgress: undefined, eta: undefined, speed: { unavailable: true },
         details: expect.arrayContaining([expect.objectContaining({ parameterId: 15, reading: observed.params[15] })]) });
 });
+
+
+test('Sailor keeps live and course wind separate and handles four-byte flags', () => {
+    const observed = channel(6, 0, 'Sailor');
+    const scalar = observed.params[15];
+    const reading = (param: number, values: number[], msgType: number = DRONE_LINK_MSG_TYPE_FLOAT) => ({
+        ...scalar, param, values, numValues: values.length, msgType
+    });
+    const flags = reading(21, [2, 1, 2, 255], DRONE_LINK_MSG_TYPE_UINT8_T);
+    Object.assign(observed.params, {
+        8: reading(8, [-5]), 12: reading(12, [220]), 16: reading(16, [-4]), 17: reading(17, [0]),
+        18: reading(18, Array(16).fill(50), DRONE_LINK_MSG_TYPE_UINT8_T), 21: flags,
+        22: reading(22, [1]), 24: reading(24, [-0.5])
+    });
+    expect(channelVisualization(observed)?.inspector?.(observed)).toMatchObject({
+        sailBearings: { target: { bearing: 355 }, course: { bearing: 356 }, wind: { bearing: 220 },
+            courseWind: { bearing: 360, reading: flags }, wing: { bearing: 10 } },
+        gybing: true, rudderOutput: -0.5, sheet: { text: '0.0' }, speeds: [undefined, undefined],
+        context: expect.arrayContaining([
+            expect.objectContaining({ label: 'Crossing wind', unavailable: true }),
+            expect.objectContaining({ label: 'Helm', text: 'Gybing' })
+        ])
+    });
+});
