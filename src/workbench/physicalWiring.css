@@ -61,3 +61,41 @@
     border-style: dashed;
     border-color: var(--dw-color-text);
 }
+
+.dw-physical-graph {
+    height: clamp(27rem, 62vh, 52rem);
+}
+
+.dw-physical-device[data-detection="missing"] {
+    border-color: var(--dw-color-warning);
+    background: rgb(var(--dw-color-warning-bg-rgb) / .35);
+}
+
+.dw-physical-device[data-detection="responded"] {
+    border-color: var(--dw-color-success);
+    background: rgb(var(--dw-color-success-bg-rgb) / .28);
+}
+
+.dw-physical-device[data-detection="unchecked"] {
+    border-style: dashed;
+}
+
+.dw-i2c-evidence {
+    width: 320px;
+    max-height: 340px;
+    overflow: auto;
+    font-size: .875rem;
+}
+
+.dw-i2c-evidence p,
+.dw-i2c-evidence ul {
+    margin-bottom: 0;
+}
+
+.dw-i2c-coverage {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-panel);
+    font-size: .875rem;
+    pointer-events: none;
+}
