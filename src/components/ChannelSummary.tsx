@@ -6,6 +6,7 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
+import AnemometerInstrument from './AnemometerInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -42,6 +43,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('windSpeed' in summary) {
+        return <AnemometerInstrument key={sampleScope} label={label} summary={summary} scope={sampleScope} />;
+    }
     if ('inputs' in summary) {
         return <section className="dw-power-inputs" aria-label={label}>
             {summary.inputs.map(input => <section className="dw-power-input" key={input.label} role="group" aria-label={input.label}>
@@ -84,7 +88,7 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
                 <h3 className="dw-meta mt-2">{input.label}</h3>
                 <SummaryDetails nodeId={nodeId} summaries={[input.voltage, ...input.readings]} now={Date.now()} />
             </section>) : <SummaryDetails nodeId={nodeId}
-                summaries={'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />}
+                summaries={'windSpeed' in summary ? [summary.windSpeed] : 'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />}
         </SettingsDialog>
     </>;
 }

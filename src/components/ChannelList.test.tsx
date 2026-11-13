@@ -305,3 +305,41 @@ test('INA3221 aligns the readings of each input and keeps provenance on the sour
     fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 6' })).getByRole('button', { name: 'Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>6.15' })).toBeVisible();
 });
+
+test('Anemometer keeps current speed, sampled frequency and parameter provenance separate', () => {
+    const at = Date.now();
+    const wind = (id: number, value: number, lastHeard: number, source = 'HTTP') => specialist(id, 'Anemometer', {
+        10: { ...reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [value]), lastHeard, source },
+        11: reading(11, DRONE_LINK_MSG_TYPE_FLOAT, [99])
+    });
+    const snapshot = (value: number, offset: number, source?: string, sampleLive = true) => {
+        const observed = node(7, { 4: wind(4, value, at + offset, source), 6: wind(6, -1, at) });
+        return <InspectorSessionProvider nodes={{ 7: observed }} inventoryComplete>
+            <ChannelList node={observed} sampleLive={sampleLive} />
+        </InspectorSessionProvider>;
+    };
+    const view = render(snapshot(19.4384, 0));
+    const summary = () => within(screen.getByRole('region', { name: 'Observed readings for channel 4' }));
+    expect(summary().getByText('19.4 kn')).toBeVisible();
+    expect(summary().getByText('10.0 m/s')).toBeVisible();
+    expect(within(screen.getByRole('region', { name: 'Observed readings for channel 6' })).getByText('Unavailable')).toBeVisible();
+    view.rerender(snapshot(19.4384, 1000));
+    view.rerender(snapshot(0, 2000));
+    expect(summary().getByText('0.0 kn')).toBeVisible();
+    expect(summary().getByRole('img', { name: /0 kn: 1, 19 kn: 2\. Current bin: 0 kn/ })).toBeVisible();
+    view.rerender(snapshot(30, 3000, 'Gateway 254'));
+    expect(summary().getByRole('img', { name: /counts by rounded speed: 30 kn: 1\. Current bin: 30 kn/ })).toBeVisible();
+    view.rerender(snapshot(38, 4000, 'Gateway 254'));
+    expect(summary().getByText('38.0 kn')).toBeVisible();
+    expect(summary().getByRole('img', { name: /30 kn: 1\. Current wind speed is above the plot range/ })).toBeVisible();
+    view.rerender(snapshot(38, 4000, 'Gateway 254', false));
+    expect(summary().queryByRole('img')).not.toBeInTheDocument();
+    expect(summary().getByText('38.0 kn')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
+    expect(details.getByText(/^7>4\.10 · Gateway 254/)).toBeVisible();
+    fireEvent.click(details.getByRole('button', { name: 'Close Channel 4 reading details' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
+    expect(screen.getByRole('article', { name: 'Parameter 7>4.10' })).toBeVisible();
+});

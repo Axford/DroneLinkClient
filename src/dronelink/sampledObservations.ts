@@ -14,8 +14,8 @@ interface SampleWindow {
     readonly samples: readonly ObservationSample[];
 }
 
-const windowMs = 5 * 60_000;
-const maxSamples = 100;
+export const sampleWindowMinutes = 5;
+export const maxObservationSamples = 100;
 
 /**
  * Advance a renderer's in-memory window from its latest observed FLOAT scalar.
@@ -39,7 +39,7 @@ export function sampleObservation(
     }
 
     // Server receipts and the browser clock may differ. Preserve receipt times.
-    const cutoff = Math.max(now, receivedAt, current?.lastReceivedAt ?? 0) - windowMs;
+    const cutoff = Math.max(now, receivedAt, current?.lastReceivedAt ?? 0) - sampleWindowMinutes * 60_000;
 
     // Ignore old projections before comparing sources so late receipts cannot revive an old source.
     if (current && receivedAt < current.lastReceivedAt) {
@@ -59,7 +59,7 @@ export function sampleObservation(
         scope,
         source: reading.source,
         lastReceivedAt: receivedAt,
-        samples: [...samples.slice(1 - maxSamples), {
+        samples: [...samples.slice(1 - maxObservationSamples), {
             receivedAt, value: value !== undefined && Number.isFinite(value) ? value : null
         }]
     };

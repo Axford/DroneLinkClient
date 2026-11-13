@@ -1,0 +1,33 @@
+.dw-anemometer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--dw-space-2) var(--dw-space-3);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+
+.dw-anemometer-speed {
+    text-align: center;
+    color: var(--dw-color-instrument-reading);
+    font-variant-numeric: tabular-nums;
+}
+
+.dw-anemometer-speed dd { margin: 0; }
+.dw-anemometer-knots { font-size: var(--dw-font-size-heading); font-weight: 700; }
+.dw-anemometer-speed[data-unavailable] { color: var(--dw-color-muted); }
+
+.dw-anemometer-histogram { flex: 1 1 176px; min-width: 0; max-width: 30rem; }
+.dw-anemometer-histogram figcaption { text-align: center; }
+.dw-anemometer-histogram strong { color: var(--dw-color-instrument-reading); }
+.dw-anemometer-plot { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--dw-space-1); }
+.dw-anemometer-plot svg { display: block; width: 100%; height: 64px; border: 1px solid var(--dw-color-border); }
+.dw-anemometer-counts { display: flex; flex-direction: column; justify-content: space-between; text-align: end; }
+.dw-anemometer-ticks { grid-column: 2; position: relative; display: flex; justify-content: space-between; }
+.dw-anemometer-ticks span[style] { position: absolute; transform: translateX(-50%); }
+.dw-anemometer-grid { stroke: var(--dw-color-border); stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.dw-anemometer-plot rect { fill: var(--dw-color-instrument-distribution); }
+.dw-anemometer-plot rect[data-current],
+.dw-anemometer-marker { fill: var(--dw-color-instrument-reading); }

@@ -22,7 +22,13 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] };
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary;
+
+export interface AnemometerSummary {
+    windSpeed: ObservedSummary;
+    knots?: number;
+    metresPerSecond?: string;
+}
 
 interface PowerInputSummary {
     label: string;
@@ -216,7 +222,24 @@ class PowerTelemetryRenderer {
 const ina219 = new PowerTelemetryRenderer({ inputCount: 1, usageParameter: 19 });
 const ina3221 = new PowerTelemetryRenderer({ inputCount: 3, usageParameter: 20 });
 
+export function windSpeedKnots(value: number): number | undefined {
+    if (value >= 0) return value;
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Anemometer', {
+        inspector(channel) {
+            const parameter = 10;
+            const value = numericValue(channel.params[parameter], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const knots = value === undefined ? undefined : windSpeedKnots(value);
+            const windSpeed = field(channel, parameter, 'Wind speed', knots === undefined ? undefined : `${knots.toFixed(1)} kn`);
+            return {
+                windSpeed,
+                knots,
+                metresPerSecond: knots === undefined ? undefined : `${(knots / 1.94384).toFixed(1)} m/s`
+            };
+        }
+    }],
     ['INA3221', { inspector: channel => ({ inputs: ina3221.inputs(channel) }) }],
     ['RFM69Telemetry', {
         overlay: rfm69Signal,

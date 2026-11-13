@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { signedRssi } from '../dronelink/moduleVisualizations';
 import type { ObservedSummary } from '../dronelink/moduleVisualizations';
-import { sampleObservation, traceSegments } from '../dronelink/sampledObservations';
+import { traceSegments } from '../dronelink/sampledObservations';
+import useObservationSamples from './useObservationSamples';
 import './Rfm69Signal.css';
 
 const receiptGapMs = 15_000;
@@ -11,23 +12,7 @@ const yTop = 3;
 const yBottom = 97;
 
 export default function Rfm69Signal({ signal, scope }: { signal: ObservedSummary; scope?: string }) {
-    const [window, setWindow] = useState<ReturnType<typeof sampleObservation>>();
-    const receivedAt = signal.reading?.lastHeard;
-    const source = signal.reading?.source;
-    // Workbench updates its ParameterState in place. React to the receipt as well as the object.
-    const reading = signal.reading;
-    useEffect(() => {
-        if (!scope) return;
-        const sample = () => {
-            const now = Date.now();
-            setWindow(previous => sampleObservation(previous, scope, reading, now, signedRssi));
-        };
-        sample();
-        const timer = setInterval(sample, 1000);
-        return () => clearInterval(timer);
-    }, [reading, receivedAt, scope, source]);
-
-    const samples = window?.scope === scope && window?.source === reading?.source ? window?.samples ?? [] : [];
+    const samples = useObservationSamples(scope, signal.reading, signedRssi);
     const segments = traceSegments(samples, receiptGapMs);
     const end = samples[samples.length - 1]?.receivedAt ?? 0;
     const start = Math.min(end - 10_000, samples[0]?.receivedAt ?? end);
