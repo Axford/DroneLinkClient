@@ -35,7 +35,7 @@
     gap: var(--dw-space-1);
     width: 180px;
     padding: var(--dw-space-2);
-    border: 1px solid var(--dw-color-hover);
+    border: 0;
     border-radius: var(--dw-radius-small);
     background: var(--dw-color-raised);
     color: var(--dw-color-text);
@@ -49,7 +49,12 @@
 }
 
 .react-flow__node.selected .dw-physical-device {
-    border-color: var(--dw-color-primary);
+    background: var(--dw-color-primary);
+}
+
+.react-flow__node.selected .dw-physical-device[data-detection="responded"],
+.react-flow__node.selected .dw-physical-device[data-detection="missing"] {
+    background: color-mix(in srgb, var(--dw-color-primary) 30%, var(--dw-device-status-fill));
 }
 
 .dw-physical-device:focus-visible,
@@ -57,9 +62,9 @@
     outline: 2px solid var(--dw-color-focus);
 }
 
-.dw-physical-device.dw-i2c-ghost {
-    border-style: dashed;
-    border-color: var(--dw-color-text);
+.dw-i2c-ghost strong::before {
+    content: '◇';
+    margin-inline-end: var(--dw-space-1);
 }
 
 .dw-physical-graph {
@@ -67,17 +72,13 @@
 }
 
 .dw-physical-device[data-detection="missing"] {
-    border-color: var(--dw-color-warning);
-    background: rgb(var(--dw-color-warning-bg-rgb) / .35);
+    --dw-device-status-fill: rgb(var(--dw-color-warning-bg-rgb));
+    background: var(--dw-device-status-fill);
 }
 
 .dw-physical-device[data-detection="responded"] {
-    border-color: var(--dw-color-success);
-    background: rgb(var(--dw-color-success-bg-rgb) / .28);
-}
-
-.dw-physical-device[data-detection="unchecked"] {
-    border-style: dashed;
+    --dw-device-status-fill: rgb(var(--dw-color-success-bg-rgb));
+    background: var(--dw-device-status-fill);
 }
 
 .dw-i2c-evidence {
@@ -97,5 +98,36 @@
     border-radius: var(--dw-radius-small);
     background: var(--dw-color-panel);
     font-size: .875rem;
+    max-width: min(18rem, 40%);
+}
+
+.dw-physical-settings,
+.dw-physical-key {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-panel);
+}
+
+.dw-physical-settings {
+    width: min(16rem, 80%);
+    max-height: 65%;
+    overflow: auto;
+    padding-top: var(--dw-space-4);
+}
+
+.dw-physical-settings > .btn-close {
+    position: absolute;
+    top: var(--dw-space-1);
+    right: var(--dw-space-1);
+}
+
+.dw-physical-settings-fields {
+    display: grid;
+    gap: var(--dw-space-1);
+}
+
+.dw-physical-key {
+    margin-bottom: var(--dw-space-6, 24px);
+    font-size: .75rem;
     pointer-events: none;
 }
