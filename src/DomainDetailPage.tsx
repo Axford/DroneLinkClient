@@ -184,7 +184,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
                             <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />
+                                <ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />
                             </Panel>
                             <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
                             <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>

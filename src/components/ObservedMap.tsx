@@ -9,6 +9,7 @@ import MapContextMenu from './MapContextMenu';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
+import { routeLine, useRoutePreview } from '../dronelink/routePreview';
 import { windLines } from '../dronelink/windLines';
 import { observedNavigation } from '../dronelink/navigationLegs';
 import { observedTargetMove } from '../dronelink/mapContextActions';
@@ -20,6 +21,7 @@ import './ObservedMap.css';
 
 export interface ObservedMapProps {
   token: string | null;
+  domainId?: string;
   user: User | null;
   state: GlobalState;
   viewState?: React.MutableRefObject<User['mapState']>;
@@ -32,6 +34,7 @@ function positionDescription(position: ObservedPosition, label: string, now: num
 }
 
 const windLayerId = 'dw-wind-lines';
+const routeLayerId = 'dw-route-preview';
 const legLayerId = 'dw-navigation-legs';
 
 function updateHeadingMarker(marker: mapboxgl.Marker | undefined, bearing: ObservedBearing | undefined,
@@ -54,11 +57,13 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
   return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
 }
 
-export default function ObservedMap({ token, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
+export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [windSource, setWindSource] = useState<mapboxgl.GeoJSONSource>();
+  const [routeSource, setRouteSource] = useState<mapboxgl.GeoJSONSource>();
+  const route = useRoutePreview(domainId, selectedNodeId === null ? undefined : state[selectedNodeId]);
   const [legSource, setLegSource] = useState<mapboxgl.GeoJSONSource>();
   const waypointMarkers = useRef(new Map<string, mapboxgl.Marker>());
   const draggingWaypoint = useRef<string | undefined>(undefined);
@@ -120,6 +125,13 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
           }
         });
         setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
+        activeMap.addSource(routeLayerId, { type: 'geojson', data: routeLine() });
+        activeMap.addLayer({
+          id: routeLayerId, source: routeLayerId, type: 'line',
+          paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
+            'line-width': 2, 'line-opacity': 0.75, 'line-emissive-strength': 1 }
+        }, windLayerId);
+        setRouteSource(activeMap.getSource<mapboxgl.GeoJSONSource>(routeLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
         const palette = getComputedStyle(mapContainer);
         const target = palette.getPropertyValue('--dw-color-navigation-target').trim();
@@ -168,13 +180,17 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       ownedWaypointMarkers.forEach(marker => marker.remove()); ownedWaypointMarkers.clear();
       draggingWaypoint.current = undefined;
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
-      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined);
+      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined); setRouteSource(undefined);
     };
   }, [token, user, viewState]);
 
   useEffect(() => {
     windSource?.setData(windLines(mapError ? [] : positions));
   }, [windSource, positions, mapError]);
+
+  useEffect(() => {
+    routeSource?.setData(routeLine(mapError ? undefined : route.coordinates));
+  }, [routeSource, route.coordinates, mapError]);
 
   useEffect(() => {
     legSource?.setData(mapError ? observedNavigation({}).legs : navigation.legs);
@@ -339,6 +355,13 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     map.current.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 0 });
   };
 
+  const routeMessage = {
+    loading: 'Checking route backup…',
+    matched: 'Verified route preview',
+    mismatch: 'Route backup is out of sync',
+    unreported: 'Loaded route digest unavailable',
+    unavailable: 'Route preview unavailable'
+  };
   const positionCount = positions.length + secondaryPositions.length;
 
   return <div className="dw-map" ref={pane}>
@@ -348,6 +371,11 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     <div className="dw-map-toolbar">
       <span role="status">{!token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
       {token && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
+      {route.status && <span role="status" title={route.receivedAt ?
+        `Route digest received ${new Date(route.receivedAt).toLocaleString()}${route.capturedAt ?
+          ` · Backup captured ${new Date(route.capturedAt).toLocaleString()}` : ''}` : undefined}>{routeMessage[route.status]}</span>}
+      {(route.status === 'mismatch' || route.status === 'unavailable') &&
+        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={route.refresh}>Check backup</button>}
       <IconButton label="Map details" icon={<InfoCircle />} onClick={() => setDetails(true)} />
     </div>
     <MapContextMenu pane={pane} canvas={container} enabled={mapReady && !mapError} state={state} positions={positions}
