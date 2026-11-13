@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
-import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from '../dronelink/DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from '../dronelink/DroneLinkMsg';
 import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions';
 
 const pins = [4, 13, 14, 15, 16, 25, 26, 32, 33, 34, 35] as const;
@@ -39,6 +39,20 @@ function describe(mode: number, status: number, data: number[]): string {
     return 'Result format unavailable';
 }
 
+function describeAnalog(result: ParameterState): string {
+    const [minimum, maximum, average, millivolts] = result.values;
+    const size = result.values.length;
+    if (result.unavailable?.value || result.numValues !== size || (size !== 3 && size !== 4) ||
+        typeof minimum !== 'number' || typeof maximum !== 'number' || typeof average !== 'number' ||
+        !Number.isInteger(minimum) || !Number.isInteger(maximum) || !Number.isFinite(average) ||
+        minimum < 0 || maximum > 4095 || average < minimum || average > maximum ||
+        (size === 4 && (typeof millivolts !== 'number' || !Number.isInteger(millivolts) || millivolts < 150 || millivolts > 2450))) {
+        return 'Analog statistics unavailable';
+    }
+    const voltage = millivolts === undefined ? 'voltage estimate unavailable' : `estimated ${millivolts} mV average`;
+    return `Min ${minimum} · Max ${maximum} · Avg ${average.toFixed(1)} ADC counts over 20 ms · ${voltage}`;
+}
+
 function unsigned32(parameter: ParameterState | undefined): number | undefined {
     if (parameter?.unavailable?.value || parameter?.msgType !== DRONE_LINK_MSG_TYPE_UINT32_T || parameter.values.length !== 1) return;
     const value = parameter.values[0];
@@ -50,16 +64,19 @@ export default function ProbeInstrument({ channel, now, disabled }: {
     now: number;
     disabled: boolean;
 }) {
-    const rows = pins.flatMap(gpio => {
+    const rows = pins.flatMap<{ gpio: number; result: ParameterState; mode: number; status: number; description: string; baud?: number }>(gpio => {
         const result = channel.params[resultBase + gpio];
         if (!result) return [];
+        if (gpio >= 32 && result.msgType === DRONE_LINK_MSG_TYPE_FLOAT) {
+            return [{ gpio, result, mode: 2, status: 1, description: describeAnalog(result), baud: undefined }];
+        }
         const payload = bytes(result);
         if (payload?.length === 1 && payload[0] === 0) return [];
         const [header, ...data] = payload ?? [0];
         const modeCode = header >> 4;
         const baud = serialBauds[modeCode - 3];
         const mode = baud ? 3 : modeCode;
-        return [{ gpio, result, mode, status: header & 15, data, baud }];
+        return [{ gpio, result, mode, status: header & 15, description: mode ? describe(mode, header & 15, data) : 'Result unavailable', baud }];
     });
     const interval = unsigned32(channel.params[6]);
     const eligibleCount = rows.filter(row => row.mode && row.status !== 5).length;
@@ -68,11 +85,11 @@ export default function ProbeInstrument({ channel, now, disabled }: {
         {disabled && <p className="dw-meta">Probe disabled. Showing last received results.</p>}
         {!disabled && !!refreshMs && <p className="dw-meta">Expected refresh per pin: about {refreshMs / 1000} s</p>}
         {rows.length ? <dl className="mb-0">
-            {rows.map(({ gpio, result, mode, status, data, baud }) => <React.Fragment key={gpio}>
+            {rows.map(({ gpio, result, mode, description, baud }) => <React.Fragment key={gpio}>
                 <dt>GPIO {gpio}{modes[mode - 1] && ` · ${modes[mode - 1]}`}
                     {mode === 3 && ` · ${baud ? `${baud} baud` : 'Baud unavailable'} · 8N1`}</dt>
                 <dd className="text-break">
-                    {mode ? describe(mode, status, data) : 'Result unavailable'}
+                    {description}
                     <span className="dw-meta ms-2" title={receiptLabel(result.lastHeard, now)}>
                         <span className="visually-hidden">Received: </span>{compactReceiptAge(result.lastHeard, now)}
                     </span>

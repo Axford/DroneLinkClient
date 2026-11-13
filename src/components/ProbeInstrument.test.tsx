@@ -4,7 +4,7 @@ import ChannelCard from './ChannelCard';
 import type { ParameterState } from '../dronelink/DroneLinkState';
 
 function parameter(param: number, values: number[] | string[], msgType = 0): ParameterState {
-    return { param, values, msgType, bytesPerValue: msgType === 2 ? 4 : 1,
+    return { param, values, msgType, bytesPerValue: msgType === 2 || msgType === 3 ? 4 : 1,
         numValues: values.length, writable: false, lastHeard: 10000 };
 }
 
@@ -17,12 +17,16 @@ test('shows observed digital, serial and analog results with pin identity in Mod
             23: parameter(23, [0x61, 0x24, 0x47]),
             24: parameter(24, [0x15, 6]),
             42: parameter(42, [0x14, 1, 0x18, 0, 20, 0]),
-            44: parameter(44, [0x21, 0x08, 0x07])
+            43: parameter(43, [625, 722, 673.125, 400], 3),
+            44: parameter(44, [0x21, 0x08, 0x07]),
+            45: parameter(45, [20, 5, 10], 3)
         } }} />);
     expect(screen.getByText('GPIO 13 · Serial · 9600 baud · 8N1')).toBeVisible();
     expect(screen.getByText('24 47')).toBeVisible();
     expect(screen.getByText('Pin unavailable · owned by channel 6')).toBeVisible();
     expect(screen.getByText('High · 24 transitions in 20 ms · incomplete count')).toBeVisible();
     expect(screen.getByText('1800 ADC counts · voltage estimate unavailable')).toBeVisible();
-    expect(screen.getByText('Expected refresh per pin: about 1.5 s')).toBeVisible();
+    expect(screen.getByText('Min 625 · Max 722 · Avg 673.1 ADC counts over 20 ms · estimated 400 mV average')).toBeVisible();
+    expect(screen.getByText('Analog statistics unavailable')).toBeVisible();
+    expect(screen.getByText('Expected refresh per pin: about 2.5 s')).toBeVisible();
 });
