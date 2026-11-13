@@ -115,6 +115,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
           paint: {
             'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(),
             'line-width': 3,
+            // Keep the instrument colour readable on dark basemaps with 3D lighting.
             'line-emissive-strength': 1
           }
         });
