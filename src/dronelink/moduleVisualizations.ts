@@ -29,13 +29,19 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface WindDirectionSummary {
+    worldWind: ObservedSummary;
+    localWind?: ObservedSummary;
+    details: ObservedSummary[];
+}
 
 export interface DepthSummary {
     measuredDepth: ObservedSummary;
@@ -439,9 +445,13 @@ function correctionText(reading: ParameterState | undefined): string | undefined
     return `Δlat ${latitude.toFixed(6)}°, Δlon ${longitude.toFixed(6)}°, Δalt ${altitude.toFixed(2)} m`;
 }
 
+export function observedBearing(reading: ParameterState | undefined): number | undefined {
+    const angle = numericValue(reading, [DRONE_LINK_MSG_TYPE_FLOAT]);
+    if (angle !== undefined && angle >= 0 && angle <= 360) return angle;
+}
+
 function headingReading(channel: ChannelState, parameterId: number): ObservedSummary {
-    const heading = numericValue(channel.params[parameterId], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
+    const bearing = observedBearing(channel.params[parameterId]);
     return { ...field(channel, parameterId, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing };
 }
 
@@ -628,7 +638,19 @@ function depthSummary(channel: ChannelState): DepthSummary {
     return { measuredDepth, logReading, details: [measuredDepth, loggedDepth] };
 }
 
+function windDirectionReading(channel: ChannelState, id: number, label: string): ObservedSummary {
+    const bearing = observedBearing(channel.params[id]);
+    return { ...field(channel, id, label, bearing === undefined ? undefined : `${bearing.toFixed(0)}°`), bearing };
+}
+
+function windDirectionSummary(channel: ChannelState): WindDirectionSummary {
+    const worldWind = windDirectionReading(channel, 14, 'World wind');
+    const localWind = windDirectionReading(channel, 10, 'Local wind');
+    return { worldWind, localWind, details: [worldWind, localWind] };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Wind', { inspector: windDirectionSummary }],
     ['Depth', { inspector: depthSummary }],
     ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
     ['HMC5883L', { inspector: hmc5883lSummary }],

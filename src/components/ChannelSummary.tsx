@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import WindDials from './WindDials';
 import DepthTrace from './DepthTrace';
 import ServoInstrument from './ServoInstrument';
 
@@ -52,6 +53,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('worldWind' in summary) {
+        return <WindDials label={label} summary={summary} scope={sampleScope} />;
+    }
     if ('measuredDepth' in summary) {
         return <DepthTrace label={label} summary={summary} scope={sampleScope} />;
     }

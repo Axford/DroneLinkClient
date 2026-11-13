@@ -191,6 +191,10 @@ The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The
 
 The INA3221 Summary presents the firmware's three ordered input slots, each with the INA219 0–5 V dial and its own load voltage, current, power, signed usage and observed alarm. Wide cards align the input rows. Input numbers and unit-redundant labels are available to assistive technology and in Reading Details. The Summary shows a label where a missing value would otherwise be ambiguous, and for the unitless alarm. Narrow cards stack the inputs and place supporting values beside their dial where space allows. Each reading retains provenance from its source parameter vector. Invalid vector shapes show unavailable for that parameter, while other vectors and valid individual entries remain visible. INA219 display thresholds remain specific to INA219.
 
+### Wind direction and distribution
+
+Wind reads the independent FLOAT bearings at parameter 14 (World, north-referenced) and 10 (Local, vessel-relative). The clockwise dials use the shared circular geometry. Only World contributes to the 24-sector distribution, which counts actual receipts in the shared five-minute window. The distribution and needle can differ when the latest reading is unavailable. Map bindings select World wind independently of the Inspector.
+
 ### Depth readout and log trace
 
 Depth reports current measured metres at parameter 13 and logs location and depth in parameter 14. The Summary uses the third log value for its downward trace, ordered by received sample. The firmware logs by movement, so sample spacing conveys neither elapsed time nor a fixed distance. Zero means no echo. Zero and invalid log readings break the trace. The shared observation window retains up to 100 samples over five minutes and resets with the Inspector source scope. Reading Details keeps the two receipts separate.

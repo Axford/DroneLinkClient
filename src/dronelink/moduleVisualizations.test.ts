@@ -423,3 +423,23 @@ test('Depth keeps current depth separate from the log vector and treats zero as 
         expect(depthLogSample(reading(14, malformed))).toBeUndefined();
     }
 });
+
+
+test('Wind reads independent World and Local bearings without borrowing the other frame', () => {
+    const observed = channel(6, 0, 'Wind');
+    const scalar = observed.params[15];
+    const world = { ...scalar, param: 14, values: [360], lastHeard: 900 };
+    const local = { ...scalar, param: 10, values: [0], lastHeard: 800, source: 'Local' };
+    observed.params[14] = world;
+    observed.params[10] = local;
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        worldWind: { bearing: 360, text: '360°', reading: world },
+        localWind: { bearing: 0, text: '0°', reading: local }
+    });
+    observed.params[14] = { ...world, values: [120, 3, 2], numValues: 3 };
+    expect(inspect()).toMatchObject({
+        worldWind: { unavailable: true },
+        localWind: { bearing: 0, reading: local }
+    });
+});
