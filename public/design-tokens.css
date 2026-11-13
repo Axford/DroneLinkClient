@@ -6,6 +6,7 @@
   --dw-color-surface: rgb(var(--dw-color-surface-rgb));
   --dw-color-raised: #292f38;
   --dw-color-panel: var(--dw-color-surface);
+  --dw-color-neutral-selected: #505050;
   --dw-color-control: var(--dw-color-raised);
   --dw-backdrop-tint: rgba(8, 16, 30, 0.66);
   --dw-backdrop-blur: 6px;

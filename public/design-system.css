@@ -215,6 +215,26 @@ body { margin: 0; font-size: 1rem; line-height: var(--dw-line-height); }
 [data-bs-theme] .dropdown-menu, [data-bs-theme] .alert { border: 0; }
 
 /* Tabs share an edge and an accent strip with their selected workspace. */
+.dw-workspace-tabs {
+  flex: none;
+  padding-inline: var(--dw-space-3);
+  background: var(--dw-color-panel);
+}
+.dw-workspace-tabs + :is(.dw-operation-panels, .tab-content) {
+  border-top: var(--dw-space-1) solid var(--dw-color-primary);
+}
+[data-bs-theme] .dw-workspace-tabs.nav-tabs .nav-link {
+  border: 0;
+  border-radius: var(--dw-radius-small) var(--dw-radius-small) 0 0;
+  background: transparent;
+  color: var(--dw-color-text);
+  padding: var(--dw-space-1) var(--dw-space-2);
+  margin-bottom: 0;
+  min-height: var(--dw-control-size);
+}
+[data-bs-theme] .dw-workspace-tabs.nav-tabs .nav-link:hover { background: var(--dw-color-hover); }
+[data-bs-theme] .dw-workspace-tabs.nav-tabs .nav-link.active { background: var(--dw-color-primary); }
+[data-bs-theme] .dw-workspace-tabs.nav-tabs .nav-link:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: -2px; }
 [data-bs-theme] .dw-attached-tabs .nav-link { border-radius: var(--dw-radius) var(--dw-radius) 0 0; padding: var(--dw-space-3) var(--dw-space-4); margin-bottom: 0; }
 [data-bs-theme] .dw-attached-tabs .nav-link.active { background: var(--dw-color-primary); color: var(--dw-color-text); }
 [data-bs-theme] .dw-attached-tabs .nav-link.active:hover { background: var(--dw-color-primary-hover); }

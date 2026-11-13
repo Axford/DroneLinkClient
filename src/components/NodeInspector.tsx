@@ -37,7 +37,7 @@ export default function NodeInspector({ selected, actions, context, modules, fil
             </div>
         </header>
         {selected || files ? <Tabs id={id} activeKey={active} onSelect={key => setView(key === 'files' ? 'files' : 'modules')}
-            transition={false} className="dw-inspector-tabs" aria-label="Node views">
+            transition={false} className="dw-workspace-tabs" aria-label="Node views">
             <Tab eventKey="modules" title="Modules">{modules}</Tab>
             {files && <Tab eventKey="files" title={filesAvailable ? 'Files' : null} mountOnEnter>{files}</Tab>}
         </Tabs> : <div className="inspector-content">{modules}</div>}

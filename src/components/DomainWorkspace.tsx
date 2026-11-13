@@ -16,8 +16,8 @@ export function DomainWorkspace({ name, status, notices, activeLens, onLensChang
     return <div className="dw-operations">
         <header className="dw-operations-header"><h1>{name}</h1>{status}</header>
         {notices}
-        <nav className="dw-lens-nav" aria-label="Domain lenses">
-            {lenses.map(({ id, label }) => <button key={id} type="button" aria-current={id === activeLens ? 'page' : undefined}
+        <nav className="nav nav-tabs dw-workspace-tabs" aria-label="Domain lenses">
+            {lenses.map(({ id, label }) => <button key={id} type="button" className={id === activeLens ? 'nav-link active' : 'nav-link'} aria-current={id === activeLens ? 'page' : undefined}
                 onClick={() => onLensChange(id)}>{label}</button>)}
         </nav>
         <div className="dw-operation-panels">{children}</div>
