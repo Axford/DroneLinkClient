@@ -1,4 +1,5 @@
 import { authenticatedFetch, ApiError } from '../utils/api';
+import { DRONE_LINK_MSG_MAX_PAYLOAD, DRONE_LINK_MSG_TYPE_CHAR, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
 
 export interface ObservationFacet {
   payload: string; msgType?: number; priority?: number; writable?: boolean; lastReceivedAt: string;
@@ -14,11 +15,22 @@ interface UpdateData { events: ObservationEvent[]; cursor: string; caughtUp: boo
 interface Page<T> { data: T; pagination: { nextCursor: string | null } }
 export type ObservationStatus = 'idle' | 'loading' | 'resynchronising' | 'ready' | 'retrying' | 'stopped';
 
+interface ChannelDiscovery { generation: number; type: string; changedAt?: number }
+
+function reportedModuleType(facet: ObservationFacet | undefined): string | undefined {
+  if (facet?.msgType !== DRONE_LINK_MSG_TYPE_CHAR || typeof facet.payload !== 'string') return;
+  try {
+    const bytes = atob(facet.payload);
+    if (bytes.length <= DRONE_LINK_MSG_MAX_PAYLOAD) return bytes.split('\0', 1)[0] || undefined;
+  } catch { /* The projection will handle invalid bytes as unavailable. */ }
+}
+
 // One cloud observation lifecycle owns paging, catch-up, cancellation and reset.
 // Packet history is intentionally absent from this interface.
 export class CloudObservations {
   private nodes = new Map<number, ObservationNode>();
   private channels = new Map<string, ObservationChannel>();
+  private discoveries = new Map<string, ChannelDiscovery>();
   private controllers = new Set<AbortController>();
   private generation = 0;
   private timer?: ReturnType<typeof setTimeout>;
@@ -43,9 +55,37 @@ export class CloudObservations {
     for (const row of event.channels) {
       const node = this.nodes.get(row.nodeAddress); if (!node || node.generation !== row.generation) continue;
       const key = `${row.nodeAddress}:${row.channel}`; const old = this.channels.get(key);
-      if (!old || row.generation > old.generation || row.revision > old.revision) this.channels.set(key, row);
+      if (!old || row.revision > old.revision) this.channels.set(key, this.rediscover(key, row));
     }
   }
+  private rediscover(key: string, row: ObservationChannel): ObservationChannel {
+    const typeFacet = row.params[DRONE_MODULE_PARAM_TYPE]?.value;
+    const type = reportedModuleType(typeFacet);
+    const known = this.discoveries.get(key);
+    let changedAt = known?.generation === row.generation ? known.changedAt : undefined;
+    if (type) {
+      if (known?.generation === row.generation && known.type !== type) {
+        const receipt = Date.parse(typeFacet!.lastReceivedAt);
+        const change = Date.parse(typeFacet!.valueLastChangedAt ?? '');
+        const cutoff = Number.isFinite(change) ? change : receipt;
+        if (Number.isFinite(cutoff)) changedAt = Math.max(changedAt ?? cutoff, cutoff);
+      }
+      this.discoveries.set(key, { generation: row.generation, type, changedAt });
+    }
+    const cutoff = changedAt;
+    if (cutoff === undefined) return row;
+
+    // Packed receipts can share a timestamp. Keep those from the change instant,
+    // and allow a refreshed facet back even if its bytes have not changed.
+    const current = (facet?: ObservationFacet) => facet && Date.parse(facet.lastReceivedAt) >= cutoff ? facet : undefined;
+    const params: ObservationChannel['params'] = {};
+    for (const [id, facets] of Object.entries(row.params)) {
+      const value = current(facets.value), name = current(facets.name);
+      if (value || name) params[id] = { value, name };
+    }
+    return { ...row, params };
+  }
+
   // Snapshot headers include Drone IDs; new-node update headers contain observations only.
   // Resolve missing identities through the existing bounded, role-scoped B API.
   private async hydrateIdentities(domain: string, generation: number): Promise<void> {
@@ -75,7 +115,8 @@ export class CloudObservations {
   }
   async load(domain: string, live = true, resynchronising = false): Promise<void> {
     this.stop(); const generation = this.generation; this.domain = domain; this.live = live;
-    this.nodes.clear(); this.channels.clear(); this.activationEpoch = undefined; this.failedWrites = 0; this.lastDiagnostics = 0;
+    this.nodes.clear(); this.channels.clear(); if (!resynchronising) this.discoveries.clear();
+    this.activationEpoch = undefined; this.failedWrites = 0; this.lastDiagnostics = 0;
     this.status = resynchronising ? 'resynchronising' : 'loading'; this.publish();
     for (let attempt = 0; attempt < 3; attempt++) {
       try {

@@ -68,7 +68,7 @@ export interface StateEventData {
   node?: number;
   channel?: number;
   param?: number;
-  type?: number;
+  type?: string;
   name?: string;
   msgType?: number;
   values?: number[] | string[];
@@ -221,8 +221,13 @@ export class DroneLinkState {
       }
     }
 
-    // Check for new channel
-    if (!this.state[msg.node].channels[msg.channel]) {
+    const channel = this.getChannelState(msg.node, msg.channel);
+    const reportedType = msg.param === DRONE_MODULE_PARAM_TYPE && msg.msgType === DRONE_LINK_MSG_TYPE_CHAR
+      ? msg.payloadToString() : undefined;
+    const typeChanged = reportedType && typeof channel?.type === 'string' && channel.type && channel.type !== reportedType;
+
+    // Rediscover a replacement at the same address using the normal channel discovery path.
+    if (!channel || typeChanged) {
       this.trigger('module.new', { node: msg.node, channel: msg.channel });
       this.createChannelState(msg.node, msg.channel, now);
       
@@ -463,8 +468,8 @@ export class DroneLinkState {
    */
   private handleSpecialParameters(msg: DroneLinkMsg, values: number[] | string[]): void {
     // Module type
-    if (msg.param === DRONE_MODULE_PARAM_TYPE && msg.msgType <= DRONE_LINK_MSG_TYPE_CHAR) {
-      const type = Array.isArray(values) ? values[0] as number : 0;
+    const type = values[0];
+    if (msg.param === DRONE_MODULE_PARAM_TYPE && msg.msgType === DRONE_LINK_MSG_TYPE_CHAR && typeof type === 'string' && type) {
       this.state[msg.node].channels[msg.channel].type = type;
       this.trigger('module.type', { node: msg.node, channel: msg.channel, type });
     }
@@ -647,7 +652,7 @@ export class DroneLinkState {
             }
             parameter.lastHeard = Date.parse(facet.lastReceivedAt); parameter.timestamp = Date.parse(facet.valueLastChangedAt!);
             parameter.source = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP';
-            if (Number(id) === DRONE_MODULE_PARAM_TYPE && type <= DRONE_LINK_MSG_TYPE_CHAR) channel.type = parameter.values[0];
+            if (Number(id) === DRONE_MODULE_PARAM_TYPE && type === DRONE_LINK_MSG_TYPE_CHAR) channel.type = parameter.values[0];
             if (Number(id) === DRONE_MODULE_PARAM_NAME && type === DRONE_LINK_MSG_TYPE_CHAR) channel.name = msg.payloadToString();
             if (row.channel === 1 && Number(id) === 8 && type === DRONE_LINK_MSG_TYPE_CHAR) node.name = msg.payloadToString();
           }

@@ -1,3 +1,4 @@
+import { DroneLinkMsg, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_NAME, DRONE_MODULE_PARAM_NAME, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
 import { DroneLinkState } from './DroneLinkState';
 const at = '2026-11-07T12:00:00.000Z';
 const node = (generation = 0, revision = 1) => ({ nodeAddress: 7, generation, revision, lastReceivedAt: at, resetAt: null, droneId: 'drone-seven' });
@@ -225,4 +226,77 @@ test.each([null,42])('non-string persisted payload %p is unavailable rather than
  const row:any=channel();row.params['1'].value.payload=payload;
  global.fetch=fetcher(snapshot([node()],[row]));await state.loadObservations('fleet',false);
  expect(state.getParameterState(7,1,1)?.values).toEqual([]);expect(state.unavailableObservationParts).toBe(1);
+});
+
+test('a conflicting module type rediscovers just that channel from the replacement packet', () => {
+  const receive = (channelId: number, param: number, type: number, value: string | number) => {
+    const payload = typeof value === 'string' ? Array.from(value, char => char.charCodeAt(0)) : [value];
+    state.handleLinkMsg(new DroneLinkMsg(Uint8Array.from([7, 7, channelId, param, type << 4 | payload.length - 1, ...payload])), false, 'Local');
+  };
+  const type = DRONE_MODULE_PARAM_TYPE, name = DRONE_MODULE_PARAM_NAME;
+  receive(6, 9, 0, 42);
+  receive(6, name, DRONE_LINK_MSG_TYPE_CHAR, 'GPS');
+  receive(6, type, DRONE_LINK_MSG_TYPE_CHAR, 'NMEA');
+  receive(6, type, DRONE_LINK_MSG_TYPE_NAME, 'type');
+  receive(6, type, DRONE_LINK_MSG_TYPE_CHAR, 'NMEA\0');
+  receive(6, type, 0, 1);
+  receive(6, type, DRONE_LINK_MSG_TYPE_CHAR, '\0');
+  receive(8, 9, 0, 21);
+  expect(state.getParameterState(7, 6, 9)?.values).toEqual([42]);
+
+  receive(6, type, DRONE_LINK_MSG_TYPE_CHAR, 'Nav');
+  expect(state.getChannelState(7, 6)).toMatchObject({ type: 'Nav' });
+  expect(state.getChannelState(7, 6)?.name).toBeUndefined();
+  expect(Object.keys(state.getChannelState(7, 6)!.params)).toEqual([String(type)]);
+  expect(state.getParameterState(7, 8, 9)?.values).toEqual([21]);
+  receive(6, 9, 0, 12);
+  expect(state.getParameterState(7, 6, 9)?.values).toEqual([12]);
+});
+
+test('cloud rediscovery drops old value and name facets across updates and resynchronisation', async () => {
+  const changed = '2026-11-07T12:01:00.000Z', fresh = '2026-11-07T12:02:00.000Z';
+  const makeRow = (revision: number, module: string, changedAt: string, currentReceipt: string) => {
+    const row = channel(0, revision);
+    const value = row.params['1'].value;
+    return { ...row, lastReceivedAt: currentReceipt, params: {
+      ...row.params,
+      [DRONE_MODULE_PARAM_TYPE]: { value: { ...value, msgType: DRONE_LINK_MSG_TYPE_CHAR, payload: btoa(module),
+        lastReceivedAt: currentReceipt, valueLastChangedAt: changedAt } },
+      8: { value: { ...value, lastReceivedAt: currentReceipt }, name: { ...value, payload: btoa('old label') } },
+      9: { value: { ...value, writable: true }, name: { ...value, payload: btoa('new label'), lastReceivedAt: currentReceipt } }
+    } };
+  };
+  const initial = makeRow(1, 'NMEA', at, at), replacement = makeRow(2, 'Nav', changed, changed);
+  const rediscovered = makeRow(3, 'Nav', changed, fresh);
+  rediscovered.params['1'].value = { ...rediscovered.params['1'].value, lastReceivedAt: fresh };
+  let finish: (value: unknown) => void = () => {};
+  let current = snapshot([node()], [initial, { ...channel(), channel: 8 }]);
+  const normal = fetcher();
+  global.fetch = jest.fn().mockImplementation((url: string, options: unknown) => {
+    if (url.endsWith('/observations')) return Promise.resolve(current);
+    if (url.includes('timeoutMs=25000')) return new Promise(resolve => { finish = resolve; });
+    return normal(url, options);
+  });
+  const settle = async () => { for (let i = 0; i < 35; i++) await Promise.resolve(); };
+
+  await state.loadObservations('fleet');
+  expect(state.getParameterState(7, 1, 1)?.values).toEqual([10]);
+  finish(updates([{ nodes: [], channels: [replacement] }]));
+  await settle();
+  expect(state.getChannelState(7, 1)?.type).toBe('Nav');
+  expect(state.getParameterState(7, 1, 1)).toBeNull();
+  expect(state.getParameterState(7, 1, 8)).toMatchObject({ values: [10] });
+  expect(state.getParameterState(7, 1, 8)?.name).toBeUndefined();
+  expect(state.getParameterState(7, 1, 9)).toMatchObject({ name: 'new label', values: [] });
+  expect(state.getParameterState(7, 1, 9)?.writeObservation).toBeUndefined();
+  expect(state.getParameterState(7, 8, 1)?.values).toEqual([10]);
+
+  jest.advanceTimersByTime(100);
+  current = snapshot([node()], [rediscovered, { ...channel(), channel: 8 }]);
+  finish(response({ code: 'snapshot-required' }, null, 410));
+  await settle();
+  expect(state.getParameterState(7, 1, 1)).toMatchObject({ values: [10], lastHeard: Date.parse(fresh) });
+  expect(state.getParameterState(7, 1, 8)?.name).toBeUndefined();
+  expect(state.getNodeState(7)?.droneId).toBe('drone-seven');
+  expect((fetch as jest.Mock).mock.calls.every(([, options]) => !options?.method || options.method === 'GET')).toBe(true);
 });
