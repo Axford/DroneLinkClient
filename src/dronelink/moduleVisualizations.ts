@@ -30,13 +30,23 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface TankSteerSummary {
+    drives: Record<'left' | 'right', { reading: ObservedSummary; output?: number }>;
+    heading: ObservedSummary;
+    target: ObservedSummary;
+    distance: ObservedSummary;
+    distanceMetres?: number;
+    mode: ObservedSummary;
+    details: ObservedSummary[];
+}
 
 export interface TurnRateSummary {
     turnOutput: ObservedSummary;
@@ -932,7 +942,30 @@ function turnRateSummary(channel: ChannelState): TurnRateSummary {
         details: [heading, target, turnOutput, threshold, mode] };
 }
 
+function tankSteerSummary(channel: ChannelState): TankSteerSummary {
+    const drive = (id: number, label: string) => {
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+        const output = value !== undefined && Math.abs(value) <= 1 ? value : undefined;
+        let text = output?.toFixed(2);
+        if (output !== undefined && output !== 0 && Math.abs(output) < 0.005) {
+            text = output > 0 ? '+<0.01' : '−<0.01';
+        }
+        return { reading: field(channel, id, label, text), output };
+    };
+    const drives = { left: drive(8, 'Left drive'), right: drive(9, 'Right drive') };
+    const heading = bearingReading(channel, 22, 'Heading');
+    const target = signedBearingReading(channel, 20, 'Target');
+    const value = numericValue(channel.params[24], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const distanceMetres = value !== undefined && value >= 0 ? value : undefined;
+    const distance = field(channel, 24, 'Distance', distanceMetres === undefined ? undefined : `${distanceMetres.toFixed(1)} m`);
+    const modeValue = byteArray(channel.params[10], 1)?.[0];
+    const mode = field(channel, 10, 'Mode', modeValue === 0 ? 'Manual' : modeValue === 1 ? 'Automatic' : undefined);
+    return { drives, heading, target, distance, distanceMetres, mode,
+        details: [heading, target, distance, ...Object.values(drives).map(drive => drive.reading), mode] };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['TankSteer', { inspector: tankSteerSummary }],
     ['TurnRate', { inspector: turnRateSummary }],
     ['Proa', { inspector: proaSummary }],
     ['Sailor', { inspector: sailorSummary }],

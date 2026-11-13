@@ -574,3 +574,26 @@ test('TurnRate preserves signed outputs, valid zero, and the observed gybe mode'
     observed.params[16] = rate(11);
     expect(inspect()).toMatchObject({ turnOutput: { unavailable: true } });
 });
+
+
+test('TankSteer preserves each drive sign and does not turn invalid drive or distance into zero', () => {
+    const observed = channel(6, 0, 'TankSteer');
+    const scalar = observed.params[15];
+    const read = (param: number, value: number) => ({ ...scalar, param, values: [value] });
+    Object.assign(observed.params, {
+        8: read(8, -0.65), 9: read(9, 0), 20: read(20, -3), 22: read(22, 0), 24: read(24, 43),
+        10: { ...read(10, 1), msgType: DRONE_LINK_MSG_TYPE_UINT8_T }
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        drives: { left: { output: -0.65, reading: { reading: observed.params[8] } }, right: { output: 0 } },
+        heading: { bearing: 0 }, target: { bearing: 357 }, distanceMetres: 43, mode: { text: 'Automatic' }
+    });
+    observed.params[8] = read(8, 1.1);
+    observed.params[9] = read(9, 0.001);
+    observed.params[24] = read(24, -1);
+    expect(inspect()).toMatchObject({
+        drives: { left: { reading: { unavailable: true } }, right: { output: 0.001, reading: { text: '+<0.01' } } },
+        distance: { unavailable: true }
+    });
+});
