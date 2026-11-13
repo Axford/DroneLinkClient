@@ -50,6 +50,8 @@ The Domain map also shows the selected NMEA secondary position as a ring, using 
 
 A blue 10 m map line starts at the primary position and follows the saved world-relative bearing from the selected WindFromWing binding. The line scales with zoom and the primary marker description reports its address, source and receipt. Wind publishes a local sensor angle, and Sailor's subscribed value has no known reference frame in the observation, so both remain inspectable as bindings. An invalid wing bearing removes only the wind line.
 
+The shared navigation tokens use the module renderer palette. The map heading chevron and Inspector compass share readout green, and the wind layer uses instrument blue. The node list's identity ring and map markers share the platform blue accent and the selected card and marker share the primary blue fill. See the [navigation and node identity guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#navigation-indicators-and-node-identity).
+
 
 ## M1.2 bounded codec corrections — 2026-11-08
 

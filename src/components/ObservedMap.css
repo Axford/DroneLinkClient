@@ -2,14 +2,14 @@
   width: var(--dw-space-6);
   height: var(--dw-space-6);
   padding: 0;
-  border: 2px solid var(--dw-color-accent);
+  border: 2px solid var(--dw-color-node-identity);
   border-radius: 50%;
   background: var(--dw-color-surface);
   color: var(--dw-color-text);
 }
 
 .dw-map-marker[aria-pressed="true"] {
-  background: var(--dw-color-primary);
+  background: var(--dw-color-node-selected);
   box-shadow: 0 0 0 2px var(--dw-color-text);
 }
 
@@ -40,7 +40,7 @@
   left: 50%;
   width: var(--dw-space-3);
   height: var(--dw-space-3);
-  background: var(--dw-color-text);
+  background: var(--dw-color-navigation-heading);
   filter: drop-shadow(0 1px 1px var(--dw-color-surface));
   transform: translate(-50%, -50%);
   clip-path: polygon(50% 0, 100% 62%, 84% 80%, 50% 38%, 16% 80%, 0 62%);
@@ -61,7 +61,7 @@
 .dw-map-secondary::before {
   width: var(--dw-icon-size);
   height: var(--dw-icon-size);
-  border: 2px solid var(--dw-color-text);
+  border: 2px solid var(--dw-color-node-identity);
   border-radius: 50%;
   background: var(--dw-color-surface);
   box-shadow: 0 0 0 1px var(--dw-color-surface);
@@ -69,7 +69,7 @@
 }
 
 .dw-map-secondary[aria-pressed="true"]::before {
-  background: var(--dw-color-primary);
+  background: var(--dw-color-node-selected);
 }
 
 .dw-map-canvas {

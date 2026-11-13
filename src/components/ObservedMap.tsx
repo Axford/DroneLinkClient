@@ -96,7 +96,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         activeMap.addSource(windLayerId, { type: 'geojson', data: windLines([]) });
         activeMap.addLayer({
           id: windLayerId, source: windLayerId, type: 'line',
-          paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-accent').trim() || '#82b7ff', 'line-width': 3 }
+          paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(), 'line-width': 3 }
         });
         setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
       });
@@ -233,7 +233,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       cameraRevision={cameraRevision} unproject={point => map.current?.isMoving() ? undefined : map.current?.unproject(point)} now={now} />
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
-      <p>The chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
+      <p>The green chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
       <p>A blue line extends 10 metres from the node in the last-known wind bearing from its wing sensor.</p>
       <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
       <p>Observations remain available in the inspector when the map is unavailable.</p>

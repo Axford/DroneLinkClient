@@ -112,7 +112,7 @@
 .dw-heading-compass span:nth-child(2) { right: var(--dw-space-1); }
 .dw-heading-compass span:nth-child(3) { bottom: 0; }
 .dw-heading-compass span:nth-child(4) { left: var(--dw-space-1); }
-.dw-heading-compass i { width: var(--dw-space-2); height: var(--dw-space-12); color: var(--dw-color-accent); }
+.dw-heading-compass i { width: var(--dw-space-2); height: var(--dw-space-12); color: var(--dw-color-navigation-heading); }
 .dw-heading-compass i::before {
     content: '';
     display: block;
