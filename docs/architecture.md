@@ -155,6 +155,10 @@ Motor reads the observed signed speed input from FLOAT parameter 8. The bar show
 
 Servo plots normalized input from −1 to +1 against output angle from 0 to 180°. The configured curve uses the four observed FLOAT control points at parameter 12 and the centre adjustment at parameter 13. It samples the firmware's cubic mapping, truncation and bounds. The independently observed position input at parameter 8 and PWM controller angle at parameter 14 provide separate guides and readouts. The reported output can lag the configured mapping while the firmware applies its movement rate limit. Each observation has its own source and receipt in Reading Details.
 
+### NMEA fix and correction details
+
+The NMEA Summary keeps heading and satellite status alongside primary position, speed in knots and metres per second, and observed HDOP. The firmware sends HDOP as a UINT8 in tenths with 255 reserved for unknown. Reading Details lists the secondary GPS position, configured reference fix and differential correction offsets when their parameters are present. Coordinates arrive longitude first and display latitude first. Correction shows the signed latitude, longitude and altitude offsets. Some firmware transmits a fourth correction float before assigning its distance, so the Summary relies on the three verified components.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

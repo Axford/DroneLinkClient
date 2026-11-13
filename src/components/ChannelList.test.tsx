@@ -343,3 +343,30 @@ test('Anemometer keeps current speed, sampled frequency and parameter provenance
     fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 7>4.10' })).toBeVisible();
 });
+
+test('NMEA shows verified diagnostics with independent receipts and both speed units', () => {
+    const gps = specialist(4, 'NMEA', {
+        8: reading(8, DRONE_LINK_MSG_TYPE_FLOAT, [-1, 51, 0]),
+        9: reading(9, DRONE_LINK_MSG_TYPE_FLOAT, [7]),
+        10: reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [143]),
+        11: reading(11, DRONE_LINK_MSG_TYPE_FLOAT, [4.7]),
+        12: { ...reading(12, DRONE_LINK_MSG_TYPE_UINT8_T, [8]), lastHeard: 2000, source: 'HTTP' },
+        15: reading(15, DRONE_LINK_MSG_TYPE_FLOAT, [-1.5, 52, 10]),
+        18: { ...reading(18, DRONE_LINK_MSG_TYPE_FLOAT, [-2, 53, 11]), lastHeard: 3000, source: 'Local' },
+        20: { ...reading(20, DRONE_LINK_MSG_TYPE_FLOAT, [0.01, -0.02, 0.03, NaN]), lastHeard: 4000, source: 'HTTP' }
+    });
+    const view = render(session(node(7, { 4: gps })));
+    const summary = within(screen.getByLabelText('Observed readings for channel 4'));
+    for (const value of ['4.7 kn', '2.4 m/s', '0.8']) expect(summary.getByText(value)).toBeVisible();
+    expect(summary.getByText('7 sats').closest('[data-severity]')).toHaveAttribute('data-severity', 'warning');
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
+    for (const value of ['52.00000°, -1.50000°', '53.00000°, -2.00000°', 'Δlat -0.020000°, Δlon 0.010000°, Δalt 0.03 m']) {
+        expect(details.getByText(value)).toBeVisible();
+    }
+    expect(details.getByText(/^7>4\.18 · Local/)).toHaveTextContent(new Date(3000).toLocaleString());
+    expect(details.getByText(/^7>4\.20 · HTTP/)).toHaveTextContent(new Date(4000).toLocaleString());
+    const unknown = { ...gps, params: { ...gps.params, 12: reading(12, DRONE_LINK_MSG_TYPE_UINT8_T, [255]) } };
+    view.rerender(session(node(7, { 4: unknown })));
+    expect(summary.getByText('HDOP').parentElement).toHaveAttribute('data-unavailable', 'true');
+});

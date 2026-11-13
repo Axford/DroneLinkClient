@@ -21,6 +21,7 @@ export interface ObservedSummary {
 
 export type InspectorSummary = {
     layout?: 'compact';
+    additionalDetails?: ObservedSummary[];
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
 } | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | {
@@ -265,6 +266,8 @@ class PowerTelemetryRenderer {
 const ina219 = new PowerTelemetryRenderer({ inputCount: 1, usageParameter: 19 });
 const ina3221 = new PowerTelemetryRenderer({ inputCount: 3, usageParameter: 20 });
 
+const knotsPerMetrePerSecond = 1.94384;
+
 export function windSpeedKnots(value: number): number | undefined {
     if (value >= 0) return value;
 }
@@ -381,6 +384,41 @@ function servoSummary(channel: ChannelState): ServoSummary {
     };
 }
 
+function correctionText(reading: ParameterState | undefined): string | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_FLOAT ||
+        ![3, 4].includes(reading.numValues) || reading.values.length !== reading.numValues) return;
+    const [longitude, latitude, altitude] = reading.values;
+    if (typeof longitude !== 'number' || typeof latitude !== 'number' || typeof altitude !== 'number' ||
+        ![longitude, latitude, altitude].every(Number.isFinite)) return;
+    // Some firmware sends a fourth float before assigning the correction distance.
+    return `Δlat ${latitude.toFixed(6)}°, Δlon ${longitude.toFixed(6)}°, Δalt ${altitude.toFixed(2)} m`;
+}
+
+function nmeaSummary(channel: ChannelState): InspectorSummary {
+    const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
+    const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const speedLines = speed === undefined || speed < 0 ? undefined : [`${speed.toFixed(1)} kn`, `${(speed / knotsPerMetrePerSecond).toFixed(1)} m/s`];
+    const rawHdop = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_UINT8_T]);
+    // MicroNMEA uses 255 for an unknown HDOP and reports valid values in tenths.
+    const hdop = rawHdop !== undefined && Number.isInteger(rawHdop) && rawHdop >= 0 && rawHdop < 255
+        ? (rawHdop / 10).toFixed(1) : undefined;
+    return {
+        primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        supporting: [
+            field(channel, 8, 'Position', positionText(channel.params[8])),
+            satelliteCount(channel),
+            { ...field(channel, 11, 'Speed', speedLines?.join(' · ')), lines: speedLines },
+            ...(channel.params[12] ? [field(channel, 12, 'HDOP', hdop)] : [])
+        ],
+        additionalDetails: [
+            field(channel, 18, 'Secondary GPS position', positionText(channel.params[18])),
+            field(channel, 15, 'Configured reference fix', positionText(channel.params[15])),
+            field(channel, 20, 'Correction offsets', correctionText(channel.params[20]))
+        ].filter(summary => summary.reading)
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
     ['Servo', { inspector: servoSummary }],
     ['Motor', { inspector: motorSummary }],
@@ -453,7 +491,7 @@ const visualizations = new Map<string, ModuleVisualization>([
             return {
                 windSpeed,
                 knots,
-                metresPerSecond: knots === undefined ? undefined : `${(knots / 1.94384).toFixed(1)} m/s`
+                metresPerSecond: knots === undefined ? undefined : `${(knots / knotsPerMetrePerSecond).toFixed(1)} m/s`
             };
         }
     }],
@@ -472,19 +510,7 @@ const visualizations = new Map<string, ModuleVisualization>([
         note: 'Received means complete serial RX handoffs before DroneLink CRC validation. Rejected means serial framing rejects.'
     })],
     ['UDPTelemetry', new PacketTelemetryRenderer({ countsParameter: 10, ratesParameter: 11 })],
-    ['NMEA', {
-        overlay: satelliteCount,
-        inspector(channel) {
-            const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
-            const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            return {
-                primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
-                supporting: [field(channel, 8, 'Position', positionText(channel.params[8])), satelliteCount(channel),
-                    field(channel, 11, 'Speed', speed !== undefined && speed >= 0 ? `${speed.toFixed(1)} kn` : undefined)]
-            };
-        }
-    }],
+    ['NMEA', { overlay: satelliteCount, inspector: nmeaSummary }],
     ['INA219', {
         settings: {
             moduleType: 'INA219',

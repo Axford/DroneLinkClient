@@ -123,7 +123,7 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
     const readings = 'waterLevel' in summary ? [summary.rawReading, summary.thresholdReading, summary.alarm]
         : 'windSpeed' in summary ? [summary.windSpeed]
         : 'details' in summary ? summary.details
-        : 'primary' in summary ? [...summary.primary, ...summary.supporting] : [];
+        : 'primary' in summary ? [...summary.primary, ...summary.supporting, ...(summary.additionalDetails ?? [])] : [];
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
