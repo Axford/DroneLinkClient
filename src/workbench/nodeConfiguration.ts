@@ -4,13 +4,38 @@ export interface ConfigurationDiagnostic {
     message: string;
 }
 
+interface DraftSubscription {
+    line: number;
+    input: string;
+    source: string;
+    valueStart: number;
+    valueEnd: number;
+    resolution: string;
+    address: SubscriptionAddress;
+}
+
+interface DraftModule {
+    line: number;
+    channel: number;
+    type: string;
+    name?: string;
+    subscriptions: DraftSubscription[];
+}
+
 const cloudStrings = new Set(['endpoint', 'domain', 'apiKey', 'subscriptions', 'relayPeers']);
 const bytes = (text: string) => new Blob([text]).size;
+// Firmware's generic CHAR parser removes spaces/tabs and accepts a single
+// name of at most 16 bytes. Keep the original name for display.
+const moduleLookupName = (name?: string) => {
+    const value = name?.replace(/[ \t]/g, '');
+    return value && !value.includes(',') && bytes(value) <= 16 ? value : undefined;
+};
 const decimal = (text: string, max: number) => /^\d+$/.test(text) && Number(text) > 0 && Number(text) <= max;
 
 // Project the firmware's line syntax for diagnostics. The editor always uploads
 // the draft, never this projection.
 function splitLine(raw: string, escapes: boolean) {
+    let valueStart = -1, valueEnd = -1;
     let name = '', value = '';
     let assignment = false, quoted = false, sawQuote = false, opened = false, closed = false, invalid = false;
     for (let i = 0; i < raw.length; i++) {
@@ -26,6 +51,10 @@ function splitLine(raw: string, escapes: boolean) {
             continue;
         }
         if (closed) { invalid = true; break; }
+        if (assignment && !opened) {
+            if (valueStart === -1) valueStart = i;
+            valueEnd = i + 1;
+        }
         if (char === '"') { sawQuote = true; quoted = !quoted; continue; }
         if (!quoted && char === '[' && !name && !assignment && !opened) { opened = true; continue; }
         if (!quoted && char === ']' && opened) { closed = true; continue; }
@@ -33,17 +62,26 @@ function splitLine(raw: string, escapes: boolean) {
         if (assignment) value += char; else name += char;
     }
     const empty = !name && !value && !opened && !assignment && !sawQuote;
-    return { name, value, section: opened, empty, valid: !invalid && !quoted &&
+    return { name, value, valueStart, valueEnd, section: opened, empty, valid: !invalid && !quoted &&
         (empty || (!!name && !!value && assignment && opened === closed)) };
 }
 
-export function inspectNodeConfiguration(text: string, selectedNode: number): ConfigurationDiagnostic[] {
+interface SubscriptionAddress { node: string; channel: string; parameter: string }
+
+function parseSource(source: string): SubscriptionAddress | undefined {
+    const address = /^([^>.]+)>([^>.]+)\.([^>.]+)$/.exec(source);
+    const bounds = [254, 254, 63];
+    if (!address || address.slice(1).some((part, i) =>
+        bytes(part) > 19 || (/^\d/.test(part) && !decimal(part, bounds[i])))) return;
+    return { node: address[1], channel: address[2], parameter: address[3] };
+}
+
+export function inspectNodeConfiguration(text: string, selectedNode: number) {
     const diagnostics: ConfigurationDiagnostic[] = [];
     const report = (line: number, severity: ConfigurationDiagnostic['severity'], message: string) =>
         diagnostics.push({ line, severity, message });
-    const modules = new Map<number, { type: string; name?: string }>();
-    const subscriptions: { line: number; node: string; channel: string; parameter: string }[] = [];
-    let module: { type: string; name?: string } | undefined;
+    const modules = new Map<number, DraftModule>();
+    let module: DraftModule | undefined;
     let inSections = false;
     let nodeId: number | undefined;
     text.split('\n').forEach((raw, index) => {
@@ -51,6 +89,7 @@ export function inspectNodeConfiguration(text: string, selectedNode: number): Co
         let parsed = splitLine(raw, false);
         const longString = !parsed.section && module?.type === 'CloudTelemetry' && cloudStrings.has(parsed.name);
         if (longString) parsed = splitLine(raw, true);
+        if (parsed.section) { inSections = true; module = undefined; }
         if (raw.includes('\0') || bytes(raw) > 2048) {
             report(line, 'error', 'Line contains a NUL or exceeds the firmware’s 2048-byte line limit.');
             return;
@@ -67,14 +106,12 @@ export function inspectNodeConfiguration(text: string, selectedNode: number): Co
             return;
         }
         if (section) {
-            inSections = true;
-            module = undefined;
             if (!decimal(value, 254)) {
                 report(line, 'error', 'Module channel must be a decimal address from 1 to 254.');
             } else if (modules.has(Number(value))) {
                 report(line, 'error', 'Another module already uses this channel.');
             } else {
-                module = { type: name };
+                module = { line, channel: Number(value), type: name, subscriptions: [] };
                 modules.set(Number(value), module);
             }
             return;
@@ -94,28 +131,59 @@ export function inspectNodeConfiguration(text: string, selectedNode: number): Co
         } else if (module && name === 'name') {
             module.name = value;
         } else if (module && name.startsWith('$')) {
-            const address = /^([^>.]+)>([^>.]+)\.([^>.]+)$/.exec(value.replace(/[ \t]/g, ''));
-            const bounds = [254, 254, 63];
-            if (name === '$' || !address || address.slice(1).some((part, i) =>
-                bytes(part) > 19 || (/^\d/.test(part) && !decimal(part, bounds[i])))) {
+            const source = value.replace(/[ \t]/g, '');
+            const address = parseSource(source);
+            if (name === '$' || !address) {
                 report(line, 'error', 'Use $input = node>channel.parameter with valid address parts.');
             } else {
-                subscriptions.push({ line, node: address[1], channel: address[2], parameter: address[3] });
+                module.subscriptions.push({
+                    line, input: name, source, address, valueStart: parsed.valueStart, valueEnd: parsed.valueEnd, resolution: '',
+                });
             }
         }
     });
     if (nodeId === undefined) report(1, 'error', 'Declare a valid node address before the first module.');
-    for (const { line, node, channel, parameter } of subscriptions) {
-        if (node === '@' || (/^\d+$/.test(node) && Number(node) === nodeId)) {
-            const matches = /^\d+$/.test(channel) ? Number(modules.has(Number(channel))) :
-                Array.from(modules.values()).filter(item => item.name === channel).length;
-            if (matches !== 1) report(line, 'warning', matches ?
-                'More than one local module has this name.' : 'The source module is not declared in this configuration.');
-        } else if (!/^\d+$/.test(channel) || !/^\d+$/.test(parameter)) {
-            report(line, 'warning', 'Use numeric channel and parameter IDs for a remote subscription.');
-        } else {
-            report(line, 'warning', 'This remote source cannot be verified from the node’s file.');
+    const declarations = Array.from(modules.values());
+    for (const module of declarations) {
+        for (const subscription of module.subscriptions) {
+            const { node, channel, parameter } = subscription.address;
+            if (node.startsWith('@') || (/^\d+$/.test(node) && Number(node) === nodeId)) {
+                const numeric = /^\d+$/.test(channel);
+                const named = numeric ? [] : declarations.filter(item => moduleLookupName(item.name) === channel);
+                const ambiguous = named.length > 1;
+                const source = numeric ? modules.get(Number(channel)) : ambiguous ? undefined : named[0];
+                subscription.resolution = source ? `Local: ${source.name || source.type} (channel ${source.channel})` :
+                    ambiguous ? 'Local source module name is ambiguous' : 'Local source module missing';
+                if (!source) report(subscription.line, 'warning', ambiguous ?
+                    'More than one local module has this name.' : 'The source module is not declared in this configuration.');
+            } else {
+                subscription.resolution = 'Remote source — unverified';
+                report(subscription.line, 'warning', !/^\d+$/.test(channel) || !/^\d+$/.test(parameter) ?
+                    'Use numeric channel and parameter IDs for a remote subscription.' :
+                    'This remote source cannot be verified from the node’s file.');
+            }
         }
     }
-    return diagnostics.sort((a, b) => a.line - b.line);
+    return { diagnostics: diagnostics.sort((a, b) => a.line - b.line), modules: declarations };
+}
+
+export type ConfigurationOverview = ReturnType<typeof inspectNodeConfiguration>;
+
+export function updateSubscriptionSource(text: string, subscription: DraftSubscription, input: string) {
+    const source = input.trim();
+    if (!/^[^\s;"[\]=>.]+>[^\s;"[\]=>.]+\.[^\s;"[\]=>.]+$/u.test(source) ||
+        source === subscription.source) return;
+    const address = parseSource(source);
+    // The firmware uses atoi and treats a leading @ as local. Do not
+    // introduce signed numbers that can wrap or ambiguous @ aliases.
+    if (!address || [address.node, address.channel, address.parameter].some(part => /^[+-]\d/.test(part)) ||
+        (address.node.startsWith('@') && address.node !== '@')) return;
+    const lines = text.split('\n');
+    const index = subscription.line - 1;
+    const raw = lines[index];
+    const { valueStart, valueEnd } = subscription;
+    const original = raw.slice(valueStart, valueEnd);
+    const replacement = original.startsWith('"') && original.endsWith('"') ? `"${source}"` : source;
+    lines[index] = raw.slice(0, valueStart) + replacement + raw.slice(valueEnd);
+    return lines.join('\n');
 }

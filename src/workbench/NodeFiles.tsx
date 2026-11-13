@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { authenticatedFetchJson } from '../utils/api';
+import ConfigurationOverview from './ConfigurationOverview';
 import { inspectNodeConfiguration } from './nodeConfiguration';
 import { Transport, transportLabel } from './useWorkbenchFeed';
 
@@ -41,8 +42,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     const canAct = available && !!transport && !busy;
     const configuration = stored?.path === '/config.ini';
     const uploadText = (versionText ?? stored?.text)?.includes('\r\n') ? draft.replace(/\n/g, '\r\n') : draft;
-    const diagnostics = React.useMemo(() => configuration ? inspectNodeConfiguration(uploadText, node) : [],
+    const overview = React.useMemo(() => configuration ? inspectNodeConfiguration(uploadText, node) : undefined,
         [configuration, uploadText, node]);
+    const diagnostics = overview?.diagnostics ?? [];
     const configurationError = diagnostics.some(item => item.severity === 'error');
 
     function goToLine(line: number) {
@@ -206,6 +208,8 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                     </li>)}
                 </ul>}
             </section>}
+            {overview && <ConfigurationOverview key={stored.revision} overview={overview} text={uploadText}
+                editable={stored.editable && !busy} onChange={text => setDraft(editorText(text))} goToLine={goToLine} />}
             <div className="dw-toolbar dw-workbench-file-actions">
                 <button type="button" className="btn btn-primary" disabled={!canAct || !dirty || !stored.editable || configurationError} onClick={upload}>Upload to node</button>
                 <button type="button" className="btn btn-outline-secondary" disabled={!canAct} onClick={() => open(stored.path)}>Reopen from node</button>

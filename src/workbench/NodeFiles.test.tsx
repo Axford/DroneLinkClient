@@ -98,3 +98,51 @@ it('checks the node configuration draft before sending its exact bytes and keeps
         global.fetch = previousFetch;
     }
 });
+
+it('traces draft subscriptions and replaces only one source before a separate verified upload', async () => {
+    const original = [
+        'node = 11', '[Nav = 12]', ' name = Pilot', ' $location = "@>GPSMain.location"  ; primary fix',
+        ' $heading = 11>10.9', ' $remote = 3>1.8', ' $missing = @>Missing.location',
+        ' $ambiguous = @>Shared.location', '[NMEA = 10]', ' name = "GPS Main"', ' futureSetting = "quoted; value"',
+        '[NMEA = 14]', ' name = Shared', '[NMEA = 15]', ' name = Shared', '',
+    ].join('\r\n');
+    const edited = original.replace('@>GPSMain.location', '@>10.8');
+    const previousFetch = global.fetch;
+    const config = { ...stored, path: '/config.ini', text: original };
+    const fetchMock = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => config })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ ...config, text: edited }) });
+    global.fetch = fetchMock;
+    try {
+        const props = { node: 11, transport: 'wifi' as const, activity: jest.fn() };
+        const view = render(<NodeFiles {...props} available />);
+        fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
+        const editor = await screen.findByRole('textbox', { name: /Stored file/ });
+        fireEvent.click(screen.getByText(/Modules and subscriptions/));
+        expect(screen.getAllByText('Local: GPS Main (channel 10)')).toHaveLength(2);
+        expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
+        expect(screen.getByText('Local source module missing')).toBeInTheDocument();
+        expect(screen.getByText('Local source module name is ambiguous')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Line 4: $location' }));
+        expect(editor).toHaveFocus();
+        fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
+        const source = screen.getByRole('textbox', { name: 'Source for $location' });
+        for (const value of ['invalid ; comment', '+255>1.8', '3>+256.8', '3>1.-1', '@other>10.8']) {
+            fireEvent.change(source, { target: { value } });
+            expect(screen.getByRole('button', { name: 'Update draft' })).toBeDisabled();
+        }
+        view.rerender(<NodeFiles {...props} available={false} />);
+        fireEvent.change(source, { target: { value: '@>10.8' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));
+        expect(editor).toHaveValue(edited.replace(/\r\n/g, '\n'));
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const upload = screen.getByRole('button', { name: 'Upload to node' });
+        expect(upload).toBeDisabled();
+        view.rerender(<NodeFiles {...props} available />);
+        fireEvent.click(upload);
+        expect(await screen.findByText(/Stored file verified by readback/)).toBeInTheDocument();
+        expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ path: '/config.ini', revision: config.revision, text: edited });
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+        global.fetch = previousFetch;
+    }
+});

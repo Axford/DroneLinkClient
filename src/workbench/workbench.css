@@ -50,3 +50,16 @@
     margin-top: 4px;
     resize: vertical;
 }
+
+.dw-config-overview { margin-block: var(--dw-space-3); }
+.dw-config-overview summary { cursor: pointer; font-weight: 600; }
+.dw-config-overview > p { margin-block: var(--dw-space-2); }
+.dw-config-module, .dw-config-source {
+    padding: var(--dw-space-2);
+    background: var(--dw-color-raised);
+    border-radius: var(--dw-radius-small);
+}
+.dw-config-module + .dw-config-module { margin-top: var(--dw-space-2); }
+.dw-config-subscription { padding-block: var(--dw-space-1); overflow-wrap: anywhere; }
+.dw-config-source { display: grid; gap: var(--dw-space-1); }
+.dw-config-subscription > .dw-toolbar > .btn-outline-secondary { margin-inline-start: auto; }
