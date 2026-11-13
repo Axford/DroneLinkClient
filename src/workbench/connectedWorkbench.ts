@@ -188,6 +188,14 @@ export function useConnectedWorkbench(domainId?: string) {
         if (!response.ok) throw await localError(response);
         return response.json();
     }
+    async function readNetwork<T>(node: number, signal: AbortSignal): Promise<T> {
+        if (!activePair || !access || !usesLocal(node) || transport(node) !== 'wifi') throw new Error('The selected local route is unavailable.');
+        const grant = await access.token(signal);
+        if (livePair.current !== activePair || currentPath.current?.(node) !== 'wifi') throw new Error('The selected local route changed.');
+        const response = await request(activePair, `nodes/${node}/network?transport=wifi`, grant, signal);
+        if (!response.ok) throw await localError(response);
+        return response.json();
+    }
     async function query(node: number, channel: number, parameter: number) {
         const selected = transport(node);
         if (!activePair || !access || !usesLocal(node) || !selected) throw new Error('The selected local route is unavailable.');
@@ -197,5 +205,5 @@ export function useConnectedWorkbench(domainId?: string) {
         const response = await request(activePair, 'query-value', grant, signal, { node, channel, parameter, transport: selected });
         if (!response.ok) throw await localError(response);
     }
-    return { network: activePair ? feed : undefined, paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, fileRequest, fileBackups: activePair?.fileBackups === true };
+    return { networkSession: activePair, network: activePair ? feed : undefined, paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, readNetwork, fileRequest, fileBackups: activePair?.fileBackups === true };
 }

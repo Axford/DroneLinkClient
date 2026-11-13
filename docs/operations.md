@@ -263,3 +263,7 @@ The serial row displays the configured baud and 8N1. The receipt age is the
 time since Workbench received the result. Edit the startup settings through
 **Files**, verify Upload, then Restart separately. See the
 [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+
+### Selected node network
+
+Select a node in **Network**, then choose **Refresh node network**. The node snapshot shows its own mesh interfaces, outbound routes and transmit queue alongside the gateway view. An unreachable route or failed refresh marks the preceding snapshot as last seen.

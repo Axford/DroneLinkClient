@@ -11,6 +11,7 @@ import ChannelList from '../components/ChannelList';
 import { InspectorSessionProvider } from '../components/InspectorSession';
 import { ObservationNamesContext } from '../components/parameterPresentation';
 import { Transport, transportLabel, transports, useWorkbenchFeed } from './useWorkbenchFeed';
+import type { NodeNetworkSnapshot } from './NodeNetwork';
 import WorkbenchNetwork from './WorkbenchNetwork';
 import './workbench.css';
 
@@ -48,6 +49,13 @@ export default function WorkbenchPage() {
     const active = choice === 'auto' ? autoRoute?.transport : choice;
     const path = active && selectedNode !== undefined ? paths[active][selectedNode] : undefined;
     const node = active && selectedNode !== undefined ? observations[active][selectedNode] : undefined;
+    const readNode = connected && active === 'wifi' && path?.reachable && path.nextHop === selectedNode
+        ? async (signal: AbortSignal): Promise<NodeNetworkSnapshot> => {
+            const response = await fetch(`/api/workbench/v1/nodes/${selectedNode}/network?transport=wifi`, { cache: 'no-store', signal });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error || 'Node network snapshot unavailable.');
+            return body;
+        } : undefined;
     const configured = transports.filter(transport => interfaces[transport]);
     const nodes = Array.from(new Set([...Object.keys(routes), ...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number))).sort((a, b) => a - b);
     const showTransport = configured.length > 0;
@@ -114,7 +122,7 @@ export default function WorkbenchPage() {
                 'Connecting to local gateway…' : 'Local gateway disconnected. Reconnecting…'}</span>}>
             <DomainLensPanels overMap={lens === 'map'} lens={lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} /> : selector}
+                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} readNode={readNode} /> : selector}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
