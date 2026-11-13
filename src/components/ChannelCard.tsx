@@ -6,7 +6,7 @@ import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PA
 import { receiptLabel } from '../dronelink/observedPositions';
 import ParameterList from './ParameterList';
 import ChannelSummary, { ChannelSummaryDetails } from './ChannelSummary';
-import { channelVisualization } from '../dronelink/moduleVisualizations';
+import { channelVisualization, observedModuleType } from '../dronelink/moduleVisualizations';
 import { useVisualizationSettings } from './VisualizationSettings';
 import ChannelVisualizationSettings from './ChannelVisualizationSettings';
 
@@ -65,7 +65,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                 {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />}
             </div>}
             {summary ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
-                parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
+                parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} moduleType={observedModuleType(channel)} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>
     </Card>;

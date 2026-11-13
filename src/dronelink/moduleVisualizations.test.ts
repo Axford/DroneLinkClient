@@ -340,8 +340,8 @@ test.each([['NMEA', 10], ['LSM9DS1', 11], ['CMPS12', 10]] as const)(
     }
 );
 
-test('HMC5883L keeps raw vector origin separate from the calibration bounds', () => {
-    const observed = channel(6, 0, 'HMC5883L');
+test.each(['HMC5883L', 'QMC5883L'])('%s keeps raw vector origin separate from the calibration bounds', (type) => {
+    const observed = channel(6, 0, type);
     const scalar = observed.params[15];
     const reading = (param: number, values: number[]) => ({ ...scalar, param, values, numValues: values.length });
     Object.assign(observed.params, {

@@ -62,7 +62,7 @@ test('all legacy semantic registrations remain available independently of visual
   const cases: Array<[string, number, string, number]> = [
     ['NMEA', 8, 'location', 3], ['NMEA', 18, 'location2', 3], ['NMEA', 10, 'heading', 1],
     ['Nav', 10, 'location', 2], ['Nav', 12, 'target', 2], ['Nav', 15, 'last', 2],
-    ['CMPS12', 10, 'heading', 3], ['HMC5883L', 11, 'heading', 3], ['LSM9DS1', 11, 'heading', 3],
+    ['CMPS12', 10, 'heading', 3], ['HMC5883L', 11, 'heading', 3], ['QMC5883L', 11, 'heading', 3], ['LSM9DS1', 11, 'heading', 3],
     ['Sailor', 10, 'heading', 2], ['Sailor', 12, 'wind', 2], ['TankSteer', 22, 'heading', 2],
     ['TurnRate', 12, 'heading', 1], ['Wind', 14, 'wind', 3], ['WindFromWing', 15, 'wind', 4]
   ];

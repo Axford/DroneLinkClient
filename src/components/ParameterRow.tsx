@@ -8,18 +8,20 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 
-export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState }
-export default function ParameterRow({ nodeId, channelId, parameterId, parameter }: ParameterRowProps) {
+export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState; catalogName?: string }
+export default function ParameterRow({ nodeId, channelId, parameterId, parameter, catalogName }: ParameterRowProps) {
     const [details, setDetails] = useState(false);
     const names = useContext(ObservationNamesContext);
     const presentation = presentParameter(parameter, names);
-    const name = (!parameter.unavailable?.name && parameter.name) || `Param ${parameterId}`;
+    const observedName = !parameter.unavailable?.name && parameter.name?.trim() ? parameter.name : undefined;
+    const catalogLabel = observedName ? undefined : catalogName;
+    const name = observedName ?? catalogLabel ?? `Param ${parameterId}`;
     const receivedAt = presentation.values.length ? parameter.lastHeard : undefined;
     const address = `${nodeId}>${channelId}.${parameterId}`;
     const writability = presentation.writable === undefined ? 'Writability unavailable' : presentation.writable ? 'Observed writable' : 'Observed read-only';
     return <article className="parameter-row dw-parameter" aria-label={`Parameter ${address}`}>
         <header className="dw-parameter-header">
-            <div className="dw-parameter-label"><strong>{name}</strong><div className="dw-meta">{address} · {presentation.type || 'Type unavailable'}</div></div>
+            <div className="dw-parameter-label"><strong>{name}</strong>{catalogLabel && <span className="dw-meta ms-2">Firmware catalog</span>}<div className="dw-meta">{address} · {presentation.type || 'Type unavailable'}</div></div>
             <span className="dw-parameter-writable" title={`${writability}. Packet metadata does not grant cloud permissions.`}>
                 {presentation.writable !== undefined && (presentation.writable ? <Unlock aria-hidden="true" /> : <Lock aria-hidden="true" />)}
                 <span className="visually-hidden">{writability}</span>
@@ -44,7 +46,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
             </SurfacePanel>
             <SurfacePanel title="Provenance">
                 {receivedAt && parameter.timestamp ? <p>Value last changed {new Date(parameter.timestamp).toLocaleString()}</p> : null}
-                {parameter.nameLastHeard ? <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource || 'Unknown source'}</p> : null}
+                {catalogLabel && <p>Label from the firmware catalog.</p>}
+                {observedName && parameter.nameLastHeard ? <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource || 'Unknown source'}</p> : null}
                 {parameter.unavailable?.name && <p>Name unavailable: {parameter.unavailable.name}</p>}
             </SurfacePanel>
             {details && <ParameterCommands target={{ nodeAddress: nodeId, channel: channelId, param: parameterId }} observation={parameter.writeObservation} />}

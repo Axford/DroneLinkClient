@@ -1069,6 +1069,7 @@ const visualizations = new Map<string, ModuleVisualization>([
     ['Depth', { inspector: depthSummary }],
     ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
     ['HMC5883L', { inspector: hmc5883lSummary }],
+    ['QMC5883L', { inspector: hmc5883lSummary }],
     ['CMPS12', { inspector: cmps12Summary }],
     ['LSM9DS1', { inspector: lsm9ds1Summary }],
     ['Servo', { inspector: servoSummary }],

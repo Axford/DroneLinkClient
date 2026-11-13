@@ -418,3 +418,26 @@ test('NMEA shows verified diagnostics with independent receipts and both speed u
     view.rerender(session(node(7, { 4: unknown })));
     expect(summary.getByText('HDOP').parentElement).toHaveAttribute('data-unavailable', 'true');
 });
+
+test('QMC5883L has a compass Summary and labels value-only Parameters until a NAME arrives', () => {
+    const compass = specialist(5, 'QMC5883L', {
+        10: reading(10, DRONE_LINK_MSG_TYPE_FLOAT, [0.6663, -4.5451, -4.2222, 623.9265]),
+        11: reading(11, DRONE_LINK_MSG_TYPE_FLOAT, [8.2234]),
+        13: reading(13, DRONE_LINK_MSG_TYPE_FLOAT, [-6, 0, 6]),
+        63: reading(63, DRONE_LINK_MSG_TYPE_FLOAT, [1])
+    });
+    const view = render(session(node(3, { 5: compass })));
+    expect(screen.getByText('8.2°')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Parameters' }));
+    const heading = within(screen.getByRole('article', { name: 'Parameter 3>5.11' }));
+    expect(heading.getByText('heading')).toBeVisible();
+    expect(heading.getByText('Firmware catalog')).toBeVisible();
+    expect(within(screen.getByRole('article', { name: 'Parameter 3>5.13' })).getByText('calibX')).toBeVisible();
+    expect(within(screen.getByRole('article', { name: 'Parameter 3>5.63' })).getByText('Param 63')).toBeVisible();
+    const named = { ...compass, params: { ...compass.params, 11: {
+        ...compass.params[11], name: 'Device heading', nameLastHeard: 6000, nameSource: 'Local'
+    } } };
+    view.rerender(session(node(3, { 5: named })));
+    expect(heading.getByText('Device heading')).toBeVisible();
+    expect(heading.queryByText('Firmware catalog')).not.toBeInTheDocument();
+});

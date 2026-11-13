@@ -20,6 +20,7 @@ const mappings: Record<string, Mapping[]> = {
   Nav: [{ role: 'location', parameterId: 10, priority: 2 }, { role: 'target', parameterId: 12, priority: 2 }, { role: 'last', parameterId: 15, priority: 2 }],
   CMPS12: [{ role: 'heading', parameterId: 10, priority: 3 }],
   HMC5883L: [{ role: 'heading', parameterId: 11, priority: 3 }],
+  QMC5883L: [{ role: 'heading', parameterId: 11, priority: 3 }],
   LSM9DS1: [{ role: 'heading', parameterId: 11, priority: 3 }],
   Sailor: [{ role: 'heading', parameterId: 10, priority: 2 }, { role: 'wind', parameterId: 12, priority: 2 }],
   TankSteer: [{ role: 'heading', parameterId: 22, priority: 2 }],

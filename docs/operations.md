@@ -237,3 +237,8 @@ Open the active hosted Domain and select **Connect local gateway**. Enter the po
 ### Connected node-file backups
 
 Pair a backup-enabled gateway in the hosted Domain, select a node with a Local route and open the Inspector’s **Files** tab. Editors, Owners and Platform Admins can see cloud backup status separately from the node result. **Backup history** lists versions for the opened path. **Load backup** puts a version into the editor for review. **Upload to node** still uses the revision read from the node, and **Restart node** is separate. Standalone Workbench keeps its own local file workflow.
+
+
+## Refreshing Inspector parameter labels
+
+Export and verify a DroneNode metadata archive using the [firmware release workflow](../../DroneNode/docs/operations.md). Run `python3 tools/generate_parameter_names.py /path/to/verified-metadata.tgz` and commit the resulting label index. The index records the firmware revision and catalog digest. The Parameters view uses these labels for discovered addresses that lack a device-reported name. Its numeric fallback covers addresses absent from the catalog, including ambiguous entries. Device names, observed values, packet types, permissions and receipt provenance come from observations.
