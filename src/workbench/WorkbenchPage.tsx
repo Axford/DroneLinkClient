@@ -1,5 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { DomainLensPanels, DomainWorkspace } from '../components/DomainWorkspace';
+import PrimaryNavBar from '../PrimaryNavBar';
+import type { User } from '../App';
+import type { GlobalState } from '../dronelink/DroneLinkState';
+import ObservedMap from '../components/ObservedMap';
 import NodeInspector from '../components/NodeInspector';
 import NodeSelector from '../components/NodeSelector';
 import NodeFiles from './NodeFiles';
@@ -10,7 +14,7 @@ import { Transport, transportLabel, transports, useWorkbenchFeed } from './useWo
 import './workbench.css';
 
 type Selection = 'auto' | Transport;
-const lenses = [{ id: 'nodes', label: 'Nodes' }, { id: 'network', label: 'Network' }] as const;
+const lenses = [{ id: 'nodes', label: 'Nodes' }, { id: 'map', label: 'Map' }, { id: 'network', label: 'Network' }] as const;
 
 function readChoice(key: string): Selection {
     try {
@@ -28,6 +32,7 @@ function localTime(timestamp: number) {
 export default function WorkbenchPage() {
     const { status, routes, paths, observations, interfaces, diagnostics } = useWorkbenchFeed();
     const [lens, setLens] = useState<string>('nodes');
+    const mapView = React.useRef<User['mapState']>(undefined);
     const [selectedNode, selectNode] = useState<number>();
     const [files, setFiles] = useState({ busy: false, dirty: false });
     const reportFiles = useCallback((busy: boolean, dirty: boolean) => setFiles({ busy, dirty }), []);
@@ -58,12 +63,14 @@ export default function WorkbenchPage() {
         return true;
     }
 
-    const selector = <NodeSelector inline nodes={nodes.map(id => {
+    const localNodes: GlobalState = Object.fromEntries(nodes.map(id => {
         const route = routes[id];
-        return (route && observations[route.transport][id]) ?? {
-            id, channels: {}, lastHeard: route?.lastHeardAtMs ?? 0, interface: 'Local',
-        };
-    })} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} now={Date.now()}
+        const transport = id === selectedNode ? active : route?.transport;
+        const observed = transport ? observations[transport][id] : undefined;
+        return [id, observed ?? { id, channels: {}, lastHeard: route?.lastHeardAtMs ?? 0, interface: 'Local' }];
+    }));
+    const selector = <NodeSelector inline nodes={Object.values(localNodes)}
+        selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} now={Date.now()}
         status={id => connected ? routes[id]?.reachable ? 'Reachable' : 'Route expired' : 'Gateway disconnected'} />;
     const transportChoice = selectedNode !== undefined && showTransport && <label className="dw-workbench-transport">Transport
         <select className="form-select" value={choice} disabled={files.busy} onChange={event => setChoice(event.target.value as Selection)}>
@@ -121,11 +128,12 @@ export default function WorkbenchPage() {
     </section>;
 
 
-    return <div className="dw-workspace" data-bs-theme="dark"><main className="content-wrapper workspace-operations">
+    return <div className="dw-workspace" data-bs-theme="dark"><PrimaryNavBar standalone domains={[]} /><main className="content-wrapper workspace-operations">
         <DomainWorkspace name="Workbench" lenses={lenses} activeLens={lens} onLensChange={setLens}
             status={<span className="dw-status" role="status">{connected ? 'Local gateway connected' : status === 'connecting' ?
                 'Connecting to local gateway…' : 'Local gateway disconnected. Reconnecting…'}</span>}>
-            <DomainLensPanels lens={<div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
+            <DomainLensPanels lens={lens === 'map' ? <ObservedMap local token={null} user={null} viewState={mapView}
+                state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
                 {selector}
                 {lens === 'network' && network}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}

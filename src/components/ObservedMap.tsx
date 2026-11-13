@@ -22,16 +22,32 @@ import './ObservedMap.css';
 export interface ObservedMapProps {
   token: string | null;
   domainId?: string;
+  local?: boolean;
+  selectionDisabled?: boolean;
   user: User | null;
   state: GlobalState;
   viewState?: React.MutableRefObject<User['mapState']>;
   selectedNodeId: number | null;
-  onNodeSelect: (nodeId: number) => void;
+  onNodeSelect: (nodeId: number) => void | boolean;
 }
 
 function positionDescription(position: ObservedPosition, label: string, now: number) {
   return `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · ${label}`;
 }
+
+const localMapStyle: mapboxgl.StyleSpecification = {
+  version: 8,
+  sources: {
+    streets: {
+      type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 19,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>',
+    },
+  },
+  layers: [
+    { id: 'background', type: 'background', paint: { 'background-color': '#202832' } },
+    { id: 'streets', type: 'raster', source: 'streets', paint: { 'raster-brightness-max': 0.85 } },
+  ],
+};
 
 const windLayerId = 'dw-wind-lines';
 const routeLayerId = 'dw-route-preview';
@@ -57,7 +73,7 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
   return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
 }
 
-export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
+export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -77,6 +93,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [basemapError, setBasemapError] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [dragFeedback, setDragFeedback] = useState('');
   const scope = useCommandScope();
@@ -97,7 +114,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
 
   useEffect(() => {
     const mapContainer = container.current;
-    if (!token || !user || !mapContainer) return;
+    if ((!local && (!token || !user)) || !mapContainer) return;
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
     let current: mapboxgl.Map | undefined;
     let resizeObserver: ResizeObserver | undefined;
@@ -105,12 +122,13 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     const ownedSecondaryMarkers = secondaryMarkers.current;
     const ownedWaypointMarkers = waypointMarkers.current;
     const controller = new AbortController();
-    setMapError(false);
+    setMapError(false); setBasemapError(false);
     try {
-      mapboxgl.accessToken = token;
-      const saved = viewState?.current || user.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
+      if (token) mapboxgl.accessToken = token;
+      const saved = viewState?.current || user?.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
       current = new mapboxgl.Map({ container: mapContainer,
-        style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku', center: [saved.lng, saved.lat], zoom: saved.zoom });
+        ...(local ? { attributionControl: false } : {}),
+        style: local ? localMapStyle : 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku', center: [saved.lng, saved.lat], zoom: saved.zoom });
       map.current = current; setMapReady(true);
       const activeMap = current;
       activeMap.on('style.load', () => {
@@ -158,14 +176,19 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         setLegSource(activeMap.getSource<mapboxgl.GeoJSONSource>(legLayerId));
       });
       current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      if (local) current.addControl(new mapboxgl.AttributionControl({ compact: false }), "bottom-right");
       if (typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => current?.resize());
         resizeObserver.observe(mapContainer);
       }
-      current.on('error', event => { console.error('Map rendering failed:', event.error); setMapError(true); });
+      current.on('error', event => {
+        if (local) setBasemapError(true);
+        else { console.error('Map rendering failed:', event.error); setMapError(true); }
+      });
       current.on('movestart', () => setCameraRevision(revision => revision + 1));
       current.on('moveend', () => {
         if (viewState) { const center = current!.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current!.getZoom() }; }
+        if (local) return;
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
           if (!current) return;
@@ -189,7 +212,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
       current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined); setRouteSource(undefined);
     };
-  }, [token, user, viewState]);
+  }, [token, user, viewState, local]);
 
   useEffect(() => {
     windSource?.setData(windLines(mapError ? [] : positions));
@@ -350,7 +373,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
   const locateNode = (nodeId: number) => {
     const position = positions.find(position => position.nodeId === nodeId);
     if (!position || !canLocate(nodeId)) return;
-    onNodeSelect(nodeId);
+    if (onNodeSelect(nodeId) === false) return;
     map.current?.easeTo({ center: position.coordinates, duration: 0 });
   };
 
@@ -374,10 +397,11 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
   return <div className="dw-map" ref={pane}>
     <div ref={container} aria-label="Observed Drone map" className="dw-map-canvas" />
     <NodeSelector nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
-      onLocate={locateNode} canLocate={canLocate} now={now} />
+      onLocate={locateNode} canLocate={id => canLocate(id) && (!selectionDisabled || id === selectedNodeId)} now={now} selectionDisabled={selectionDisabled} />
     <div className="dw-map-toolbar">
-      <span role="status">{!token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
-      {token && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
+      <span role="status">{!local && !token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
+      {basemapError && <span role="status">Basemap tiles unavailable</span>}
+      {(token || local) && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
       {route.status && <span role="status" title={route.receivedAt ?
         `Route digest received ${new Date(route.receivedAt).toLocaleString()}${route.capturedAt ?
           ` · Backup captured ${new Date(route.capturedAt).toLocaleString()}` : ''}` : undefined}>{routeMessage[route.status]}</span>}
