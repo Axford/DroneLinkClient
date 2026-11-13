@@ -175,3 +175,29 @@ test('Neopixel reads four ordered RGB triples after the header and requires a va
         });
     }
 });
+
+test('Joystick preserves signed axes, button state and per-parameter availability', () => {
+    const observed = channel(6, 0, 'Joystick');
+    const [x, y, z, button] = [0, -0.35, 0.42, 1].map((value, index) => ({
+        ...observed.params[15], param: 10 + index, values: [value], lastHeard: 501 + index
+    }));
+    Object.assign(observed.params, { 10: x, 11: y, 12: z, 13: button });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+
+    expect(inspect()).toMatchObject({
+        joystick: { x: 0, y: -0.35, z: 0.42, pressed: true },
+        details: [
+            { text: '0.00', reading: x }, { text: '-0.35', reading: y },
+            { text: '0.42', reading: z }, { text: 'Pressed', reading: button }
+        ]
+    });
+    observed.params[11] = { ...y, values: [1.5] };
+    observed.params[12] = { ...z, values: [-1] };
+    observed.params[13] = { ...button, values: [-1] };
+    expect(inspect()).toMatchObject({
+        joystick: { x: 0, y: undefined, z: -1, pressed: false },
+        details: [
+            { unavailable: false }, { unavailable: true }, { text: '-1.00' }, { text: 'Released' }
+        ]
+    });
+});

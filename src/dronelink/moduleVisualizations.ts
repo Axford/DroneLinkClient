@@ -24,6 +24,9 @@ export type InspectorSummary = {
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
 } | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | {
+    joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
+    details: ObservedSummary[];
+} | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
@@ -263,6 +266,28 @@ function waterSensorSummary(channel: ChannelState): WaterSensorSummary {
 }
 
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Joystick', {
+        inspector(channel) {
+            const axis = (id: number) => {
+                const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+                if (value !== undefined && Math.abs(value) <= 1) return value;
+            };
+            const x = axis(10);
+            const y = axis(11);
+            const z = axis(12);
+            const button = axis(13);
+            const pressed = button === undefined ? undefined : button > 0;
+            return {
+                joystick: { x, y, z, pressed },
+                details: [
+                    field(channel, 10, 'X', x?.toFixed(2)),
+                    field(channel, 11, 'Y', y?.toFixed(2)),
+                    field(channel, 12, 'Z', z?.toFixed(2)),
+                    field(channel, 13, 'Button', pressed === undefined ? undefined : pressed ? 'Pressed' : 'Released')
+                ]
+            };
+        }
+    }],
     ['Neopixel', {
         inspector(channel) {
             const sceneParameter = 8;

@@ -9,6 +9,7 @@ import CellVoltageDial from './CellVoltageDial';
 import AnemometerInstrument from './AnemometerInstrument';
 import WaterLevelGauge from './WaterLevelGauge';
 import NeopixelScene from './NeopixelScene';
+import JoystickPlot from './JoystickPlot';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -45,6 +46,15 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('joystick' in summary) {
+        return <dl className="dw-channel-summary dw-joystick-summary" aria-label={label}>
+            <div className="dw-joystick-plot">
+                <dt className="visually-hidden">Joystick position</dt>
+                <dd><JoystickPlot {...summary.joystick} /></dd>
+            </div>
+            {summary.details.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
+        </dl>;
+    }
     if ('sceneColours' in summary) {
         return <NeopixelScene label={label} colours={summary.sceneColours} />;
     }

@@ -139,6 +139,10 @@ WaterSensor compares the observed raw ADC level and threshold (UINT32 parameters
 
 Neopixel shows four segment colours in firmware order from the observed scene at parameter 8. The UINT8 payload contains 16 bytes. Brightness, effect and two effect arguments occupy the first four bytes, followed by four RGB triples. The preview shows the scene colours directly. Brightness and effect settings remain available through Parameters. A missing or invalid payload leaves all four swatches unavailable, while an observed zero RGB triple is shown as black. Reading Details links to the single source observation.
 
+### Joystick position
+
+Joystick plots observed scalar FLOAT X and Y (parameters 10 and 11) on equal, centred axes from −1 to +1. Positive X points right and positive Y points up. The ring around the marker shows signed Z (parameter 12), clockwise for positive and counterclockwise for negative. A positive button value (parameter 13) fills the marker and shows Pressed alongside the plot. The four observations retain independent source and receipt details. An invalid or unavailable X or Y leaves the crosshair without a position marker.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

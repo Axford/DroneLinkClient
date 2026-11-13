@@ -1,0 +1,41 @@
+.dw-channel-summary.dw-joystick-summary {
+    grid-template-columns: minmax(6rem, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: repeat(4, auto);
+}
+
+.dw-channel-summary > .dw-joystick-plot {
+    grid-row: 1 / -1;
+    display: grid;
+    place-items: center;
+}
+
+.dw-joystick-summary > .dw-summary-supporting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    column-gap: var(--dw-space-1);
+    padding-block: var(--dw-space-1);
+}
+
+.dw-joystick-summary dt { font-weight: 400; }
+
+.dw-joystick-graphic {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+}
+
+.dw-joystick-graphic svg { display: block; width: 7rem; max-width: 100%; }
+.dw-joystick-crosshair { fill: none; stroke: var(--dw-color-muted); }
+.dw-joystick-marker circle { fill: var(--dw-color-control); stroke: var(--dw-color-muted); stroke-width: 2; }
+.dw-joystick-marker circle[data-pressed] { fill: var(--dw-color-instrument-reading); }
+.dw-joystick-arc { fill: none; stroke: var(--dw-color-instrument-reading); stroke-width: 2.5; stroke-linecap: round; }
+.dw-joystick-marker circle[data-pressed] + .dw-joystick-arc { stroke: var(--dw-color-instrument-face); }
+
+@container (min-width: 320px) {
+    .dw-channel-summary.dw-joystick-summary {
+        grid-template-columns: minmax(7rem, 1.2fr) repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, auto);
+    }
+}
