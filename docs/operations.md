@@ -246,3 +246,12 @@ Pair a backup-enabled gateway in the hosted Domain, select a node with a Local r
 ## Refreshing Inspector parameter labels
 
 Export and verify a DroneNode metadata archive using the [firmware release workflow](../../DroneNode/docs/operations.md). Run `python3 tools/generate_parameter_names.py /path/to/verified-metadata.tgz` and commit the resulting label index. The index records the firmware revision and catalog digest. The Parameters view uses these labels for discovered addresses that lack a device-reported name. Its numeric fallback covers addresses absent from the catalog, including ambiguous entries. Device names, observed values, packet types, permissions and receipt provenance come from observations.
+
+### Inspect Probe pin results
+
+Expand the Probe channel under **Modules**. The panel shows results per GPIO,
+including observed level and transitions, raw ADC counts, or serial bytes in hex.
+The serial row displays the configured baud and 8N1. The receipt age is the
+time since Workbench received the result. Edit the startup settings through
+**Files**, verify Upload, then Restart separately. See the
+[Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).

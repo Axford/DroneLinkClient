@@ -1,0 +1,29 @@
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import ChannelCard from './ChannelCard';
+import type { ParameterState } from '../dronelink/DroneLinkState';
+
+function parameter(param: number, values: number[] | string[], msgType = 0): ParameterState {
+    return { param, values, msgType, bytesPerValue: msgType === 2 ? 4 : 1,
+        numValues: values.length, writable: false, lastHeard: 10000 };
+}
+
+test('shows observed digital, serial and analog results with pin identity in Modules', () => {
+    render(<ChannelCard nodeId={7} channelId={3} now={12000} expanded systemOpen={false}
+        showParameters={false} onShowParameters={() => {}} onToggleExpand={() => {}} onToggleSystem={() => {}}
+        channel={{ channel: 3, lastHeard: 10000, params: {
+            5: parameter(5, ['Probe'], 4),
+            6: parameter(6, [500], 2),
+            23: parameter(23, [0x31, 0x24, 0x47]),
+            24: parameter(24, [0x15]),
+            42: parameter(42, [0x14, 1, 0x18, 0, 20, 0]),
+            44: parameter(44, [0x21, 0x08, 0x07]),
+            47: parameter(47, [9600], 2)
+        } }} />);
+    expect(screen.getByText('GPIO 13 · Serial · 9600 baud · 8N1')).toBeVisible();
+    expect(screen.getByText('24 47')).toBeVisible();
+    expect(screen.getByText('Pin unavailable')).toBeVisible();
+    expect(screen.getByText('High · 24 transitions in 20 ms · incomplete count')).toBeVisible();
+    expect(screen.getByText('1800 ADC counts · voltage estimate unavailable')).toBeVisible();
+    expect(screen.getByText('Expected refresh per pin: about 1.5 s')).toBeVisible();
+});
