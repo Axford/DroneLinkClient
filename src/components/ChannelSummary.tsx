@@ -7,6 +7,7 @@ import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
 import AnemometerInstrument from './AnemometerInstrument';
+import WaterLevelGauge from './WaterLevelGauge';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -43,6 +44,19 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('waterLevel' in summary) {
+        return <dl className="dw-channel-summary dw-water-sensor" aria-label={label}>
+            <div className="dw-water-gauge-tile">
+                <dt className="visually-hidden">Water level and threshold</dt>
+                <dd className="mb-0">
+                    <WaterLevelGauge level={summary.waterLevel} threshold={summary.threshold} triggered={summary.alarm.severity === 'danger'} />
+                </dd>
+            </div>
+            <Reading summary={summary.rawReading} />
+            <Reading summary={summary.thresholdReading} />
+            <Reading summary={summary.alarm} />
+        </dl>;
+    }
     if ('windSpeed' in summary) {
         return <AnemometerInstrument key={sampleScope} label={label} summary={summary} scope={sampleScope} />;
     }
@@ -80,6 +94,10 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
 export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: number; channelId: number; summary: InspectorSummary }) {
     const [details, setDetails] = useState(false);
     const title = `Channel ${channelId} reading details`;
+    const readings = 'waterLevel' in summary ? [summary.rawReading, summary.thresholdReading, summary.alarm]
+        : 'windSpeed' in summary ? [summary.windSpeed]
+        : 'details' in summary ? summary.details
+        : 'primary' in summary ? [...summary.primary, ...summary.supporting] : [];
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
@@ -88,7 +106,7 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
                 <h3 className="dw-meta mt-2">{input.label}</h3>
                 <SummaryDetails nodeId={nodeId} summaries={[input.voltage, ...input.readings]} now={Date.now()} />
             </section>) : <SummaryDetails nodeId={nodeId}
-                summaries={'windSpeed' in summary ? [summary.windSpeed] : 'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />}
+                summaries={readings} now={Date.now()} />}
         </SettingsDialog>
     </>;
 }

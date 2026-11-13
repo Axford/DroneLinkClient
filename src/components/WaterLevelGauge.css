@@ -1,0 +1,35 @@
+.dw-channel-summary.dw-water-sensor {
+    grid-template-columns: minmax(5.75rem, 1fr) minmax(6.5rem, 2fr);
+    grid-template-rows: repeat(3, auto);
+}
+
+.dw-channel-summary > .dw-water-gauge-tile {
+    grid-row: 1 / -1;
+    display: grid;
+    place-items: center;
+}
+
+.dw-water-sensor > .dw-summary-supporting {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0 var(--dw-space-1);
+    padding-block: var(--dw-space-1);
+}
+
+.dw-water-sensor dt { font-weight: 400; }
+
+.dw-water-gauge {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: center;
+}
+
+.dw-water-scale { display: flex; flex-direction: column; justify-content: space-between; align-items: end; }
+.dw-water-gauge svg { display: block; width: 4.5rem; max-width: 100%; }
+.dw-water-gauge > span { grid-column: 1 / -1; }
+.dw-water-track { fill: none; stroke: var(--dw-color-muted); }
+.dw-water-fill { fill: var(--dw-color-instrument-blue); }
+.dw-water-gauge [data-triggered] .dw-water-fill { fill: var(--dw-color-danger); }
+.dw-water-threshold { stroke: var(--dw-color-danger); stroke-width: 2; stroke-dasharray: 4 2; }

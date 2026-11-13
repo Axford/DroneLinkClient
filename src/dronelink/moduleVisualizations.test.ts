@@ -127,3 +127,25 @@ test('power telemetry rejects the wrong shape and preserves valid neighbouring i
         inputs: Array.from({ length: 3 }, () => ({ voltage: { unavailable: true, reading: scalar } }))
     });
 });
+
+test.each([
+    [600, 0, 'Water 80%', 'warning'],
+    [600, 1, 'Water alarm 80%', 'danger'],
+    [600, 2, 'Water 80%', 'warning'],
+    [480, 0, 'Water 100%', undefined],
+    [960, 0, 'Water 50%', undefined],
+    [0, 1, 'Water alarm 480', 'danger'],
+    [undefined, 0, 'Water 480', undefined]
+] as const)('WaterSensor threshold %s and alarm %s drive the node chip independently', (threshold, alarm, text, severity) => {
+    const observed = channel(6, 480, 'WaterSensor');
+    const raw = { ...observed.params[15], param: 11, msgType: DRONE_LINK_MSG_TYPE_UINT32_T };
+    observed.params[11] = raw;
+    if (threshold !== undefined) observed.params[12] = { ...raw, param: 12, values: [threshold] };
+    observed.params[13] = { ...observed.params[15], param: 13, values: [alarm], source: 'Local' };
+    const node: NodeState = { id: 7, channels: { 6: observed }, lastHeard: 1000 };
+    expect(moduleSummaries(node)[0]).toMatchObject({ text, severity, reading: raw });
+    expect(channelVisualization(observed)?.inspector?.(observed)).toMatchObject({
+        threshold,
+        alarm: { unavailable: alarm === 2, reading: observed.params[13] }
+    });
+});

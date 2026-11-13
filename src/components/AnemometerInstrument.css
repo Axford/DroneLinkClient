@@ -28,6 +28,6 @@
 .dw-anemometer-ticks { grid-column: 2; position: relative; display: flex; justify-content: space-between; }
 .dw-anemometer-ticks span[style] { position: absolute; transform: translateX(-50%); }
 .dw-anemometer-grid { stroke: var(--dw-color-border); stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-.dw-anemometer-plot rect { fill: var(--dw-color-instrument-distribution); }
+.dw-anemometer-plot rect { fill: var(--dw-color-instrument-blue); }
 .dw-anemometer-plot rect[data-current],
 .dw-anemometer-marker { fill: var(--dw-color-instrument-reading); }

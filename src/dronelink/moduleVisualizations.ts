@@ -16,18 +16,28 @@ export interface ObservedSummary {
     bearing?: number;
     voltageDial?: number;
     lines?: string[];
+    sources?: Pick<ObservedSummary, 'label' | 'channelId' | 'parameterId' | 'reading'>[];
 }
 
 export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary;
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary;
 
 export interface AnemometerSummary {
     windSpeed: ObservedSummary;
     knots?: number;
     metresPerSecond?: string;
+}
+
+interface WaterSensorSummary {
+    waterLevel: number | undefined;
+    thresholdRatio?: number;
+    threshold: number | undefined;
+    rawReading: ObservedSummary;
+    thresholdReading: ObservedSummary;
+    alarm: ObservedSummary;
 }
 
 interface PowerInputSummary {
@@ -226,7 +236,49 @@ export function windSpeedKnots(value: number): number | undefined {
     if (value >= 0) return value;
 }
 
+function waterSensorSummary(channel: ChannelState): WaterSensorSummary {
+    const counts = (id: number) => {
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_UINT32_T]);
+        if (value !== undefined && Number.isInteger(value) && value >= 0 && value <= 0xffffffff) return value;
+    };
+    const waterLevel = counts(11);
+    const threshold = counts(12);
+    const thresholdRatio = waterLevel !== undefined && threshold !== undefined && threshold > 0 ? waterLevel / threshold : undefined;
+    const nearThreshold = thresholdRatio !== undefined && thresholdRatio > 0.5 && thresholdRatio < 1;
+    const rawReading = field(channel, 11, 'Raw level', waterLevel?.toString());
+    const reportedAlarm = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const alarm = field(channel, 13, 'Device alarm', reportedAlarm === 1 ? 'Triggered' : reportedAlarm === 0 ? 'Clear' : undefined);
+    return {
+        waterLevel,
+        threshold,
+        thresholdRatio,
+        rawReading: nearThreshold && reportedAlarm !== 1
+            ? { ...rawReading, severity: 'warning', status: 'Above half of threshold' } : rawReading,
+        thresholdReading: field(channel, 12, 'Threshold', threshold?.toString()),
+        alarm: reportedAlarm === 1 ? { ...alarm, severity: 'danger' } : alarm
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['WaterSensor', {
+        inspector: waterSensorSummary,
+        overlay(channel) {
+            const { thresholdRatio, rawReading, thresholdReading, alarm } = waterSensorSummary(channel);
+            const label = alarm.severity === 'danger' ? 'Water alarm' : 'Water';
+            const value = thresholdRatio === undefined ? rawReading.text : `${(thresholdRatio * 100).toFixed(0)}%`;
+            return {
+                ...rawReading,
+                label: thresholdRatio === undefined ? 'Water sensor raw level' : 'Water sensor percentage of threshold',
+                text: `${label} ${value}`,
+                severity: alarm.severity ?? rawReading.severity,
+                sources: thresholdRatio === undefined ? [rawReading, alarm] : [rawReading, thresholdReading, alarm],
+                status: [
+                    alarm.unavailable ? 'Device alarm unavailable' : `Device alarm ${alarm.text.toLowerCase()}`,
+                    rawReading.status
+                ].filter(Boolean).join(' · ')
+            };
+        }
+    }],
     ['Anemometer', {
         inspector(channel) {
             const parameter = 10;

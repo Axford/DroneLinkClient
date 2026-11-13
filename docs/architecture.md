@@ -131,6 +131,10 @@ The INA219 and INA3221 registry entries use the same power telemetry renderer fo
 
 The Anemometer Summary leads with the observed FLOAT parameter 10 in knots and shows metres per second derived using the firmware conversion factor. Reading Details links to the single source observation. The histogram counts recent receipts in 1 kn bins centred on 0 through 30 kn, with a green pointer for the current bin. Speeds that round above 30 kn stay numeric and are counted outside the plotted bins. Invalid observations contribute no count. The chart and RFM69 trace share the sampled window hook and its scope lifecycle. Archived snapshots can display the latest speed.
 
+### WaterSensor level and alarm
+
+WaterSensor compares the observed raw ADC level and threshold (UINT32 parameters 11 and 12) on the legacy 0–4096 scale. The dashed line marks a positive threshold. A zero threshold remains visible as a reading. Out-of-scale readings retain their numeric values. The node chip uses the raw-to-threshold percentage with a positive threshold and shows the raw level otherwise. A ratio strictly between 50% and 100% gives a warning. The independently observed FLOAT alarm at parameter 13 supplies the triggered state and takes precedence over the ratio warning. Reading Details lists the three source observations separately.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

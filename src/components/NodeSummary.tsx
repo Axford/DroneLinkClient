@@ -10,7 +10,7 @@ interface SummaryProps {
     now: number;
 }
 
-function observationDetails(nodeId: number, summary: ObservedSummary, now: number) {
+function observationDetails(nodeId: number, summary: Pick<ObservedSummary, 'channelId' | 'parameterId' | 'reading' | 'status'>, now: number) {
     const { channelId, parameterId, reading, status } = summary;
     const receipt = reading?.source === 'Local' ? 'Local receipt' : 'Server receipt';
     return [`${nodeId}>${channelId}.${parameterId}`, reading?.source || 'Unknown source',
@@ -22,7 +22,9 @@ export function SummaryChips({ nodeId, summaries, now }: SummaryProps) {
     return <div className="dw-summary-chips">
         {summaries.map(summary => <span key={`${summary.channelId}:${summary.parameterId}`} className="dw-summary-chip"
             role="group" aria-label={[summary.label, summary.text, summary.status].filter(Boolean).join(' · ')}
-            data-severity={summary.severity ?? 'neutral'} title={`${summary.label} · ${observationDetails(nodeId, summary, now)}`}>
+            data-severity={summary.severity ?? 'neutral'} title={summary.sources
+                ? [summary.label, ...summary.sources.map(source => `${source.label} · ${observationDetails(nodeId, source, now)}`), summary.status].filter(Boolean).join('\n')
+                : `${summary.label} · ${observationDetails(nodeId, summary, now)}`}>
             {summary.severity === 'warning' && <ExclamationTriangle aria-hidden="true" />}
             {summary.severity === 'danger' && <ExclamationOctagon aria-hidden="true" />}
             <span aria-hidden="true">{summary.text}</span>
