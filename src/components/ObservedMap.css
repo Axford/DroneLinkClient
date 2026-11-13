@@ -1,0 +1,19 @@
+.dw-map-heading {
+  width: var(--dw-space-5);
+  height: var(--dw-space-5);
+  margin-top: calc(-1 * var(--dw-space-6));
+  pointer-events: none;
+}
+
+.dw-map-heading::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--dw-space-3);
+  height: var(--dw-space-3);
+  background: var(--dw-color-text);
+  filter: drop-shadow(0 1px 1px var(--dw-color-surface));
+  transform: translate(-50%, -50%);
+  clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
+  content: "";
+}

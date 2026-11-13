@@ -11,6 +11,7 @@ import { GlobalState } from '../dronelink/DroneLinkState';
 import { observedPositions, receiptLabel } from '../dronelink/observedPositions';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import './ObservedMap.css';
 
 export interface ObservedMapProps {
   token: string | null;
@@ -25,7 +26,11 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
+  const markers = useRef(new Map<number, {
+    marker: mapboxgl.Marker;
+    button: HTMLButtonElement;
+    headingMarker?: mapboxgl.Marker;
+  }>());
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -74,7 +79,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     } catch (error) { console.error('Map initialization failed:', error); setMapError(true); }
     return () => {
       clearTimeout(saveTimer); controller.abort(); resizeObserver?.disconnect();
-      ownedMarkers.forEach(({ marker }) => marker.remove()); ownedMarkers.clear();
+      ownedMarkers.forEach(({ marker, headingMarker }) => { marker.remove(); headingMarker?.remove(); }); ownedMarkers.clear();
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
       current?.remove(); map.current = null; setMapReady(false);
     };
@@ -84,7 +89,11 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     if (!map.current) return;
     const visible = new Set(positions.map(position => position.nodeId));
     for (const [id, entry] of Array.from(markers.current)) {
-      if (!visible.has(id)) { entry.marker.remove(); markers.current.delete(id); }
+      if (!visible.has(id)) {
+        entry.marker.remove();
+        entry.headingMarker?.remove();
+        markers.current.delete(id);
+      }
     }
     for (const position of positions) {
       let entry = markers.current.get(position.nodeId);
@@ -99,10 +108,25 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       entry.marker.setLngLat(position.coordinates);
       entry.button.textContent = position.name;
       entry.button.setAttribute('aria-pressed', String(position.nodeId === selectedNodeId));
-      const description = `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · Last-known position`;
+      let description = `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · Last-known position`;
+      if (position.heading && !mapError) {
+        const { degrees, binding } = position.heading;
+        if (!entry.headingMarker) {
+          const arrow = document.createElement('span');
+          arrow.className = 'dw-map-heading';
+          arrow.setAttribute('aria-hidden', 'true');
+          entry.headingMarker = new mapboxgl.Marker({ element: arrow, rotationAlignment: 'map' })
+            .setLngLat(position.coordinates).addTo(map.current);
+        }
+        entry.headingMarker.setLngLat(position.coordinates).setRotation(degrees);
+        description += ` · Last-known heading ${degrees}° · Binding ${position.nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
+      } else {
+        entry.headingMarker?.remove();
+        entry.headingMarker = undefined;
+      }
       entry.button.title = description; entry.button.setAttribute('aria-label', description);
     }
-  }, [positions, now, token, user, selectedNodeId, mapReady]);
+  }, [positions, now, token, user, selectedNodeId, mapReady, mapError]);
 
   const canLocate = (nodeId: number) => mapReady && !mapError && positions.some(position => position.nodeId === nodeId);
   const locateNode = (nodeId: number) => {
@@ -132,6 +156,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       cameraRevision={cameraRevision} unproject={point => map.current?.isMoving() ? undefined : map.current?.unproject(point)} now={now} />
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
+      <p>The arrow shows the last-known heading when available. Heading and position can come from different sources and have different receipt times.</p>
       <p>Select a node or marker to inspect it. Locate centres the map on its last-known position. Observations remain available in the inspector when the map is unavailable.</p>
     </SurfacePanel></SettingsDialog>
   </div>;

@@ -46,6 +46,57 @@ test('missing map configuration keeps an explicit inspector fallback', () => {
   expect(select).toHaveBeenCalledWith(7);
 });
 
+test('heading uses the preferred binding and its own receipt, then clears for invalid readings and reset', () => {
+  (mapboxgl.Map as unknown as jest.Mock).mockImplementation(({ container }) => ({
+    container, addControl: jest.fn(), on: jest.fn(), remove: jest.fn()
+  }));
+  const rotate = jest.fn();
+  const markerConstructor = mapboxgl.Marker as unknown as jest.Mock;
+  markerConstructor.mockImplementation(({ element }) => {
+    const marker = {
+      setLngLat: jest.fn().mockReturnThis(), setRotation: rotate,
+      addTo: (map: { container: HTMLElement }) => { map.container.append(element); return marker; },
+      remove: () => element.remove()
+    };
+    return marker;
+  });
+  const nodes = state();
+  const node = nodes[7];
+  const gps = node.channels[4];
+  const heading = { ...gps.params[8], param: 10, name: 'heading', values: [180], numValues: 1, lastHeard: 5000 };
+  gps.params[10] = heading;
+  node.channels[6] = { ...gps, channel: 6, name: 'Compass', params: {
+    5: { ...gps.params[5], values: ['CMPS12'] },
+    10: { ...heading, values: [0], lastHeard: 2000, source: 'HTTP' }
+  } };
+  const props = { selectedNodeId: 7, token: 'fixture', user, onNodeSelect: jest.fn() };
+  const view = render(<ObservedMap {...props} state={nodes} />);
+  const arrow = view.container.querySelector('.dw-map-heading');
+  expect(arrow).toHaveAttribute('aria-hidden', 'true');
+  expect(markerConstructor).toHaveBeenCalledWith({ element: arrow, rotationAlignment: 'map' });
+  expect(rotate).toHaveBeenLastCalledWith(0);
+  const marker = screen.getByRole('button', { name: /Gateway 254.*Last-known heading 0°.*7>6.10.*HTTP/ });
+  fireEvent.click(marker);
+  expect(props.onNodeSelect).toHaveBeenCalledWith(7);
+
+  node.channels[6].params[10] = { ...heading, values: [90], source: 'HTTP' };
+  view.rerender(<ObservedMap {...props} state={{ ...nodes }} />);
+  expect(rotate).toHaveBeenLastCalledWith(90);
+  expect(view.container.querySelector('.dw-map-heading')).toBe(arrow);
+
+  node.channels[6].params[10] = { ...heading, values: [NaN] };
+  view.rerender(<ObservedMap {...props} state={{ ...nodes }} />);
+  expect(view.container.querySelector('.dw-map-heading')).toBeNull();
+  expect(marker).not.toHaveAccessibleName(/heading/);
+
+  delete node.channels[6];
+  view.rerender(<ObservedMap {...props} state={{ ...nodes }} />);
+  expect(rotate).toHaveBeenLastCalledWith(180);
+  view.rerender(<ObservedMap {...props} state={{ 7: { ...node, channels: {} } }} />);
+  expect(view.container.querySelector('.dw-map-heading')).toBeNull();
+  expect(marker).not.toBeInTheDocument();
+});
+
 test('floating nodes select without camera movement; Locate alone centres on valid saved positions', () => {
   const easeTo = jest.fn(), fitBounds = jest.fn();
   const events: Record<string, (event: any) => void> = {};

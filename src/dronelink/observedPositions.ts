@@ -1,5 +1,5 @@
 import { GlobalState, ParameterState } from './DroneLinkState';
-import { mapBindings, locationCoordinates } from './mapBindings';
+import { MapBinding, mapBindings, locationCoordinates } from './mapBindings';
 
 export interface ObservedPosition {
   nodeId: number;
@@ -11,17 +11,23 @@ export interface ObservedPosition {
   path: string;
   coordinates: [number, number];
   reading: ParameterState;
+  heading?: { degrees: number; binding: MapBinding };
 }
 
 // Rendering consumes selected semantic bindings; it never chooses the source.
 export function observedPositions(state: GlobalState): ObservedPosition[] {
   return Object.values(state).flatMap(node => {
-    const binding = mapBindings(node).location;
+    const { location: binding, heading } = mapBindings(node);
     const coordinates = locationCoordinates(binding);
     if (!binding || !coordinates) return [];
+    const degrees = heading?.reading.values[0];
+    const bearing = heading && heading.reading.numValues === 1 && heading.reading.values.length === 1 &&
+      typeof degrees === 'number' && Number.isFinite(degrees) && degrees >= 0 && degrees <= 360
+      ? { degrees, binding: heading }
+      : undefined;
     return [{ nodeId: node.id, droneId: node.droneId, name: node.name || `Node ${node.id}`,
       channelId: binding.channelId, parameterId: binding.parameterId, priority: binding.priority,
-      path: binding.path, coordinates, reading: binding.reading }];
+      path: binding.path, coordinates, reading: binding.reading, heading: bearing }];
   });
 }
 

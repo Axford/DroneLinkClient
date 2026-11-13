@@ -44,6 +44,8 @@ The owned `mapBindings` projection reconstructs legacy semantic role registratio
 
 ObservedMap owns SDK initialization, marker updates/cleanup, explicit Fit observed positions and debounced protected map-view saving. Marker clicks select the carried node/singleton inspector; Domain changes and access denial unmount the old map/selection. Invalid selected coordinates remove the current marker without choosing a lower-priority source. Legacy zero-longitude suppression remains explicit. Saved snapshots cannot reproduce the legacy browser's last-valid marker after an invalid value overwrites it. Missing basemap configuration/errors preserve inspector access. Cloud updates expose retrying/recovery without discarding saved observations or refreshing receipt timestamps. Current role and archive capabilities control reset and command submission.
 
+The Domain map shows a read-only heading arrow above a valid position marker when the selected heading is a finite scalar from 0° through 360°. Mapbox aligns the arrow to map north as the camera turns. The position button exposes the heading's own address, source and receipt alongside the position provenance. Invalid preferred headings hide the arrow, and removing the position also removes its arrow. The Inspector's Map source bindings retains the underlying binding details.
+
 
 ## M1.2 bounded codec corrections — 2026-11-08
 
