@@ -195,6 +195,10 @@ The INA3221 Summary presents the firmware's three ordered input slots, each with
 
 Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
 
+### KiteController flight plot
+
+KiteController projects the reported yaw, pitch, payout distance and estimated roll at parameter 14 into a 2D plot. Positive yaw points left and positive pitch points up. The waypoint's angular radius comes from 16. The recent trail uses the shared receipt window, with gaps at invalid samples. The payout target and rate limit at 13 describe configuration, while distance in the flight vector is actual payout. Reading Details preserves the independent vector, waypoint and control receipts. The legacy disabled 3D scene stays in separate scope.
+
 ### TankSteer drive comparison
 
 TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale. Heading at 22 and signed target at 20 share a north-referenced dial. Distance at 24 sets the length of the observed target vector up to the 20 m ring, while the readout keeps the full distance. Mode at 10 reports Manual or Automatic. Reading Details preserves independent receipts. Stop and target writes retain their separate action scope.

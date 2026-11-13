@@ -1,0 +1,24 @@
+.dw-kite {
+    padding: var(--dw-space-2);
+    background: var(--dw-color-instrument-face);
+    border-radius: var(--dw-radius-small);
+    text-align: center;
+}
+.dw-kite-plot { width: min(100%, 31rem); margin-inline: auto; }
+.dw-kite-plot svg { display: block; width: 100%; }
+.dw-kite-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--dw-space-2); }
+.dw-kite-waypoint-key::before { content: '○'; color: var(--dw-color-instrument-blue); margin-right: var(--dw-space-1); }
+.dw-kite-axes { stroke: var(--dw-color-muted); opacity: 0.55; }
+.dw-kite-waypoint { fill: none; stroke: var(--dw-color-instrument-blue); }
+.dw-kite-trail { fill: none; stroke: var(--dw-color-instrument-trace); opacity: 0.5; stroke-dasharray: 2 2; }
+.dw-kite-trail-point { fill: var(--dw-color-instrument-trace); opacity: 0.65; }
+.dw-kite-vector { stroke: var(--dw-color-instrument-trace); stroke-width: 2; }
+.dw-kite-current { fill: var(--dw-color-instrument-reading); }
+.dw-kite-roll { stroke: var(--dw-color-instrument-reading); stroke-width: 2; }
+.dw-kite-readings { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--dw-space-1); margin: var(--dw-space-2) 0 0; }
+.dw-kite-readings dt { font-weight: 400; }
+.dw-kite-readings dd { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dw-kite-readings dd[data-unavailable] { color: var(--dw-color-muted); }
+@container (max-width: 345px) {
+    .dw-kite-readings { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

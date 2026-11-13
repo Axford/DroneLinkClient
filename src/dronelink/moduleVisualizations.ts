@@ -30,13 +30,21 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | KiteControllerSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface KiteControllerSummary {
+    kiteVector: { yaw: number; pitch: number; distance: number; roll: number } | undefined;
+    kiteWaypoint?: { yaw: number; pitch: number; radius: number };
+    vectorReading?: ParameterState;
+    readings: { label: string; text?: string }[];
+    details: ObservedSummary[];
+}
 
 export interface TankSteerSummary {
     drives: Record<'left' | 'right', { reading: ObservedSummary; output?: number }>;
@@ -964,7 +972,48 @@ function tankSteerSummary(channel: ChannelState): TankSteerSummary {
         details: [heading, target, distance, ...Object.values(drives).map(drive => drive.reading), mode] };
 }
 
+export function kiteVector(reading: ParameterState | undefined): KiteControllerSummary['kiteVector'] {
+    const values = observedFloatVector(reading, 4);
+    if (values && values[2] >= 0) {
+        const [yaw, pitch, distance, roll] = values;
+        return { yaw, pitch, distance, roll };
+    }
+}
+
+function kiteControllerSummary(channel: ChannelState): KiteControllerSummary {
+    const vectorReading = channel.params[14];
+    const vector = kiteVector(vectorReading);
+    const position = observedFloatVector(channel.params[16], 3);
+    const waypoint = position && position[2] >= 0 ? { yaw: position[0], pitch: position[1], radius: position[2] } : undefined;
+    const scalar = (id: number, label: string) =>
+        field(channel, id, label, numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT])?.toFixed(1));
+    const trim = scalar(11, 'Trim');
+    const left = scalar(8, 'Left');
+    const right = scalar(9, 'Right');
+    const payout = observedFloatVector(channel.params[13], 2);
+    const payoutTarget = field(channel, 13, 'Payout target', payout?.[0].toFixed(1));
+    const modeValue = byteArray(channel.params[10], 1)?.[0];
+    const mode = field(channel, 10, 'Mode', modeValue === 0 ? 'Manual' : modeValue === 1 ? 'Auto' : undefined);
+    const vectorReadings = [
+        { label: 'Yaw', text: vector && `${vector.yaw.toFixed(0)}°` },
+        { label: 'Pitch', text: vector && `${vector.pitch.toFixed(0)}°` },
+        { label: 'Distance (payout)', text: vector?.distance.toFixed(1) },
+        { label: 'Estimated roll', text: vector && `${vector.roll.toFixed(0)}°` }
+    ];
+    return { kiteVector: vector, kiteWaypoint: waypoint, vectorReading,
+        readings: [...vectorReadings, ...[trim, payoutTarget, left, right, mode].map(reading =>
+            ({ label: reading.label, text: reading.unavailable ? undefined : reading.text }))],
+        details: [
+            field(channel, 14, 'Flight vector', vector && vectorReadings.map(reading => `${reading.label}: ${reading.text}`).join(' · ')),
+            field(channel, 16, 'Waypoint', waypoint && `Yaw ${waypoint.yaw.toFixed(0)}° · Pitch ${waypoint.pitch.toFixed(0)}° · Radius ${waypoint.radius.toFixed(0)}°`),
+            trim, field(channel, 13, 'Payout setting', payout && `Target ${payoutTarget.text} · Rate limit ${payout[1].toFixed(1)} units/s`),
+            left, right, mode
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['KiteController', { inspector: kiteControllerSummary }],
     ['TankSteer', { inspector: tankSteerSummary }],
     ['TurnRate', { inspector: turnRateSummary }],
     ['Proa', { inspector: proaSummary }],

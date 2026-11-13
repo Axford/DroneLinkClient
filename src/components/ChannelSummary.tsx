@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
 import TurnRateInstrument from './TurnRateInstrument';
 import ProaInstrument from './ProaInstrument';
@@ -59,6 +60,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('kiteVector' in summary) {
+        return <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />;
+    }
     if ('drives' in summary) {
         return <TankSteerInstrument label={label} summary={summary} />;
     }

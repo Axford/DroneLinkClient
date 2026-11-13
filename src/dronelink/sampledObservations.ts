@@ -79,9 +79,9 @@ export function sampleReading<T>(
 }
 
 /** Group points without drawing across unavailable values or a gap in receipts. */
-export function traceSegments(samples: readonly ObservationSample[], maximumGapMs: number): ObservationSample[][] {
-    const segments: ObservationSample[][] = [];
-    let segment: ObservationSample[] | undefined;
+export function traceSegments<T>(samples: readonly ObservationSample<T>[], maximumGapMs: number): ObservationSample<T>[][] {
+    const segments: ObservationSample<T>[][] = [];
+    let segment: ObservationSample<T>[] | undefined;
     for (const sample of samples) {
         if (sample.value === null) {
             segment = undefined;

@@ -1,6 +1,6 @@
 import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
 import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { channelVisualization, moduleSummaries, spatialSummaries, depthLogSample, PacketTelemetryRenderer } from './moduleVisualizations';
+import { channelVisualization, moduleSummaries, spatialSummaries, kiteVector, depthLogSample, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
 
 const channel = (id: number, volts: number, type = 'INA219'): ChannelState => ({
@@ -596,4 +596,26 @@ test('TankSteer preserves each drive sign and does not turn invalid drive or dis
         drives: { left: { reading: { unavailable: true } }, right: { output: 0.001, reading: { text: '+<0.01' } } },
         distance: { unavailable: true }
     });
+});
+
+
+test('KiteController distinguishes actual payout in the flight vector from the configured target', () => {
+    const observed = channel(6, 0, 'KiteController');
+    const scalar = observed.params[15];
+    const read = (param: number, values: number[]) => ({ ...scalar, param, values, numValues: values.length });
+    observed.params[14] = read(14, [-32, 90, 74, 0]);
+    observed.params[13] = read(13, [0.35, 1]);
+    observed.params[16] = read(16, [18, 32, 8]);
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        kiteVector: { yaw: -32, pitch: 90, distance: 74, roll: 0 },
+        kiteWaypoint: { yaw: 18, pitch: 32, radius: 8 },
+        details: expect.arrayContaining([
+            expect.objectContaining({ parameterId: 13, reading: observed.params[13], text: 'Target 0.3 · Rate limit 1.0 units/s' }),
+            expect.objectContaining({ parameterId: 14, reading: observed.params[14] })
+        ])
+    });
+    expect(kiteVector(read(14, [0, 0, 0, 0]))).toEqual({ yaw: 0, pitch: 0, distance: 0, roll: 0 });
+    observed.params[14] = read(14, [32, 25, 74]);
+    expect(inspect()).toMatchObject({ kiteVector: undefined, kiteWaypoint: { radius: 8 } });
 });
