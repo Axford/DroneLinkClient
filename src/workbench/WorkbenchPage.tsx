@@ -31,6 +31,7 @@ function localTime(timestamp: number) {
 
 export default function WorkbenchPage() {
     const { status, routes, paths, observations, interfaces, diagnostics } = useWorkbenchFeed();
+    const [mapToken, setMapToken] = useState<string | null>();
     const [lens, setLens] = useState<string>('nodes');
     const mapView = React.useRef<User['mapState']>(undefined);
     const [selectedNode, selectNode] = useState<number>();
@@ -49,6 +50,18 @@ export default function WorkbenchPage() {
     const configured = transports.filter(transport => interfaces[transport]);
     const nodes = Array.from(new Set([...Object.keys(routes), ...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number))).sort((a, b) => a - b);
     const showTransport = configured.length > 0;
+
+    React.useEffect(() => {
+        if (lens !== 'map' || mapToken !== undefined) return;
+        const controller = new AbortController();
+        void fetch('/api/workbench/v1/map-config', { signal: controller.signal, cache: 'no-store' })
+            .then(response => response.ok ? response.json() : null)
+            .then(config => {
+                if (!controller.signal.aborted) setMapToken(typeof config?.mapboxAccessToken === 'string' ? config.mapboxAccessToken : null);
+            })
+            .catch(() => { if (!controller.signal.aborted) setMapToken(null); });
+        return () => controller.abort();
+    }, [lens, mapToken]);
 
     function setChoice(value: Selection) {
         setChoices(previous => ({ ...previous, [key]: value }));
@@ -132,7 +145,7 @@ export default function WorkbenchPage() {
         <DomainWorkspace name="Workbench" lenses={lenses} activeLens={lens} onLensChange={setLens}
             status={<span className="dw-status" role="status">{connected ? 'Local gateway connected' : status === 'connecting' ?
                 'Connecting to local gateway…' : 'Local gateway disconnected. Reconnecting…'}</span>}>
-            <DomainLensPanels lens={lens === 'map' ? <ObservedMap local token={null} user={null} viewState={mapView}
+            <DomainLensPanels lens={lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
                 {selector}
                 {lens === 'network' && network}

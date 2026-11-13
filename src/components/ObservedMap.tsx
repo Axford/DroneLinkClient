@@ -37,6 +37,8 @@ function positionDescription(position: ObservedPosition, label: string, now: num
   return `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · ${label}`;
 }
 
+const cloudMapStyle = 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku';
+
 const localMapStyle: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
@@ -151,14 +153,14 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     const controller = new AbortController();
     setMapError(false); setBasemapError(false);
     try {
-      if (token) mapboxgl.accessToken = token;
+      const useLocalBasemap = local && !token;
       const saved = viewState?.current || user?.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
       const camera = { container: mapContainer, center: [saved.lng, saved.lat] as [number, number], zoom: saved.zoom };
-      if (local) {
+      if (useLocalBasemap) {
         current = new maplibregl.Map({ ...camera, style: localMapStyle, attributionControl: { compact: false } });
         current.addControl(new maplibregl.NavigationControl(), 'top-right');
       } else {
-        current = new mapboxgl.Map({ ...camera, style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku' });
+        current = new mapboxgl.Map({ ...camera, style: cloudMapStyle, accessToken: token ?? undefined });
         current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       }
       map.current = current; setMapReady(true);
@@ -171,7 +173,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
             'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(),
             'line-width': 3,
             // Keep the instrument colour readable on dark basemaps with 3D lighting.
-            ...(!local && { 'line-emissive-strength': 1 })
+            ...(!useLocalBasemap && { 'line-emissive-strength': 1 })
           }
         });
         setWindSource(geoJSONSource(activeMap, windLayerId));
@@ -180,13 +182,13 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
           id: routeLayerId, source: routeLayerId, type: 'line',
           filter: ['==', ['geometry-type'], 'LineString'],
           paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
-            'line-width': 2, 'line-opacity': 0.75, ...(!local && { 'line-emissive-strength': 1 }) }
+            'line-width': 2, 'line-opacity': 0.75, ...(!useLocalBasemap && { 'line-emissive-strength': 1 }) }
         }, windLayerId);
         activeMap.addLayer({
           id: `${routeLayerId}-point`, source: routeLayerId, type: 'circle',
           filter: ['==', ['geometry-type'], 'Point'],
           paint: { 'circle-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
-            'circle-radius': 4, ...(!local && { 'circle-emissive-strength': 1 }) }
+            'circle-radius': 4, ...(!useLocalBasemap && { 'circle-emissive-strength': 1 }) }
         }, windLayerId);
         setRouteSource(geoJSONSource(activeMap, routeLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
@@ -234,7 +236,10 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         activeMap.on('movestart', onMoveStart);
         activeMap.on('moveend', onMoveEnd);
       } else {
-        activeMap.on('error', event => { console.error('Map rendering failed:', event.error); setMapError(true); });
+        activeMap.on('error', event => {
+          if (local) setBasemapError(true);
+          else { console.error('Map rendering failed:', event.error); setMapError(true); }
+        });
         activeMap.on('movestart', onMoveStart);
         activeMap.on('moveend', onMoveEnd);
       }
@@ -447,7 +452,8 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
       onLocate={locateNode} canLocate={id => canLocate(id) && (!selectionDisabled || id === selectedNodeId)} now={now} selectionDisabled={selectionDisabled} />
     <div className="dw-map-toolbar">
       <span role="status">{!local && !token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
-      {basemapError && <span role="status">Basemap tiles unavailable</span>}
+      {local && !token && <span className="dw-meta">Local fallback basemap</span>}
+      {basemapError && <span role="status">{local && token ? 'Cloud basemap unavailable. Check the Workbench Mapbox token.' : 'Basemap tiles unavailable'}</span>}
       {(token || local) && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
       {route.status && <span role="status" title={route.receivedAt ?
         `Route digest received ${new Date(route.receivedAt).toLocaleString()}${route.capturedAt ?
