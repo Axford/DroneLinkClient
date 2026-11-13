@@ -16,7 +16,6 @@
     .dw-neopixel-segments { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-.dw-neopixel-segments dt { font-weight: 400; }
 .dw-neopixel-segments dd {
     margin: 0;
     color: var(--dw-color-instrument-reading);

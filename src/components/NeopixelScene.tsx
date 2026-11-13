@@ -6,7 +6,7 @@ export default function NeopixelScene({ label, colours }: { label: string; colou
     return <section className="dw-neopixel-scene" aria-label={label}>
         <dl className="dw-neopixel-segments">
             {colours.map((colour, index) => <div key={index}>
-                <dt className="dw-meta">Segment {index + 1}</dt>
+                <dt className="visually-hidden">Segment {index + 1}</dt>
                 <dd>
                     <span className="dw-neopixel-swatch" aria-hidden="true" data-unavailable={colour === undefined || undefined}
                         style={colour === undefined ? undefined : { backgroundColor: colour }} />
