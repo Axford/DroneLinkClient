@@ -1,0 +1,7 @@
+.dw-instrument-status[data-severity] {
+    width: fit-content;
+    padding-inline: var(--dw-space-1);
+    border-radius: var(--dw-radius-small);
+}
+.dw-instrument-status[data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
+.dw-instrument-status[data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }

@@ -35,3 +35,4 @@
 .dw-rssi-signal line { stroke: var(--dw-color-border); }
 .dw-rssi-signal circle { fill: var(--dw-color-instrument-trace); }
 .dw-rssi-signal polyline { fill: none; stroke: var(--dw-color-instrument-trace); stroke-width: 2; }
+.dw-rssi-signal .dw-rssi-current { fill: var(--dw-color-instrument-reading); }

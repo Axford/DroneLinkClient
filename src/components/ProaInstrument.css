@@ -42,8 +42,16 @@
 .dw-proa i:is([data-series="course"], [data-series="frame"], [data-series="wind"]) { border-top-style: dotted; }
 .dw-proa-profiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--dw-space-2); margin-top: var(--dw-space-1); }
 @container (max-width: 415px) {
-    .dw-proa-main { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    .dw-proa-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dw-proa-dial { grid-area: 1 / 1; width: min(100%, 12rem); }
+    .dw-proa-context { grid-area: 1 / 2; }
+    .dw-proa-bearings { grid-area: 2 / 1 / 3 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--dw-space-2); }
+}
+
+@container (max-width: 259px) {
+    .dw-proa-dial { grid-area: 1 / 1 / 2 / -1; }
     .dw-proa-context { grid-area: 2 / 1; }
-    .dw-proa-bearings { grid-area: 2 / 2; }
-    .dw-proa-dial { grid-area: 1 / 1 / 2 / -1; width: min(100%, 12rem); }
+    .dw-proa-bearings { grid-area: 2 / 2; grid-template-columns: minmax(0, 1fr); }
+    .dw-proa-main { align-items: start; }
+    .dw-proa .dw-proa-steering { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

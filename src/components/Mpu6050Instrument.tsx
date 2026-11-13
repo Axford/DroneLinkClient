@@ -32,9 +32,7 @@ export default function Mpu6050Instrument({ nodeId, label, summary }: {
         </dl>
         <div className="dw-mpu-actions">
             <DiagnosticScene title="Accelerometer diagnostic" scene={summary.scene}
-                readings={<div className="dw-mpu-diagnostic-readings">
-                    <SummaryDetails nodeId={nodeId} summaries={summary.diagnosticReadings} now={Date.now()} />
-                </div>} />
+                readings={<SummaryDetails nodeId={nodeId} summaries={summary.diagnosticReadings} now={Date.now()} />} />
         </div>
     </section>;
 }

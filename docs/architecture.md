@@ -121,7 +121,7 @@ Windows keep at most 100 receipts from the last five minutes. A new receipt with
 
 The firmware and legacy dispatcher identify the module as `RFM69Telemetry`. The specialist view combines packet counts and rates at parameters 9 and 10 with an independent RSSI reading at parameter 8. The firmware sends a magnitude from 0 to 100. The summary and node chip display its negative dBm value, with zero retained. Reading Details includes the RSSI source and receipt. Radio settings remain in the generic Parameters view.
 
-The signal trace uses the sampled window while the expanded Summary is visible on an active Domain with ready observations or a connected Workbench path. It plots receipt time and breaks across unavailable samples or gaps over 15 seconds. Switching node or path, leaving the Summary, losing the connection or resetting its observations clears the trace. Archived snapshots can display the last observed RSSI.
+The signal trace uses the sampled window while the expanded Summary is visible on an active Domain with ready observations or a connected Workbench path. It plots receipt time and breaks across unavailable samples or gaps over 15 seconds. The marker highlights the plotted point that matches the current valid receipt. Switching node or path, leaving the Summary, losing the connection or resetting its observations clears the trace. Archived snapshots can display the last observed RSSI.
 
 ### Shared power telemetry
 
@@ -165,7 +165,7 @@ LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent m
 
 ### Expanded 3D diagnostics
 
-The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their own observation mappings.
+The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their own observation mappings. The shared dialog uses green observed values, muted labels and neutral unavailable values.
 
 ### Shared heading and attitude displays
 
@@ -209,7 +209,7 @@ TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale.
 
 ### TurnRate dial
 
-TurnRate compares the heading at 12 and signed target at 10 on the shared circular dial. Parameter 16 is a signed controller output, not an angular velocity. Firmware clamps it to ±10, while the arc preserves the legacy visual cap at ±6. Positive output draws clockwise from heading. Parameter 17 supplies the angular threshold band around target, and 19 supplies the observed Normal, Possible gybe or Gybe mode. Each reading retains its own receipt. The heading map binding remains independent of the renderer.
+TurnRate compares the heading at 12 and signed target at 10 on the shared circular dial. Parameter 16 is a signed controller output, not an angular velocity. Firmware clamps it to ±10, while the arc preserves the legacy visual cap at ±6. Positive output draws clockwise from heading. Parameter 17 supplies the angular threshold band around target, and 19 supplies the observed Normal, Possible gybe or Gybing mode. Sailor and TurnRate share the amber and red cues for possible and active gybes. Each reading retains its own receipt. The heading map binding remains independent of the renderer.
 
 ### Proa steering and wind profiles
 
@@ -217,7 +217,7 @@ Proa rotates its shared polar and speed profiles by live wind. Heading rotates t
 
 ### Sailor marine dial
 
-Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the fifth byte may not reflect the current manoeuvre. Reading Details retains each observation receipt.
+Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the Summary marks a supplied crossing-wind flag as unverified. Reading Details retains the reported byte and observation receipt.
 
 ### Waypoint route progress
 

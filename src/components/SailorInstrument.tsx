@@ -3,6 +3,7 @@ import type { ObservedSummary, SailorSummary } from '../dronelink/moduleVisualiz
 import { CircularDialGuides, DialHand, dialBand } from './CircularDialGeometry';
 import { SailingProfiles, projectSailingProfiles } from './SailingProfiles';
 import './SailorInstrument.css';
+import './InstrumentStatus.css';
 
 const hands = [
     { role: 'heading', inner: 19, outer: 49 },
@@ -16,7 +17,9 @@ const hands = [
 function Readout({ reading, role }: { reading: ObservedSummary; role?: string }) {
     return <div>
         <dt className="dw-meta">{role && <i data-series={role} aria-hidden="true" />}{reading.label}</dt>
-        <dd data-unavailable={reading.unavailable || undefined}>{reading.unavailable ? 'Unavailable' : reading.text}</dd>
+        <dd className="dw-instrument-status" data-unavailable={reading.unavailable || undefined} data-severity={reading.severity}>
+            {reading.unavailable && reading.text === '—' ? 'Unavailable' : reading.text}
+        </dd>
     </div>;
 }
 

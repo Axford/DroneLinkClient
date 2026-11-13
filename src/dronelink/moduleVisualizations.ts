@@ -829,6 +829,14 @@ function waypointEtaText(seconds: number): string {
     return days ? `${days}d ${two(hours)}:${clock}` : hours ? `${two(hours)}:${clock}` : clock;
 }
 
+function gybeState(channel: ChannelState, parameterId: number, label: string, state: number | undefined) {
+    const states = ['Normal', 'Possible gybe', 'Gybing'];
+    const reading = field(channel, parameterId, label, state === undefined ? undefined : states[state]);
+    if (state === 1) reading.severity = 'warning';
+    if (state === 2) reading.severity = 'danger';
+    return reading;
+}
+
 function sailorSummary(channel: ChannelState): SailorSummary {
     const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
     // The firmware declares five flag bytes but only copies four in its live update.
@@ -859,21 +867,25 @@ function sailorSummary(channel: ChannelState): SailorSummary {
     const manoeuvres = [
         flag(0, 'Course state', ['Planning', 'Set', 'Underway']),
         flag(1, 'Tack', ['Undefined', 'Starboard', 'Port']),
-        flag(2, 'Helm', ['Normal', 'Possible gybe', 'Gybing']),
-        flag(4, 'Crossing wind', ['No', 'Yes'])
+        gybeState(channel, 21, 'Helm', flags?.[2])
     ];
+    const reportedCrossingWind = flags?.[4];
+    const hasCrossingWindFlag = reportedCrossingWind === 0 || reportedCrossingWind === 1;
+    const crossingWind = field(channel, 21, 'Crossing wind');
+    crossingWind.text = hasCrossingWindFlag ? 'Unverified' : 'Unavailable';
     const polar = byteArray(channel.params[18], 16);
     const speeds: SailorSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
     const curveDetails = (id: number, label: string, bytes: number[] | undefined) =>
         field(channel, id, label, bytes?.join(', '));
     return {
         sailBearings, sheet, rudder, rudderOutput, gybing: flags?.[2] === 2,
-        polar, speeds, context: [crossTrack, ...manoeuvres],
+        polar, speeds, context: [crossTrack, ...manoeuvres, crossingWind],
         details: [
             sailBearings.heading, sailBearings.target, sailBearings.course, wind, sheet, crossTrack, rudder,
             field(channel, 22, 'Wing output', wing === 0 || wing === -1 || wing === 1 ? String(wing) : undefined),
             field(channel, 21, 'Course wind and manoeuvre flags', flags && [sailBearings.courseWind.text,
-                ...manoeuvres.map(reading => `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`)].join(' · ')),
+                ...manoeuvres.map(reading => `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`),
+                `Crossing wind: ${hasCrossingWindFlag ? `unverified (reported byte ${reportedCrossingWind})` : 'unavailable'}`].join(' · ')),
             curveDetails(18, 'Polar profile, starboard 0–180° (0–255)', polar),
             curveDetails(19, 'Estimated speed 0–180° (relative scale 0–255)', speeds[0]),
             curveDetails(20, 'Estimated speed 180–360° (relative scale 0–255)', speeds[1])
@@ -953,9 +965,7 @@ function turnRateSummary(channel: ChannelState): TurnRateSummary {
     const thresholdDegrees = thresholdValue !== undefined && thresholdValue >= 0 ? thresholdValue : undefined;
     const threshold = field(channel, 17, 'Gybe threshold', thresholdDegrees === undefined ? undefined : `${thresholdDegrees.toFixed(1)}°`);
     const modeValue = byteArray(channel.params[19], 1)?.[0];
-    const mode = field(channel, 19, 'Mode', modeValue === undefined ? undefined : ['Normal', 'Possible gybe', 'Gybe'][modeValue]);
-    if (modeValue === 1) mode.severity = 'warning';
-    if (modeValue === 2) mode.severity = 'danger';
+    const mode = gybeState(channel, 19, 'Mode', modeValue);
     return { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, gybing: modeValue === 2,
         details: [heading, target, turnOutput, threshold, mode] };
 }
@@ -1007,11 +1017,12 @@ function kiteControllerSummary(channel: ChannelState): KiteControllerSummary {
     const vectorReadings = [
         { label: 'Yaw', text: vector && `${vector.yaw.toFixed(0)}°` },
         { label: 'Pitch', text: vector && `${vector.pitch.toFixed(0)}°` },
-        { label: 'Distance (payout)', text: vector?.distance.toFixed(1) },
+        { label: 'Actual payout', text: vector?.distance.toFixed(1) },
         { label: 'Estimated roll', text: vector && `${vector.roll.toFixed(0)}°` }
     ];
     return { kiteVector: vector, kiteWaypoint: waypoint, vectorReading,
-        readings: [...vectorReadings, ...[trim, payoutTarget, left, right, mode].map(reading =>
+        readings: [...vectorReadings.map(reading => reading.label === 'Estimated roll' ? { ...reading, label: 'Est. roll' } : reading),
+            ...[trim, payoutTarget, left, right, mode].map(reading =>
             ({ label: reading.label, text: reading.unavailable ? undefined : reading.text }))],
         details: [
             field(channel, 14, 'Flight vector', vector && vectorReadings.map(reading => `${reading.label}: ${reading.text}`).join(' · ')),

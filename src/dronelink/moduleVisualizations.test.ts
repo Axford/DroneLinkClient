@@ -530,9 +530,21 @@ test('Sailor keeps live and course wind separate and handles four-byte flags', (
         gybing: true, rudderOutput: -0.5, sheet: { text: '0.0' }, speeds: [undefined, undefined],
         context: expect.arrayContaining([
             expect.objectContaining({ label: 'Crossing wind', unavailable: true }),
-            expect.objectContaining({ label: 'Helm', text: 'Gybing' })
+            expect.objectContaining({ label: 'Helm', text: 'Gybing', severity: 'danger' })
         ])
     });
+    for (const [state, text, severity] of [[0, 'Normal', undefined], [1, 'Possible gybe', 'warning']] as const) {
+        observed.params[21] = reading(21, [2, 1, state, 255, 1], DRONE_LINK_MSG_TYPE_UINT8_T);
+        expect(channelVisualization(observed)?.inspector?.(observed)).toMatchObject({
+            context: expect.arrayContaining([
+                expect.objectContaining(severity ? { label: 'Helm', text, severity } : { label: 'Helm', text }),
+                expect.objectContaining({ label: 'Crossing wind', text: 'Unverified', unavailable: true })
+            ]),
+            details: expect.arrayContaining([expect.objectContaining({
+                parameterId: 21, text: expect.stringContaining('Crossing wind: unverified (reported byte 1)')
+            })])
+        });
+    }
 });
 
 
@@ -565,7 +577,7 @@ test('TurnRate preserves signed outputs, valid zero, and the observed gybe mode'
     expect(inspect()).toMatchObject({
         target: { bearing: 357 }, heading: { bearing: 4 }, output: -8.2,
         turnOutput: { text: '-8.2', reading: observed.params[16] },
-        mode: { text: 'Gybe', severity: 'danger' }, threshold: { unavailable: true }
+        mode: { text: 'Gybing', severity: 'danger' }, threshold: { unavailable: true }
     });
     observed.params[16] = rate(0);
     expect(inspect()).toMatchObject({ output: 0, turnOutput: { text: '0.0' }, gybing: true });

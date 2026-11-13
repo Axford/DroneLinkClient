@@ -2,6 +2,7 @@ import React from 'react';
 import type { ObservedSummary, TurnRateSummary } from '../dronelink/moduleVisualizations';
 import { CircularDialGuides, DialHand, dialBand } from './CircularDialGeometry';
 import './TurnRateInstrument.css';
+import './InstrumentStatus.css';
 
 export default function TurnRateInstrument({ label, summary }: { label: string; summary: TurnRateSummary }) {
     const { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, gybing } = summary;
@@ -33,7 +34,7 @@ export default function TurnRateInstrument({ label, summary }: { label: string; 
         <dl>
             {[heading, target, threshold, mode].map(reading => <div key={reading.parameterId}>
                 <dt className="dw-meta">{reading.label}</dt>
-                <dd data-unavailable={reading.unavailable || undefined} data-severity={reading.severity}>{readable(reading)}</dd>
+                <dd className="dw-instrument-status" data-unavailable={reading.unavailable || undefined} data-severity={reading.severity}>{readable(reading)}</dd>
             </div>)}
         </dl>
     </section>;

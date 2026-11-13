@@ -19,6 +19,6 @@
 .dw-kite-readings dt { font-weight: 400; }
 .dw-kite-readings dd { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .dw-kite-readings dd[data-unavailable] { color: var(--dw-color-muted); }
-@container (max-width: 345px) {
+@container (max-width: 415px) {
     .dw-kite-readings { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

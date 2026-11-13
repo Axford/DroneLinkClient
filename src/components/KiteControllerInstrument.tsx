@@ -17,9 +17,10 @@ export default function KiteControllerInstrument({ label, summary, scope }: {
         waypoint ? Math.abs(waypoint.yaw) + radius : 0, ...positions.map(value => Math.abs(value.yaw)));
     const pitchTop = Math.max(90, current?.pitch ?? 0, waypoint ? waypoint.pitch + radius : 0, ...positions.map(value => value.pitch));
     const pitchBottom = Math.min(0, current?.pitch ?? 0, waypoint ? waypoint.pitch - radius : 0, ...positions.map(value => value.pitch));
-    const scale = Math.min(138 / yawRange, 100 / (pitchTop - pitchBottom));
+    const scale = Math.min(138 / yawRange, 92 / (pitchTop - pitchBottom));
     const x = (yaw: number) => 150 - yaw * scale;
-    const y = (pitch: number) => 14 + (pitchTop - pitch) * scale;
+    const plotTop = 13;
+    const y = (pitch: number) => plotTop + (pitchTop - pitch) * scale;
     const segments = traceSegments(samples, 15_000);
     const trail = segments.map(segment => segment.flatMap(({ value }, index) => value
         ? [`${index === 0 ? 'M' : 'L'} ${x(value.yaw)} ${y(value.pitch)}`] : []).join(' ')).join(' ');
@@ -31,8 +32,8 @@ export default function KiteControllerInstrument({ label, summary, scope }: {
         `Recent trail: ${positions.length} readings.`;
     return <section className="dw-kite" aria-label={label}>
         <div className="dw-kite-plot">
-            <svg viewBox="0 0 300 128" role="img" aria-label={description}>
-                <path className="dw-kite-axes" d={`M 12 ${y(0)} H 288 M 150 14 V ${y(pitchBottom)}`} />
+            <svg viewBox="0 0 300 118" role="img" aria-label={description}>
+                <path className="dw-kite-axes" d={`M 12 ${y(0)} H 288 M 150 ${plotTop} V ${y(pitchBottom)}`} />
                 {waypoint && <circle className="dw-kite-waypoint" cx={x(waypoint.yaw)} cy={y(waypoint.pitch)} r={Math.max(1.5, radius * scale)} />}
                 {trail && <path className="dw-kite-trail" d={trail} />}
                 {isolated.map(({ receivedAt, value }) => value &&

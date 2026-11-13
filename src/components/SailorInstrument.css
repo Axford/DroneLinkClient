@@ -43,8 +43,15 @@
 .dw-sailor i:is([data-series="course"], [data-series="wing"]) { border-top-style: dotted; }
 .dw-sailor-profiles { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 var(--dw-space-2); margin-top: var(--dw-space-1); }
 @container (max-width: 415px) {
-    .dw-sailor-main { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-    .dw-sailor-context { grid-column: 1; grid-row: 2; }
-    .dw-sailor-bearings { grid-column: 2; grid-row: 2; }
-    .dw-sailor-dial { grid-row: 1; grid-column: 1 / -1; width: min(100%, 12rem); }
+    .dw-sailor-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dw-sailor-dial { grid-area: 1 / 1; width: min(100%, 12rem); }
+    .dw-sailor-context { grid-area: 1 / 2; }
+    .dw-sailor-bearings { grid-area: 2 / 1 / 3 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--dw-space-2); }
+}
+
+@container (max-width: 259px) {
+    .dw-sailor-dial { grid-area: 1 / 1 / 2 / -1; }
+    .dw-sailor-context { grid-area: 2 / 1; }
+    .dw-sailor-bearings { grid-area: 2 / 2; grid-template-columns: minmax(0, 1fr); }
+    .dw-sailor-main { align-items: start; }
 }

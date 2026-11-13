@@ -26,6 +26,3 @@ circle.dw-turn-rate-band { fill: none; stroke: var(--dw-color-instrument-trace);
 
 .dw-turn-rate-centre strong { font-size: var(--dw-font-size-heading); }
 .dw-turn-rate-centre strong[data-unavailable] { font-size: var(--dw-font-size-meta); }
-.dw-turn-rate dd[data-severity] { padding-inline: var(--dw-space-1); border-radius: var(--dw-radius-small); }
-.dw-turn-rate dd[data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
-.dw-turn-rate dd[data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }

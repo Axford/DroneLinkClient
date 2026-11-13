@@ -31,3 +31,7 @@
 .dw-diagnostic-sample { fill: var(--dw-color-instrument-blue); }
 .dw-diagnostic-vector { stroke: var(--dw-color-instrument-reading); stroke-width: 2; }
 .dw-diagnostic-latest { fill: var(--dw-color-instrument-reading); }
+
+.dw-diagnostic-readings dt { font-weight: 400; color: var(--dw-color-muted); }
+.dw-diagnostic-readings dd > span { color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; }
+.dw-diagnostic-readings dd > [data-unavailable] { color: var(--dw-color-muted); }

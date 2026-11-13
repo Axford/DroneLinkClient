@@ -37,7 +37,7 @@ export function SummaryDetails({ nodeId, summaries, now }: SummaryProps) {
     return <dl className="mb-0" aria-label="Observed readings">
         {summaries.map(summary => <React.Fragment key={`${summary.channelId}:${summary.parameterId}`}>
             <dt>{summary.label}</dt>
-            <dd>{summary.text}<div className="dw-meta">
+            <dd><span data-unavailable={summary.unavailable || undefined}>{summary.text}</span><div className="dw-meta">
                 <div>{observationDetails(nodeId, summary, now)}</div>
                 {summary.binding && <div>Map binding: {summary.binding.path} · Priority {summary.binding.priority}</div>}
                 {summary.reading?.timestamp ? <div>Value last changed {new Date(summary.reading.timestamp).toLocaleString()}</div> : null}

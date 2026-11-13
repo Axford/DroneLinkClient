@@ -20,6 +20,3 @@
 @container (max-width: 235px) {
     .dw-channel-summary.dw-mpu-readings { grid-template-columns: minmax(0, 1fr); }
 }
-
-.dw-mpu-diagnostic-readings dt { font-weight: 400; color: var(--dw-color-muted); }
-.dw-mpu-diagnostic-readings dd { color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; }

@@ -115,7 +115,7 @@ export default function DiagnosticScene({ title, scene, readings }: DiagnosticSc
     <SettingsDialog title={title} show={open} onHide={() => setOpen(false)}>
       {open && <div id={id}>
         <SceneView title={title} scene={scene} />
-        {readings}
+        <div className="dw-diagnostic-readings">{readings}</div>
       </div>}
     </SettingsDialog>
   </>;
