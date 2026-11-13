@@ -199,12 +199,12 @@ test('malformed snapshot value is unavailable while its valid name and other par
   const row:any=channel();
   row.params['1'].value={...row.params['1'].value!,msgType:2,payload:'AQI='};
   row.params['1'].name={payload:'b2s=',lastReceivedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}};
-  row.params['2']={value:{payload:'Kg==',msgType:0,writable:false,lastReceivedAt:at,valueLastChangedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}}};
+  row.params['2']={value:{payload:'Kg==',msgType:0,priority:2,writable:false,lastReceivedAt:at,valueLastChangedAt:at,origin:{kind:'http',forwarderAddress:7,sourceAddress:7}}};
   global.fetch=fetcher(snapshot([node()],[row]));const state=new DroneLinkState();await state.loadObservations('fleet',false);
   expect(state.getParameterState(7,1,1)?.values).toEqual([]);
   expect(state.getParameterState(7,1,1)?.name).toBe('ok');
   expect(state.getParameterState(7,1,1)?.lastHeard).toBeUndefined();
-  expect(state.getParameterState(7,1,2)?.values).toEqual([42]);
+  expect(state.getParameterState(7,1,2)).toMatchObject({ values: [42], priority: 2 });
   expect(state.unavailableObservationParts).toBe(1);state.destroy();
 });
 

@@ -1,7 +1,7 @@
 import { authenticatedFetch, ApiError } from '../utils/api';
 
 export interface ObservationFacet {
-  payload: string; msgType?: number; writable?: boolean; lastReceivedAt: string;
+  payload: string; msgType?: number; priority?: number; writable?: boolean; lastReceivedAt: string;
   valueLastChangedAt?: string; nameLastChangedAt?: string;
   origin: { kind: 'http' | 'gateway'; forwarderAddress: number; sourceAddress: number; gatewayId?: string };
 }

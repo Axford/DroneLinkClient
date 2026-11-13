@@ -1,16 +1,19 @@
-import React, { useContext, useState } from 'react';
-import { InfoCircle, Lock, Unlock } from 'react-bootstrap-icons';
+import React, { useContext, useId, useState } from 'react';
 import { ParameterState } from '../dronelink/DroneLinkState';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { ObservationNamesContext, presentParameter } from './parameterPresentation';
 import { ParameterCommands } from '../commands/CommandControls';
-import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
+
+const shortTypes: Readonly<Partial<Record<string, string>>> = {
+    UINT8: 'U8', ADDR: 'A', UINT32: 'U32', FLOAT: 'F', CHAR: 'C'
+};
 
 export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState; catalogName?: string }
 export default function ParameterRow({ nodeId, channelId, parameterId, parameter, catalogName }: ParameterRowProps) {
     const [details, setDetails] = useState(false);
+    const descriptionId = useId();
     const names = useContext(ObservationNamesContext);
     const presentation = presentParameter(parameter, names);
     const observedName = !parameter.unavailable?.name && parameter.name?.trim() ? parameter.name : undefined;
@@ -19,29 +22,34 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     const receivedAt = presentation.values.length ? parameter.lastHeard : undefined;
     const address = `${nodeId}>${channelId}.${parameterId}`;
     const writability = presentation.writable === undefined ? 'Writability unavailable' : presentation.writable ? 'Observed writable' : 'Observed read-only';
-    return <article className="parameter-row dw-parameter" aria-label={`Parameter ${address}`}>
-        <header className="dw-parameter-header">
-            <div className="dw-parameter-label"><strong>{name}</strong>{catalogLabel && <span className="dw-meta ms-2">Firmware catalog</span>}<div className="dw-meta">{address} · {presentation.type || 'Type unavailable'}</div></div>
-            <span className="dw-parameter-writable" title={`${writability}. Packet metadata does not grant cloud permissions.`}>
-                {presentation.writable !== undefined && (presentation.writable ? <Unlock aria-hidden="true" /> : <Lock aria-hidden="true" />)}
-                <span className="visually-hidden">{writability}</span>
+    const priority = presentation.type ? parameter.priority : undefined;
+    return <article className="dw-parameter" aria-label={`Parameter ${address}`}>
+        <button className="dw-parameter-tile" type="button" data-writable={presentation.writable}
+            data-inspector-focus={`parameter-${channelId}-${parameterId}`} aria-label={`Parameter details: ${name}`}
+            aria-describedby={descriptionId} onClick={() => setDetails(true)}>
+            <span className="dw-parameter-heading">
+                <strong>{name}</strong>
+                <span className="dw-meta" aria-hidden="true">{address} · {shortTypes[presentation.type ?? ''] ?? '—'} · P{priority ?? '—'}</span>
             </span>
-            <IconButton data-inspector-focus={`parameter-${channelId}-${parameterId}`} label={`Parameter details: ${name}`} icon={<InfoCircle />} variant="link" onClick={() => setDetails(true)} />
-        </header>
-        {presentation.values.length ? <ul className="dw-parameter-values" aria-label={`Observed values for ${name}`}>
-            {presentation.values.map((value, index) => <li key={index} aria-label={`Value ${index + 1}`}>
-                <span className="font-monospace" title={`Exact decoded value: ${value.exact}`}>{value.display}</span>
-                {value.name && <span className="dw-meta dw-address-name">{value.name}</span>}
-            </li>)}
-        </ul> : <p className="dw-meta mb-0">Value unavailable</p>}
-        {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
-        {receivedAt ? <div className="dw-meta dw-parameter-receipt" title={`${parameter.source === 'Local' ? 'Gateway' : 'Server'} receipt: ${receiptLabel(receivedAt)}`}>{parameter.source || 'Unknown source'} · <time dateTime={new Date(receivedAt).toISOString()}>{new Date(receivedAt).toLocaleTimeString()}</time></div> : null}
+            <span className="visually-hidden" id={descriptionId}>
+                {address} · {presentation.type || 'Type unavailable'} · Priority {priority ?? 'unavailable'} · {writability}
+                {' · '}{presentation.values.map(value => value.name ? `${value.display}, ${value.name}` : value.display).join(' · ') || 'Value unavailable'}
+                {catalogLabel && ' · Firmware catalog'}
+                {receivedAt && <> · {parameter.source || 'Unknown source'} · <time dateTime={new Date(receivedAt).toISOString()}>{receiptLabel(receivedAt)}</time></>}
+            </span>
+            {presentation.values.length ? <span className="dw-parameter-values">
+                {presentation.values.map((value, index) => <span key={index} title={`Exact decoded value: ${value.exact}`}>
+                    {value.display}{value.name && <small className="dw-meta dw-address-name">{value.name}</small>}
+                </span>)}
+            </span> : <span className="dw-meta">Value unavailable</span>}
+            {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
+        </button>
         <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
             <SurfacePanel title="Observation">
-                <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>
+                <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Priority</dt><dd>{priority ?? 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>
                     {presentation.values.length ? <ol className="dw-exact-values">{presentation.values.map((value, index) => <li key={index}><code>{value.exact}</code>{value.name && <div>{value.name}</div>}</li>)}</ol> : 'Value unavailable'}
                 </dd></dl>
-                {receivedAt ? <p>Received {new Date(receivedAt).toLocaleString()} · {parameter.source || 'Unknown source'}</p> : <p>No saved value receipt</p>}
+                {receivedAt ? <p title={`${parameter.source === 'Local' ? 'Gateway' : 'Server'} receipt: ${receiptLabel(receivedAt)}`}>Received {new Date(receivedAt).toLocaleString()} · {parameter.source || 'Unknown source'}</p> : <p>No saved value receipt</p>}
                 {parameter.unavailable?.value && <p>Value unavailable: {parameter.unavailable.value}</p>}
             </SurfacePanel>
             <SurfacePanel title="Provenance">

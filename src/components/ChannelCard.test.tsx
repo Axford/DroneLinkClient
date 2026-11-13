@@ -12,9 +12,12 @@ function Fixture({ channel }: { channel: ChannelState }) {
 
 test('headers expose device-reported status and zero reset count independently of age, with reachable system observations', async () => {
     render(<Fixture channel={base} />);
-    expect(screen.getByText('7>4')).toBeVisible(); expect(screen.getByText('Status: Enabled')).toBeVisible(); expect(screen.getByText('Resets: 0')).toBeVisible();
+    const header = screen.getByRole('button', { name: /4\. GPS.*Resets: 0.*Receipt age:.*Enabled/ });
+    expect(header.closest('.channel-card')).toHaveAttribute('data-status', 'enabled');
+    expect(screen.getByText('Enabled')).toHaveClass('visually-hidden');
+    expect(screen.queryByText('NMEA')).not.toBeInTheDocument();
     expect(screen.queryByText('Recent observation')).not.toBeInTheDocument(); expect(screen.queryByText('Older observation')).not.toBeInTheDocument();
-    expect(screen.getByTitle(/Observed 7>4.1/)).toHaveAttribute('title', expect.stringContaining('HTTP'));
+    expect(screen.getByTitle(/Observed 7>4.4/)).toHaveAttribute('title', expect.stringContaining('HTTP'));
     expect(screen.getByText('zero')).toBeVisible();
     expect(screen.getByRole('article', { name: 'Parameter 7>4.1', hidden: true })).not.toBeVisible();
     fireEvent.click(screen.getByText('System parameters (2)'));
@@ -26,7 +29,16 @@ test('incorrect type or failed status/reset facets never fabricate header summar
     render(<Fixture channel={{ ...base, params: {
         1: { ...byte(1, 1), msgType: 3, bytesPerValue: 4 }, 4: { ...byte(4, 9), unavailable: { value: 'invalid-input' } }
     } }} />);
-    expect(screen.queryByText(/Status:/)).not.toBeInTheDocument(); expect(screen.queryByText(/Resets:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /4\. GPS.*Resets: —/ }).closest('.channel-card')).not.toHaveAttribute('data-status');
+    expect(screen.getByTitle('Reset count unavailable')).toBeVisible();
     fireEvent.click(screen.getByText('System parameters (2)'));
     expect(screen.getByText('Value unavailable')).toBeVisible();
+});
+
+test('reported error takes precedence and a nameless channel uses its module type', () => {
+    render(<Fixture channel={{ ...base, name: '  ', params: {
+        ...base.params, 3: byte(3, 1), 4: { ...byte(4, 300), msgType: 2, bytesPerValue: 4 }
+    } }} />);
+    const header = screen.getByRole('button', { name: /4\. NMEA.*Resets: 300.*Error.*Enabled/ });
+    expect(header.closest('.channel-card')).toHaveAttribute('data-status', 'error');
 });
