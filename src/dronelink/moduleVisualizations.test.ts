@@ -301,3 +301,25 @@ test('LSM9DS1 keeps its reported heading and suppresses invalid calibration geom
     compass.params[13] = reading(13, [0, 0, 0]);
     expect(inspect()).toMatchObject({ magneticCalibration: { limits: undefined, xAxis: undefined } });
 });
+
+test('CMPS12 keeps the adjusted heading and reads pitch before roll', () => {
+    const observed = channel(6, 0, 'CMPS12');
+    const scalar = observed.params[15];
+    Object.assign(observed.params, {
+        10: { ...scalar, param: 10, values: [142] },
+        12: { ...scalar, param: 12, values: [2] },
+        13: { ...scalar, param: 13, numValues: 2, values: [14, -22] }
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        primary: [{ bearing: 142, reading: observed.params[10] }],
+        attitude: { pitch: 14, roll: -22 },
+        additionalDetails: [{ reading: observed.params[13] }, { text: '2.0°', reading: observed.params[12] }]
+    });
+    observed.params[12] = { ...scalar, param: 12, values: [-3] };
+    expect(inspect()).toMatchObject({ primary: [{ bearing: 142 }], attitude: { pitch: 14, roll: -22 } });
+    observed.params[13] = { ...observed.params[13], values: [0, 0] };
+    expect(inspect()).toMatchObject({ attitude: { pitch: 0, roll: 0 } });
+    observed.params[13] = { ...observed.params[13], values: [91, 0] };
+    expect(inspect()).toMatchObject({ primary: [{ bearing: 142 }], attitude: undefined });
+});

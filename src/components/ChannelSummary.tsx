@@ -13,6 +13,7 @@ import JoystickPlot from './JoystickPlot';
 import ReceiverInstrument from './ReceiverInstrument';
 import MotorInstrument from './MotorInstrument';
 import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
+import AttitudeDials from './AttitudeDials';
 import ServoInstrument from './ServoInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
@@ -108,6 +109,12 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
             </dl>
             {summary.signal && <Rfm69Signal key={sampleScope} signal={summary.signal} scope={sampleScope} />}
         </>;
+    }
+    if ('attitudeReading' in summary) {
+        return <dl className="dw-channel-summary dw-attitude-summary" aria-label={label}>
+            {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary />)}
+            <AttitudeDials key={sampleScope} scope={sampleScope} reading={summary.attitudeReading} attitude={summary.attitude} />
+        </dl>;
     }
     const layout = summary.layout ?? (summary.primary.length === 1 && summary.supporting.length > 0 ? 'lead' : 'rows');
     const supportingRows = layout === 'compact' ? Math.ceil(summary.supporting.length / 2) : summary.supporting.length;

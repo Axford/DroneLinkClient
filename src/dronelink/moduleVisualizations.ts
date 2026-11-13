@@ -24,6 +24,8 @@ export type InspectorSummary = {
     layout?: 'compact';
     additionalDetails?: ObservedSummary[];
     magneticCalibration?: MagneticCalibration;
+    attitudeReading?: ParameterState;
+    attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
 } | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | {
@@ -442,7 +444,39 @@ function lsm9ds1Summary(channel: ChannelState): InspectorSummary {
     };
 }
 
+interface Attitude {
+    pitch: number;
+    roll: number;
+}
+
+export function cmps12Attitude(reading: ParameterState | undefined): Attitude | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_FLOAT ||
+        reading.numValues !== 2 || reading.values.length !== 2) return;
+    const [pitch, roll] = reading.values;
+    if (typeof pitch === 'number' && typeof roll === 'number' &&
+        Math.abs(pitch) <= 90 && Math.abs(roll) <= 90) return { pitch, roll };
+}
+
+function cmps12Summary(channel: ChannelState): InspectorSummary {
+    const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
+    const attitudeReading = channel.params[13];
+    const attitude = cmps12Attitude(attitudeReading);
+    const trim = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    return {
+        primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        supporting: [],
+        attitudeReading,
+        attitude,
+        additionalDetails: [
+            field(channel, 13, 'Pitch and roll', attitude && `Pitch ${attitude.pitch.toFixed(1)}° · Roll ${attitude.roll.toFixed(1)}°`),
+            field(channel, 12, 'Heading trim', trim === undefined ? undefined : `${trim.toFixed(1)}°`)
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['CMPS12', { inspector: cmps12Summary }],
     ['LSM9DS1', { inspector: lsm9ds1Summary }],
     ['Servo', { inspector: servoSummary }],
     ['Motor', { inspector: motorSummary }],

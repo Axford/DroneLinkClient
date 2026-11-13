@@ -163,6 +163,10 @@ The NMEA Summary keeps heading and satellite status alongside primary position, 
 
 LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent map binding retains priority 3. Reading Details shows the latest magnetic X/Y sample, recent samples from parameter 10, the X/Y calibration bounds and centre from parameters 13 and 14, and the quadrant limits ellipse from parameter 18. Axes have equal scale in microteslas. Invalid bounds and limits leave their geometry unavailable. The scatter shares the bounded observation window with the scalar instruments and collects receipts while the live Summary is expanded.
 
+### CMPS12 heading and attitude
+
+CMPS12 shows the reported heading at FLOAT parameter 10. Firmware already applies declination and the trim at parameter 12 to that heading. The pitch and roll dials use the signed degrees from FLOAT parameter 13 in vector order. Positive pitch rises from the rightward horizontal reference and positive roll moves clockwise from the upright reference. The polar distributions count observed vector receipts in 15-degree bins using the shared five-minute window and the same radial count scale for both dials. Reading Details keeps the heading, trim and attitude vector provenance.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

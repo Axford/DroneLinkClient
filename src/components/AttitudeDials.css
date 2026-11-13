@@ -1,0 +1,22 @@
+.dw-channel-summary.dw-attitude-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dw-attitude-summary > .dw-summary-primary { grid-column: 1 / -1; display: grid; align-content: center; text-align: center; }
+.dw-attitude-summary > .dw-summary-primary dd { display: grid; justify-items: center; }
+.dw-attitude-summary > .dw-attitude-dial { text-align: center; }
+.dw-attitude-dial dt { font-weight: 400; }
+.dw-channel-summary .dw-attitude-dial dd { display: grid; justify-items: center; }
+.dw-attitude-dial svg { display: block; width: min(100%, 5rem); }
+.dw-attitude-ring { fill: none; stroke: var(--dw-color-muted); }
+.dw-attitude-reference { stroke: var(--dw-color-muted); stroke-width: 2; }
+.dw-attitude-bin { fill: var(--dw-color-instrument-blue); }
+.dw-attitude-needle { stroke: var(--dw-color-instrument-reading); stroke-width: 3; }
+.dw-attitude-summary > .dw-attitude-scale {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding-block: var(--dw-space-1);
+}
+.dw-attitude-scale dt { font-weight: 400; }
+.dw-attitude-scale dd { justify-content: center; flex-wrap: wrap; }
+@container (min-width: 270px) {
+    .dw-channel-summary.dw-attitude-summary { grid-template-columns: 1.15fr repeat(2, minmax(0, 1fr)); }
+    .dw-attitude-summary > .dw-summary-primary { grid-column: auto; }
+}
