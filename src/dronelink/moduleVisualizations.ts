@@ -74,19 +74,6 @@ function satelliteCount(channel: ChannelState): ObservedSummary {
     return summary;
 }
 
-function quantity(channel: ChannelState, parameterId: number, label: string, unit: string, decimals: number): ObservedSummary {
-    const value = numericValue(channel.params[parameterId], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    return field(channel, parameterId, label, value === undefined ? undefined : `${value.toFixed(decimals)} ${unit}`);
-}
-
-function cellVoltage(channel: ChannelState, volts: number | undefined, thresholds?: VoltageThresholds | null): ObservedSummary {
-    const summary = field(channel, 15, 'Cell voltage', volts === undefined ? undefined : `${volts.toFixed(2)} V`);
-    if (volts === undefined || !thresholds) return summary;
-    if (volts < thresholds.redBelow) return { ...summary, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
-    if (volts < thresholds.amberBelow) return { ...summary, severity: 'warning', status: `Below amber threshold (${thresholds.amberBelow} V)` };
-    return summary;
-}
-
 function positionText(reading: ParameterState | undefined): string | undefined {
     if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_FLOAT || reading.numValues !== 3 ||
         reading.values.length !== 3 || !Number.isFinite(reading.values[2])) return;
@@ -160,39 +147,77 @@ function rfm69Signal(channel: ChannelState): ObservedSummary {
 
 const rfm69Packets = new PacketTelemetryRenderer({ countsParameter: 9, ratesParameter: 10 });
 
-function powerInputValue(reading: ParameterState | undefined, type: number, index: number): number | undefined {
-    if (!hasReading(reading) || reading.msgType !== type || reading.numValues !== 3 || reading.values.length !== 3) return;
-    const value = reading.values[index];
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
+const powerQuantities = [
+    { id: 14, label: 'Load voltage', unit: 'V' },
+    { id: 12, label: 'Current', unit: 'A' },
+    { id: 13, label: 'Power', unit: 'W' }
+];
+
+function powerQuantity(value: number | undefined, unit: string): string | undefined {
+    if (value !== undefined) return `${value.toFixed(2)} ${unit}`;
 }
 
-function ina3221Inputs(channel: ChannelState): PowerInputSummary[] {
-    const quantities = [
-        { id: 14, label: 'Load voltage', unit: 'V' },
-        { id: 12, label: 'Current', unit: 'A' },
-        { id: 13, label: 'Power', unit: 'W' },
-        { id: 20, label: 'Usage', unit: 'Ah' }
-    ];
-    return [0, 1, 2].map(index => {
-        const volts = powerInputValue(channel.params[15], DRONE_LINK_MSG_TYPE_FLOAT, index);
-        const alarm = powerInputValue(channel.params[16], DRONE_LINK_MSG_TYPE_UINT8_T, index);
-        const readings = quantities.map(({ id, label, unit }) => {
-            const value = powerInputValue(channel.params[id], DRONE_LINK_MSG_TYPE_FLOAT, index);
-            return field(channel, id, label, value === undefined ? undefined : `${value.toFixed(2)} ${unit}`);
-        });
-        return {
-            label: `Input ${index + 1}`,
-            voltage: {
-                ...cellVoltage(channel, volts),
-                voltageDial: volts !== undefined && volts >= 0 ? volts : undefined
-            },
-            readings: [...readings, field(channel, 16, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)]
-        };
-    });
+const cellVoltageParameter = 15;
+const deviceAlarmParameter = 16;
+
+interface PowerTelemetryDefinition {
+    inputCount: number;
+    usageParameter: number;
 }
+
+class PowerTelemetryRenderer {
+    constructor(private readonly definition: PowerTelemetryDefinition) {}
+
+    inputs(channel: ChannelState): PowerInputSummary[] {
+        return Array.from({ length: this.definition.inputCount }, (_, index) => ({
+            label: `Input ${index + 1}`,
+            voltage: this.cellVoltage(channel, index),
+            readings: this.readings(channel, index)
+        }));
+    }
+
+    private value(channel: ChannelState, id: number, type: number, index: number): number | undefined {
+        const reading = channel.params[id];
+        if (!hasReading(reading) || reading.msgType !== type ||
+            reading.numValues !== this.definition.inputCount || reading.values.length !== this.definition.inputCount) return;
+        const value = reading.values[index];
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+    }
+
+    private quantity(channel: ChannelState, id: number, index: number, label: string, unit: string): ObservedSummary {
+        const value = this.value(channel, id, DRONE_LINK_MSG_TYPE_FLOAT, index);
+        return field(channel, id, label, powerQuantity(value, unit));
+    }
+
+    cellVoltage(channel: ChannelState, index: number, thresholds?: VoltageThresholds | null): ObservedSummary {
+        const volts = this.value(channel, cellVoltageParameter, DRONE_LINK_MSG_TYPE_FLOAT, index);
+        const summary = field(channel, cellVoltageParameter, 'Cell voltage', powerQuantity(volts, 'V'));
+        if (volts === undefined) return summary;
+        const voltage = { ...summary, voltageDial: volts >= 0 ? volts : undefined };
+        if (thresholds && volts < thresholds.redBelow) {
+            return { ...voltage, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
+        }
+        if (thresholds && volts < thresholds.amberBelow) {
+            return { ...voltage, severity: 'warning', status: `Below amber threshold (${thresholds.amberBelow} V)` };
+        }
+        return voltage;
+    }
+
+    readings(channel: ChannelState, index: number): ObservedSummary[] {
+        const alarm = this.value(channel, deviceAlarmParameter, DRONE_LINK_MSG_TYPE_UINT8_T, index);
+        return [
+            ...powerQuantities.map(({ id, label, unit }) => this.quantity(channel, id, index, label, unit)),
+            this.quantity(channel, this.definition.usageParameter, index, 'Usage', 'Ah'),
+            field(channel, deviceAlarmParameter, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)
+        ];
+    }
+}
+
+const ina219 = new PowerTelemetryRenderer({ inputCount: 1, usageParameter: 19 });
+const ina3221 = new PowerTelemetryRenderer({ inputCount: 3, usageParameter: 20 });
 
 const visualizations = new Map<string, ModuleVisualization>([
-    ['INA3221', { inspector: channel => ({ inputs: ina3221Inputs(channel) }) }],
+    ['INA3221', { inspector: channel => ({ inputs: ina3221.inputs(channel) }) }],
     ['RFM69Telemetry', {
         overlay: rfm69Signal,
         inspector(channel) {
@@ -232,22 +257,14 @@ const visualizations = new Map<string, ModuleVisualization>([
             }
         },
         overlay(channel, thresholds) {
-            const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            const cell = cellVoltage(channel, volts, thresholds);
+            const { voltageDial, ...cell } = ina219.cellVoltage(channel, 0, thresholds);
             return { ...cell, text: `Cell ${cell.text}` };
         },
         inspector(channel, thresholds) {
-            const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            const alarm = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_UINT8_T]);
             return {
                 layout: 'compact',
-                primary: [{
-                    ...cellVoltage(channel, volts, thresholds),
-                    voltageDial: volts !== undefined && volts >= 0 ? volts : undefined
-                }],
-                supporting: [quantity(channel, 14, 'Load voltage', 'V', 2), quantity(channel, 12, 'Current', 'A', 2),
-                    quantity(channel, 13, 'Power', 'W', 2), quantity(channel, 19, 'Usage', 'Ah', 2),
-                    field(channel, 16, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)]
+                primary: [ina219.cellVoltage(channel, 0, thresholds)],
+                supporting: ina219.readings(channel, 0)
             };
         }
     }],

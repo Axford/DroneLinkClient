@@ -92,3 +92,38 @@ test.each([[0, 'Clear'], [1, 'Triggered'], [2, '—']])('INA219 keeps the device
         ])
     });
 });
+
+test('power telemetry rejects the wrong shape and preserves valid neighbouring input slots', () => {
+    const single = channel(6, 3.2);
+    const triple = channel(7, 3.2, 'INA3221');
+    const scalar = single.params[15];
+    const vector = { ...scalar, numValues: 3, values: [3.2, NaN, 3.8] };
+    single.params[15] = vector;
+    triple.params[15] = vector;
+    triple.params[19] = { ...vector, param: 19, values: [100, 200, 300] };
+    triple.params[20] = { ...vector, param: 20, values: [-2, 0, 3] };
+    triple.params[16] = { ...vector, param: 16, values: [0, 1, 0] };
+
+    expect(channelVisualization(single)?.inspector?.(single, thresholds)).toMatchObject({
+        primary: [{ unavailable: true, reading: vector }]
+    });
+    const summary = channelVisualization(triple)?.inspector?.(triple, thresholds);
+    expect(summary && 'inputs' in summary && summary.inputs.map(input => input.voltage)).toMatchObject([
+        { text: '3.20 V', voltageDial: 3.2, reading: vector },
+        { unavailable: true, reading: vector },
+        { text: '3.80 V', voltageDial: 3.8, reading: vector }
+    ]);
+    if (!summary || !('inputs' in summary)) throw new Error('Expected three power inputs');
+    ['-2.00 Ah', '0.00 Ah', '3.00 Ah'].forEach((usage, index) => {
+        expect(summary.inputs[index].voltage.severity).toBeUndefined();
+        expect(summary.inputs[index].readings).toEqual(expect.arrayContaining([
+            expect.objectContaining({ parameterId: 20, text: usage }),
+            expect.objectContaining({ parameterId: 16, unavailable: true })
+        ]));
+    });
+
+    triple.params[15] = scalar;
+    expect(channelVisualization(triple)?.inspector?.(triple)).toMatchObject({
+        inputs: Array.from({ length: 3 }, () => ({ voltage: { unavailable: true, reading: scalar } }))
+    });
+});

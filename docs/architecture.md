@@ -123,6 +123,10 @@ The firmware and legacy dispatcher identify the module as `RFM69Telemetry`. The 
 
 The signal trace uses the sampled window while the expanded Summary is visible on an active Domain with ready observations or a connected Workbench path. It plots receipt time and breaks across unavailable samples or gaps over 15 seconds. Switching node or path, leaving the Summary, losing the connection or resetting its observations clears the trace. Archived snapshots can display the last observed RSSI.
 
+### Shared power telemetry
+
+The INA219 and INA3221 registry entries use the same power telemetry renderer for electrical readings. Each configures the firmware input count and usage parameter. The renderer checks observation availability, message type, declared and received width, and the numeric value of each input. It owns measurement labels, units, precision, device alarm interpretation and the cell-voltage projection. Both summaries use the same reading tiles and fixed-scale dial. INA219 alone supplies saved voltage thresholds and projects the node chip.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.
