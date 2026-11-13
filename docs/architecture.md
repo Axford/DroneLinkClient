@@ -191,6 +191,10 @@ The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The
 
 The INA3221 Summary presents the firmware's three ordered input slots, each with the INA219 0–5 V dial and its own load voltage, current, power, signed usage and observed alarm. Wide cards align the input rows. Input numbers and unit-redundant labels are available to assistive technology and in Reading Details. The Summary shows a label where a missing value would otherwise be ambiguous, and for the unitless alarm. Narrow cards stack the inputs and place supporting values beside their dial where space allows. Each reading retains provenance from its source parameter vector. Invalid vector shapes show unavailable for that parameter, while other vectors and valid individual entries remain visible. INA219 display thresholds remain specific to INA219.
 
+### Shared navigation geometry
+
+Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
+
 ### Sailor marine dial
 
 Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the fifth byte may not reflect the current manoeuvre. Reading Details retains each observation receipt.

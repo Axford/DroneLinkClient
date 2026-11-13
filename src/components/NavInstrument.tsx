@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import type { NavSummary, ObservedSummary } from '../dronelink/moduleVisualizations';
-import { CircularDialGuides, DialHand } from './AttitudeDial';
+import { CircularDialGuides, DialHand } from './CircularDialGeometry';
 import { ObservationNamesContext } from './parameterPresentation';
 import './NavInstrument.css';
 

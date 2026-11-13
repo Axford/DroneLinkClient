@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ObservedSummary, SailorSummary } from '../dronelink/moduleVisualizations';
-import { CircularDialGuides, DialHand, dialPoint } from './AttitudeDial';
+import { CircularDialGuides, DialHand, dialPoint } from './CircularDialGeometry';
+import { SailingProfiles, projectSailingProfiles } from './SailingProfiles';
 import './SailorInstrument.css';
 
 const hands = [
@@ -11,11 +12,6 @@ const hands = [
     { role: 'courseWind', inner: 33, outer: 54 },
     { role: 'wing', inner: 19, outer: 55 }
 ] as const;
-
-function profilePoints(samples: number[], courseWind: number, offset = 0) {
-    return samples.map((value, index) =>
-        dialPoint(courseWind + (offset + index + 0.5) * 360 / 32, 19 + 25 * value / 255));
-}
 
 function rudderPath(heading: number, output: number) {
     const end = heading + output * 180 / Math.PI;
@@ -34,13 +30,8 @@ export default function SailorInstrument({ label, summary }: { label: string; su
     const { sailBearings, polar, speeds, rudderOutput, gybing, sheet } = summary;
     const orientation = sailBearings.courseWind.bearing;
     const heading = sailBearings.heading.bearing;
-    const polarPoints = polar && orientation !== undefined
-        ? profilePoints([...polar, ...polar.slice().reverse()], orientation) : undefined;
-    const speedPaths = orientation === undefined ? [] : speeds.flatMap((half, index) =>
-        half ? [profilePoints(half, orientation, index * 16)] : []);
-    const speedPoints = speedPaths.length === 2 ? [speedPaths.flat()] : speedPaths;
-    const polarStatus = polarPoints ? '' : 'unavailable';
-    const speedStatus = speedPaths.length === 0 ? 'unavailable' : speedPaths.length === 1 ? 'partial' : '';
+    const profiles = projectSailingProfiles({ polar, speeds, bearing: orientation, inner: 19, outer: 44 });
+    const { polarStatus, speedStatus } = profiles;
     const description = 'Sailing bearings clockwise from north. ' +
         hands.map(({ role }) => {
             const reading = sailBearings[role];
@@ -52,10 +43,7 @@ export default function SailorInstrument({ label, summary }: { label: string; su
         <div className="dw-sailor-main">
             <div className="dw-sailor-dial">
                 <svg viewBox="-20 -20 140 140" role="img" aria-label={description}>
-                    {polarPoints && <polygon data-series="polar" points={polarPoints.join(' ')} />}
-                    {speedPoints.map((points, index) => speedPaths.length === 2
-                        ? <polygon key={index} data-series="speed" points={points.join(' ')} />
-                        : <polyline key={index} data-series="speed" points={points.join(' ')} />)}
+                    <SailingProfiles profiles={profiles} />
                     {heading !== undefined && rudderOutput !== undefined && rudderOutput !== 0 &&
                         <path className="dw-sailor-rudder" data-gybing={gybing || undefined} d={rudderPath(heading, rudderOutput)} />}
                     <CircularDialGuides ticks />
