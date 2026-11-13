@@ -1,3 +1,5 @@
+import NodeNetwork from './NodeNetwork';
+import type { NodeNetworkSnapshot } from './NodeNetwork';
 import React from 'react';
 import { transportLabel, transports, useWorkbenchFeed } from './useWorkbenchFeed';
 
@@ -6,11 +8,13 @@ function localTime(timestamp: number) {
     return <time dateTime={date.toISOString()}>{date.toLocaleTimeString()}</time>;
 }
 
-export default function WorkbenchNetwork({ feed, selectedNode, select, selectionDisabled }: {
+export default function WorkbenchNetwork({ feed, selectedNode, select, selectionDisabled, nodeTransport, readNode }: {
     feed: ReturnType<typeof useWorkbenchFeed>;
     selectedNode?: number;
     select: (node: number) => boolean;
     selectionDisabled: boolean;
+    nodeTransport?: 'wifi' | 'serial';
+    readNode?: (signal: AbortSignal) => Promise<NodeNetworkSnapshot>;
 }) {
     const { status, routes, paths, observations, interfaces, diagnostics } = feed;
     const connected = status === 'connected';
@@ -47,6 +51,8 @@ export default function WorkbenchNetwork({ feed, selectedNode, select, selection
                     <td>{route.metric ?? '—'}</td><td>{localTime(route.lastHeardAtMs)}</td><td>{!connected ? 'Last seen' : !route.reachable ? 'Expired' : preferredRoute ? 'Selected route' : 'Reachable'}</td></tr>;
             }))}</tbody>
         </table></div>}
+        {selectedNode !== undefined && <NodeNetwork key={`${selectedNode}:${nodeTransport ?? 'auto'}`} node={selectedNode} read={readNode}
+            unavailable={connected ? 'The selected node needs a direct Wi-Fi route.' : 'The gateway connection is unavailable.'} />}
         {interfaces.serial && <section aria-labelledby="workbench-serial-log">
             <h3 id="workbench-serial-log">Serial diagnostics</h3>
             {diagnostics.length === 0 ? <p>Waiting for framed serial diagnostics.</p> :

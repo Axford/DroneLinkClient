@@ -5,6 +5,7 @@ import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
 import { DomainLens, DomainLensPanels, DomainWorkspace } from './components/DomainWorkspace';
 import NodeSelector from './components/NodeSelector';
+import type { NodeNetworkSnapshot } from './workbench/NodeNetwork';
 import WorkbenchNetwork from './workbench/WorkbenchNetwork';
 import ObservedMap from './components/ObservedMap';
 import { NodeMapSettings, NodeMapSettingsProvider } from './components/NodeMapSettings';
@@ -182,7 +183,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
         : <div className="dw-workbench-lens">
             {lens === 'network' && (workbench.network
-                ? <WorkbenchNetwork feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode} selectionDisabled={filesBusy} />
+                ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode} selectionDisabled={filesBusy}
+                    readNode={!archived && local && localTransport === 'wifi' && selectedNodeId !== null &&
+                        workbench.network.paths.wifi[selectedNodeId]?.nextHop === selectedNodeId
+                        ? signal => workbench.readNetwork<NodeNetworkSnapshot>(selectedNodeId, signal) : undefined} />
                 : <p>{archived ? 'Live gateway routes are unavailable for archived Domains. Select a node to inspect retained observations.'
                     : 'Pair a local gateway to see live routes.'}</p>)}
             <NodeSelector inline nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={selectNode}

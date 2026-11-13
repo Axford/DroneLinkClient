@@ -11,6 +11,7 @@ import ChannelList from '../components/ChannelList';
 import { InspectorSessionProvider } from '../components/InspectorSession';
 import { ObservationNamesContext } from '../components/parameterPresentation';
 import { Transport, transportLabel, transports, useWorkbenchFeed, WorkbenchCapture } from './useWorkbenchFeed';
+import type { NodeNetworkSnapshot } from './NodeNetwork';
 import WorkbenchNetwork from './WorkbenchNetwork';
 import { LiveCapture, seriesLimit } from './liveCharts/capture';
 import { signalCatalogue, Signal, SignalPlotContext } from './liveCharts/catalogue';
@@ -80,21 +81,29 @@ export default function WorkbenchPage() {
     const [selectedNode, selectNode] = useState<number>();
     const [files, setFiles] = useState({ busy: false, dirty: false });
     const reportFiles = useCallback((busy: boolean, dirty: boolean) => setFiles({ busy, dirty }), []);
-    const [, refreshChoice] = useState(0);
+    const [overrides, setOverrides] = useState(choices.current);
     const connected = status === 'connected';
     const gateway = gatewayAddresses(interfaces);
     const key = transportKey(gateway, selectedNode);
-    const choiceFor = (id: number | undefined) => {
+    const choiceFor = useCallback((id: number | undefined) => {
         const address = transportKey(gateway, id);
-        return choices.current[address] ?? readChoice(address);
-    };
+        return overrides[address] ?? readChoice(address);
+    }, [gateway, overrides]);
     const choice = choiceFor(selectedNode);
     const autoRoute = selectedNode === undefined ? undefined : routes[selectedNode];
     const active = choice === 'auto' ? autoRoute?.transport : choice;
     const path = active && selectedNode !== undefined ? paths[active][selectedNode] : undefined;
     const node = active && selectedNode !== undefined ? observations[active][selectedNode] : undefined;
+    const readNode = connected && active === 'wifi' && path?.reachable && path.nextHop === selectedNode
+        ? async (signal: AbortSignal): Promise<NodeNetworkSnapshot> => {
+            const response = await fetch(`/api/workbench/v1/nodes/${selectedNode}/network?transport=wifi`, { cache: 'no-store', signal });
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.error || 'Node network snapshot unavailable.');
+            return body;
+        } : undefined;
     const configured = transports.filter(transport => interfaces[transport]);
-    const nodes = Array.from(new Set([...Object.keys(routes), ...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number))).sort((a, b) => a - b);
+    const nodes = useMemo(() => Array.from(new Set([...Object.keys(routes), ...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number)))
+        .sort((a, b) => a - b), [routes, paths]);
     const showTransport = configured.length > 0;
 
     React.useEffect(() => {
@@ -110,9 +119,9 @@ export default function WorkbenchPage() {
     }, [lens, mapToken]);
 
     function setChoice(value: Selection) {
-        choices.current[key] = value;
+        choices.current = { ...choices.current, [key]: value };
         if (lastRoutes.current) captureFeed.routes(...lastRoutes.current);
-        refreshChoice(previous => previous + 1);
+        setOverrides(choices.current);
         try { window.localStorage.setItem(key, value); }
         catch { /* The selection is retained for this page. */ }
     }
@@ -124,14 +133,14 @@ export default function WorkbenchPage() {
         return true;
     }
 
-    const localNodes: GlobalState = Object.fromEntries(nodes.map(id => {
+    const localNodes = useMemo<GlobalState>(() => Object.fromEntries(nodes.map(id => {
         const route = routes[id];
         const preference = choiceFor(id);
         const transport = preference === 'auto' ? route?.transport : preference;
         const observed = transport ? observations[transport][id] : undefined;
         return [id, observed ?? { id, channels: {}, lastHeard: route?.lastHeardAtMs ?? 0, interface: 'Local' }];
-    }));
-    const catalogue = showCharts || capturing ? signalCatalogue(localNodes) : [];
+    })), [nodes, routes, choiceFor, observations]);
+    const catalogue = useMemo(() => showCharts || capturing ? signalCatalogue(localNodes) : [], [showCharts, capturing, localNodes]);
     React.useEffect(() => {
         if (!capturing) return;
         for (const signal of catalogue) {
@@ -191,7 +200,7 @@ export default function WorkbenchPage() {
                     search={search} onSearch={setSearch} />
             </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} /> : selector}
+                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} readNode={readNode} /> : selector}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}

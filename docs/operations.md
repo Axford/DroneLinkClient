@@ -240,7 +240,7 @@ Use **Physical** and select **DroneLink V4** to open the legacy board diagram wi
 
 To configure a pin, add **Probe** from the catalogue if needed, choose a GPIO and set its mode in the draft. Select a baud for Serial. Upload and Restart separately to run the changed configuration. The diagram shows recent results from the selected local node and transport when the stored pin declaration agrees with the draft mode. A draft assignment and a running Probe's report are different sources of evidence. See the [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
 
-In **Physical**, choose **Scan I²C** to check all multiplexer channels on the selected local Wi-Fi node. An acknowledgement annotates a matching draft device or creates a dashed detected device on that channel. Select a responding address and use **Identify device** when a reviewed register signature is available. The result shows the raw register data, time and any match or failure.
+In **Physical**, choose **Scan I²C** to check all multiplexer channels on the selected local Wi-Fi node. An acknowledgement annotates a matching draft device or creates a dashed detected device on that channel. Select a responding card to open its evidence card on the graph. Use **Identify device** when a reviewed signature is available. Solid green cards mark responses. Solid amber cards mark configured addresses that did not respond on a completed channel. Connector details and draft wiring controls appear on the canvas when selected. The result shows the raw register data, time and any match or failure.
 
 ### Connected Workbench
 
@@ -263,6 +263,10 @@ The serial row displays the configured baud and 8N1. The receipt age is the
 time since Workbench received the result. Edit the startup settings through
 **Files**, verify Upload, then Restart separately. See the
 [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+
+### Selected node network
+
+Select a node in **Network**, then choose **Refresh node network**. The node snapshot shows its own mesh interfaces, outbound routes and transmit queue alongside the gateway view. An unreachable route or failed refresh marks the preceding snapshot as last seen.
 
 ## Workbench live charts
 
