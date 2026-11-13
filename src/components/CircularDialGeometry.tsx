@@ -8,6 +8,15 @@ export function dialPoint(angle: number, radius: number) {
     return `${dialCentre + radius * Math.sin(radians)} ${dialCentre - radius * Math.cos(radians)}`;
 }
 
+/** Signed clockwise sweep from a bearing. Callers supply a sweep smaller than one revolution. */
+export function dialBand(start: number, sweepDegrees: number, inner: number, outer: number, tipRadius?: number) {
+    const end = start + sweepDegrees;
+    const sweep = sweepDegrees > 0 ? 1 : 0;
+    const large = Math.abs(sweepDegrees) > 180 ? 1 : 0;
+    const tip = tipRadius === undefined ? '' : ` L ${dialPoint(start + (end - start) * 1.1, tipRadius)}`;
+    return `M ${dialPoint(start, outer)} A ${outer} ${outer} 0 ${large} ${sweep} ${dialPoint(end, outer)}${tip} L ${dialPoint(end, inner)} A ${inner} ${inner} 0 ${large} ${1 - sweep} ${dialPoint(start, inner)} Z`;
+}
+
 export function DialHand({ bearing, inner, outer, className, role }: {
     bearing: number;
     inner: number;

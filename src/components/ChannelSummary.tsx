@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import TurnRateInstrument from './TurnRateInstrument';
 import ProaInstrument from './ProaInstrument';
 import SailorInstrument from './SailorInstrument';
 import WaypointInstrument from './WaypointInstrument';
@@ -57,6 +58,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('turnOutput' in summary) {
+        return <TurnRateInstrument label={label} summary={summary} />;
+    }
     if ('proaBearings' in summary) {
         return <ProaInstrument label={label} summary={summary} />;
     }

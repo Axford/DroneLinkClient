@@ -551,3 +551,26 @@ test('Proa wraps the reported course and scales steering commands in the vessel 
         context: expect.arrayContaining([expect.objectContaining({ label: 'Operation', text: 'Passive' })])
     });
 });
+
+
+test('TurnRate preserves signed outputs, valid zero, and the observed gybe mode', () => {
+    const observed = channel(6, 0, 'TurnRate');
+    const scalar = observed.params[15];
+    const rate = (value: number) => ({ ...scalar, param: 16, values: [value] });
+    Object.assign(observed.params, {
+        10: { ...scalar, param: 10, values: [-3] }, 12: { ...scalar, param: 12, values: [4] },
+        16: rate(-8.2), 19: { ...scalar, param: 19, msgType: DRONE_LINK_MSG_TYPE_UINT8_T, values: [2] }
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        target: { bearing: 357 }, heading: { bearing: 4 }, output: -8.2,
+        turnOutput: { text: '-8.2', reading: observed.params[16] },
+        mode: { text: 'Gybe', severity: 'danger' }, threshold: { unavailable: true }
+    });
+    observed.params[16] = rate(0);
+    expect(inspect()).toMatchObject({ output: 0, turnOutput: { text: '0.0' }, gybing: true });
+    observed.params[16] = rate(0.04);
+    expect(inspect()).toMatchObject({ turnOutput: { text: '+<0.1' } });
+    observed.params[16] = rate(11);
+    expect(inspect()).toMatchObject({ turnOutput: { unavailable: true } });
+});

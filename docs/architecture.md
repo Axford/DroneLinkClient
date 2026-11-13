@@ -195,6 +195,10 @@ The INA3221 Summary presents the firmware's three ordered input slots, each with
 
 Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
 
+### TurnRate dial
+
+TurnRate compares the heading at 12 and signed target at 10 on the shared circular dial. Parameter 16 is a signed controller output, not an angular velocity. Firmware clamps it to ±10, while the arc preserves the legacy visual cap at ±6. Positive output draws clockwise from heading. Parameter 17 supplies the angular threshold band around target, and 19 supplies the observed Normal, Possible gybe or Gybe mode. Each reading retains its own receipt. The heading map binding remains independent of the renderer.
+
 ### Proa steering and wind profiles
 
 Proa rotates its shared polar and speed profiles by live wind. Heading rotates the vessel drawing and its observed steering. The wing output maps to ±90° and the two pontoon outputs to ±120°. Course over water is already vessel-relative. The target frame adds the observed offset to course. Parameter 29 reports passive/active operation, while the fourth debug value at 30 reports Normal, Brake or Run. Missing inputs omit their marks and retain independent receipt provenance in Reading Details.

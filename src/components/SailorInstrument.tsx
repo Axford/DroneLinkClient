@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ObservedSummary, SailorSummary } from '../dronelink/moduleVisualizations';
-import { CircularDialGuides, DialHand, dialPoint } from './CircularDialGeometry';
+import { CircularDialGuides, DialHand, dialBand } from './CircularDialGeometry';
 import { SailingProfiles, projectSailingProfiles } from './SailingProfiles';
 import './SailorInstrument.css';
 
@@ -12,12 +12,6 @@ const hands = [
     { role: 'courseWind', inner: 33, outer: 54 },
     { role: 'wing', inner: 19, outer: 55 }
 ] as const;
-
-function rudderPath(heading: number, output: number) {
-    const end = heading + output * 180 / Math.PI;
-    const sweep = output > 0 ? 1 : 0;
-    return `M ${dialPoint(heading, 44)} A 44 44 0 0 ${sweep} ${dialPoint(end, 44)} L ${dialPoint(heading + (end - heading) * 1.1, 36)} L ${dialPoint(end, 28)} A 28 28 0 0 ${1 - sweep} ${dialPoint(heading, 28)} Z`;
-}
 
 function Readout({ reading, role }: { reading: ObservedSummary; role?: string }) {
     return <div>
@@ -45,7 +39,7 @@ export default function SailorInstrument({ label, summary }: { label: string; su
                 <svg viewBox="-20 -20 140 140" role="img" aria-label={description}>
                     <SailingProfiles profiles={profiles} />
                     {heading !== undefined && rudderOutput !== undefined && rudderOutput !== 0 &&
-                        <path className="dw-sailor-rudder" data-gybing={gybing || undefined} d={rudderPath(heading, rudderOutput)} />}
+                        <path className="dw-sailor-rudder" data-gybing={gybing || undefined} d={dialBand(heading, rudderOutput * 180 / Math.PI, 28, 44, 36)} />}
                     <CircularDialGuides ticks />
                     {hands.map(({ role, inner, outer }) => {
                         const bearing = sailBearings[role].bearing;

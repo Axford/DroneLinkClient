@@ -30,13 +30,25 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface TurnRateSummary {
+    turnOutput: ObservedSummary;
+    output?: number;
+    heading: ObservedSummary;
+    target: ObservedSummary;
+    threshold: ObservedSummary;
+    thresholdDegrees?: number;
+    mode: ObservedSummary;
+    gybing: boolean;
+    details: ObservedSummary[];
+}
 
 export interface ProaSummary {
     proaBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'frame', ObservedSummary>;
@@ -899,7 +911,29 @@ function proaSummary(channel: ChannelState): ProaSummary {
     };
 }
 
+function turnRateSummary(channel: ChannelState): TurnRateSummary {
+    const heading = bearingReading(channel, 12, 'Heading');
+    const target = signedBearingReading(channel, 10, 'Target');
+    const rate = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const output = rate !== undefined && Math.abs(rate) <= 10 ? rate : undefined;
+    let outputText = output?.toFixed(1);
+    if (output !== undefined && output !== 0 && Math.abs(output) < 0.05) {
+        outputText = output > 0 ? '+<0.1' : '−<0.1';
+    }
+    const turnOutput = field(channel, 16, 'Turn output', outputText);
+    const thresholdValue = numericValue(channel.params[17], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const thresholdDegrees = thresholdValue !== undefined && thresholdValue >= 0 ? thresholdValue : undefined;
+    const threshold = field(channel, 17, 'Gybe threshold', thresholdDegrees === undefined ? undefined : `${thresholdDegrees.toFixed(1)}°`);
+    const modeValue = byteArray(channel.params[19], 1)?.[0];
+    const mode = field(channel, 19, 'Mode', modeValue === undefined ? undefined : ['Normal', 'Possible gybe', 'Gybe'][modeValue]);
+    if (modeValue === 1) mode.severity = 'warning';
+    if (modeValue === 2) mode.severity = 'danger';
+    return { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, gybing: modeValue === 2,
+        details: [heading, target, turnOutput, threshold, mode] };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['TurnRate', { inspector: turnRateSummary }],
     ['Proa', { inspector: proaSummary }],
     ['Sailor', { inspector: sailorSummary }],
     ['Waypoint', { inspector: waypointSummary }],
