@@ -192,3 +192,102 @@ export function updateSubscriptionSource(text: string, subscription: DraftSubscr
     lines[index] = raw.slice(0, valueStart) + replacement + raw.slice(valueEnd);
     return lines.join('\n');
 }
+
+type ModuleEdit = { text: string; changes: { before?: string; after: string }[] };
+const maxNodeFileBytes = 8192;
+const ending = (text: string) => text.includes('\r\n') ? '\r\n' : '\n';
+const indentation = (raw: string) => /^[ \t]*/.exec(raw)![0];
+
+function patchModuleLine(text: string, module: DraftModule, key: string, value: string,
+    transform?: (original: string, parsed: string) => string | undefined): ModuleEdit | undefined {
+    const newline = ending(text);
+    const lines = text.split(newline);
+    const matches: number[] = [];
+    const first = module.line;
+    let insertAt = first;
+    for (let index = first; index < lines.length; index++) {
+        const line = splitLine(lines[index], false);
+        if (line.section) break;
+        if (line.empty || !line.valid) continue;
+        if (line.name === key) matches.push(index);
+        insertAt = index + 1;
+    }
+    if (matches.length > 1) return;
+    if (matches.length === 1) {
+        const index = matches[0], before = lines[index], { valueStart, valueEnd, value: parsed } = splitLine(before, false);
+        const original = before.slice(valueStart, valueEnd);
+        const wrapped = original.startsWith('"') && original.endsWith('"');
+        const replacement = transform ? transform(original, parsed) : wrapped ? `"${value}"` : value;
+        if (replacement === undefined) return;
+        const after = before.slice(0, valueStart) + replacement + before.slice(valueEnd);
+        if (after === before) return { text, changes: [] };
+        lines[index] = after;
+        return { text: lines.join(newline), changes: [{ before, after }] };
+    }
+    const indent = insertAt > first ? indentation(lines[insertAt - 1]) : '  ';
+    const after = `${indent}${key} = ${value}`;
+    lines.splice(insertAt, 0, after);
+    if (insertAt === lines.length - 1) lines.push('');
+    return { text: lines.join(newline), changes: [{ after }] };
+}
+
+export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav') {
+    const overview = inspectNodeConfiguration(text, node);
+    if (overview.diagnostics.some(item => item.severity === 'error')) return;
+    const occupied = new Set(overview.modules.map(module => module.channel));
+    const channel = Array.from({ length: 253 }, (_, index) => index + 2).find(value => !occupied.has(value));
+    if (channel === undefined) return;
+    const newline = ending(text);
+    const prefix = text + (text.endsWith(newline) ? newline : newline + newline);
+    const base = type === 'NMEA' ? 'GPS' : 'Pilot';
+    const names = new Set(overview.modules.map(module => moduleLookupName(module.name)));
+    let name = base;
+    for (let index = 2; names.has(name); index++) name = `${base}${index}`;
+    const lines = [`[${type} = ${channel}]`, `  name = ${name}`];
+    const draft = prefix + [...lines, ''].join(newline);
+    if (bytes(draft) <= maxNodeFileBytes) return { text: draft, line: prefix.split(newline).length, channel };
+}
+
+export function gpsPort(text: string, module: DraftModule) {
+    const values: string[] = [];
+    for (const raw of text.split('\n').slice(module.line)) {
+        const line = splitLine(raw, false);
+        if (line.section) break;
+        if (line.valid && line.name === 'port') values.push(line.value.replace(/[ \t]/g, ''));
+    }
+    if (!values.length) return 'default';
+    if (values.length !== 1 || !/^[12](?:,(?:[12]|255))?$/.test(values[0])) return undefined;
+    return values[0][0];
+}
+
+export function setGpsPort(text: string, node: number, channel: number, port: string) {
+    if (!/^[12]$/.test(port)) return;
+    const overview = inspectNodeConfiguration(text, node);
+    if (overview.diagnostics.some(item => item.severity === 'error')) return;
+    const module = overview.modules.find(item => item.channel === channel && item.type === 'NMEA');
+    if (!module || gpsPort(text, module) === undefined) return;
+    const edit = patchModuleLine(text, module, 'port', port, (original, parsed) => {
+        if (parsed.replace(/[ \t]/g, '').split(',')[1] === port) return;
+        return original.replace(/[12]/, port);
+    });
+    if (edit && bytes(edit.text) <= maxNodeFileBytes && !inspectNodeConfiguration(edit.text, node).diagnostics.some(item => item.severity === 'error')) return edit;
+}
+
+export function connectGpsLocation(text: string, node: number, gps: number, pilot: number, output: number): ModuleEdit | undefined {
+    if (!Number.isInteger(output) || output < 1 || output > 63) return;
+    const overview = inspectNodeConfiguration(text, node);
+    if (overview.diagnostics.some(item => item.severity === 'error')) return;
+    const source = overview.modules.find(item => item.channel === gps && item.type === 'NMEA');
+    const target = overview.modules.find(item => item.channel === pilot && item.type === 'Nav');
+    if (!source || !target) return;
+    const publication = patchModuleLine(text, source, 'publish', 'location', (original, parsed) => {
+        if (parsed.replace(/[ \t]/g, '').split(',').includes('location')) return original;
+        if (parsed.endsWith(',')) return;
+        return original.endsWith('"') ? original.slice(0, -1) + ', location"' : original + ', location';
+    });
+    if (!publication) return;
+    const updatedTarget = inspectNodeConfiguration(publication.text, node).modules.find(item => item.channel === pilot)!;
+    const subscription = patchModuleLine(publication.text, updatedTarget, '$location', `@>${gps}.${output}`);
+    if (!subscription || bytes(subscription.text) > maxNodeFileBytes || inspectNodeConfiguration(subscription.text, node).diagnostics.some(item => item.severity === 'error')) return;
+    return { text: subscription.text, changes: [...publication.changes, ...subscription.changes] };
+}

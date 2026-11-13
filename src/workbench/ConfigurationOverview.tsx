@@ -7,7 +7,7 @@ const ConfigurationGraph = React.lazy(() => import('./ConfigurationGraph'));
 type Module = Overview['modules'][number];
 type Subscription = Module['subscriptions'][number];
 
-export default function ConfigurationOverview({ overview, text, editable, onChange, goToLine, selectedChannel, onSelect }: {
+export default function ConfigurationOverview({ overview, text, editable, onChange, goToLine, selectedChannel, onSelect, selectedDetails }: {
     overview: Overview;
     text: string;
     editable: boolean;
@@ -15,6 +15,7 @@ export default function ConfigurationOverview({ overview, text, editable, onChan
     goToLine: (line: number) => void;
     selectedChannel?: number;
     onSelect: (channel: number) => void;
+    selectedDetails?: React.ReactNode;
 }) {
     const inputId = useId();
     const [edit, setEdit] = useState<{ subscription: Subscription; text: string; value: string }>();
@@ -39,6 +40,7 @@ export default function ConfigurationOverview({ overview, text, editable, onChan
         <Suspense fallback={<p role="status">Loading subscription graph…</p>}>
             <ConfigurationGraph modules={overview.modules} selected={selectedChannel} onSelect={onSelect} onInput={selectInput} />
         </Suspense>
+        {selectedDetails}
         <ul className="list-unstyled">
             {overview.modules.map(module => <li key={module.channel} className="dw-config-module" data-selected={module.channel === selectedChannel}>
                 <button type="button" className="btn btn-link p-0 text-start" onClick={() => { onSelect(module.channel); goToLine(module.line); }}>

@@ -9,10 +9,13 @@ import useNarrowLayout from '../components/ui/useNarrowLayout';
 import { CloudFile, CloudFileEntry, cloudNodeFiles } from './cloudNodeFiles';
 import { authenticatedFetchJson } from '../utils/api';
 import ConfigurationOverview from './ConfigurationOverview';
-import { inspectNodeConfiguration } from './nodeConfiguration';
+import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
+import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
+import type { Catalogue, Starter } from './ModuleCatalogue';
 import { Transport, transportLabel } from './useWorkbenchFeed';
 
 const ConfigurationEditor = React.lazy(() => import('./ConfigurationEditor'));
+const catalogueLifetimeMs = 60_000;
 const noDiagnostics: ReturnType<typeof inspectNodeConfiguration>['diagnostics'] = [];
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 const timestampFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -51,6 +54,10 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     }, []);
     const [picker, setPicker] = useState(false);
     const [view, setView] = useState<'logical' | 'code'>('logical');
+    const [catalogueOpen, setCatalogueOpen] = useState(false);
+    const [catalogueLoading, setCatalogueLoading] = useState(false);
+    const [catalogueResult, setCatalogueResult] = useState<{ context: string; value: Catalogue }>();
+    const catalogueRequest = React.useRef(0);
     const [selectedModule, setSelectedModule] = useState<number>();
     const [lineToOpen, setLineToOpen] = useState<number>();
     const [source, setSource] = useState<'node' | 'cloud'>('node');
@@ -91,6 +98,26 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         [configuration, draftText, node]);
     const diagnostics = overview?.diagnostics ?? noDiagnostics;
     const configurationError = diagnostics.some(item => item.severity === 'error');
+
+    const catalogueContext = JSON.stringify([node, transport, available, domainId, !!remote, readOnly, source, current?.path]);
+    const activeCatalogueContext = React.useRef(catalogueContext);
+    activeCatalogueContext.current = catalogueContext;
+    const catalogue = catalogueResult?.context === catalogueContext ? catalogueResult.value : undefined;
+    const canGuide = editable && !busy && !configurationError;
+    const canAddModule = canGuide && (overview?.modules.filter(module => module.channel > 1).length ?? 0) < 253;
+
+    useEffect(() => {
+        catalogueRequest.current++;
+        setCatalogueOpen(false);
+        setCatalogueLoading(false);
+        setCatalogueResult(undefined);
+    }, [catalogueContext]);
+
+    useEffect(() => {
+        if (!catalogueResult) return;
+        const timer = setTimeout(() => setCatalogueResult(undefined), catalogueLifetimeMs);
+        return () => clearTimeout(timer);
+    }, [catalogueResult]);
 
     useEffect(() => {
         setView('logical');
@@ -171,6 +198,43 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         return body as T;
     }
 
+    function clearCatalogue() {
+        catalogueRequest.current++;
+        setCatalogueLoading(false);
+        setCatalogueResult(undefined);
+    }
+
+    async function loadCatalogue() {
+        const id = ++catalogueRequest.current;
+        setCatalogueResult(undefined);
+        if (!available || !transport || (domainId && !remote)) { setCatalogueLoading(false); return; }
+        setCatalogueLoading(true);
+        try {
+            const result = await request<Catalogue>('module-catalogue');
+            if (result.schemaVersion === 1 && result.node === node && Array.isArray(result.entries) &&
+                id === catalogueRequest.current && activeCatalogueContext.current === catalogueContext) {
+                setCatalogueResult({ context: catalogueContext, value: result });
+            }
+        } catch { /* Older gateways and unavailable routes leave support unknown. */ }
+        finally {
+            if (id === catalogueRequest.current) setCatalogueLoading(false);
+        }
+    }
+
+    function addModule(type: Starter) {
+        if (!canAddModule || !catalogue?.entries.some(entry => entry.type === type && entry.support === 'supported')) return;
+        const edit = appendStarter(draftText, node, type);
+        if (!edit) {
+            setCatalogueOpen(false);
+            setFeedback({ text: 'The starter could not fit in the node’s 8 KiB configuration file.', error: true });
+            return;
+        }
+        setCurrentDraft(editorText(edit.text));
+        setSelectedModule(edit.channel);
+        setCatalogueOpen(false);
+        if (view === 'code') openCodeAtLine(edit.line);
+    }
+
     async function run(operation: () => Promise<void>, allowed = canAct) {
         if (!allowed || busy) return;
         setBusy(true);
@@ -184,6 +248,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         if (dirty && !window.confirm('Discard the unsaved draft and open the stored file?')) return;
         void run(async () => {
             const file = await request<StoredFile>('file', undefined, filePath);
+            clearCatalogue();
             setBackupStatus(undefined);
             setStored(file);
             setVersionText(undefined);
@@ -212,6 +277,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         if (!window.confirm(`Restart node ${node} using its stored configuration?${draftNote}`)) return;
         void run(async () => {
             await request('restart', { method: 'POST', body: '{}' });
+            clearCatalogue();
             setFeedback({ text: 'Restart requested. Check Network for the node’s return.' });
         });
     }
@@ -407,7 +473,11 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                 {overview && <div className="dw-file-sources dw-config-views" role="group" aria-label="Configuration views">
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'logical'} onClick={() => setView('logical')}>Logical</button>
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'code'} onClick={() => setView('code')}>Code</button>
+                    {editable && <button type="button" className="btn btn-sm" disabled={busy}
+                        onClick={() => { setCatalogueOpen(true); void loadCatalogue(); }}>Add module</button>}
                 </div>}
+                {overview && editable && catalogueOpen && <ModuleCatalogue catalogue={catalogue} loading={catalogueLoading}
+                    canAdd={canAddModule} onRetry={() => void loadCatalogue()} onClose={() => setCatalogueOpen(false)} onAdd={addModule} />}
                 <div hidden={!!overview && view !== 'code'}>
                 {highlighted ? <Suspense fallback={plainEditor}><ConfigurationEditor key={`${source}:${current.path}`}
                     editorRef={codeEditor} label={editorLabel} text={currentDraft} onChange={setCurrentDraft}
@@ -424,7 +494,11 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                 {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
                     selectedChannel={selectedModule} onSelect={setSelectedModule}
-                    goToLine={openCodeAtLine} />}
+                    goToLine={openCodeAtLine}
+                    selectedDetails={canGuide && selectedModule !== undefined ? <GuidedModule key={selectedModule}
+                        catalogue={catalogue} overview={overview} channel={selectedModule} node={node} text={draftText}
+                        onCheck={() => { setCatalogueOpen(true); void loadCatalogue(); }}
+                        onChange={text => setCurrentDraft(editorText(text))} /> : undefined} />}
                 {!showingCloud && <>
                     {backupHistory && <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={loadVersions}>Backup history</button>}
                     {!stored?.editable && <span className="dw-meta">The firmware reserves this file for upload recovery.</span>}
