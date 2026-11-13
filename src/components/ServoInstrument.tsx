@@ -12,10 +12,13 @@ export default function ServoInstrument({ label, summary }: { label: string; sum
     const inputY = position !== undefined && position >= -1 && position <= 1 ? y(position) : undefined;
     const outputX = angle !== undefined && angle >= 0 && angle <= 180 ? x(angle) : undefined;
 
+    const handles = controlPoints?.map((angle, index) => angle >= 0 && angle <= 180
+        ? { x: x(angle), y: y(2 * index / 3 - 1) } : undefined);
+
     const curveDescription = curve
         ? `Configured angles at inputs minus 1, zero and plus 1 are ${curve[0]}, ${curve[(curve.length - 1) / 2]} and ${curve[curve.length - 1]} degrees.`
         : 'Configured curve unavailable.';
-    const controlDescription = controlPoints ? ` Map control points before centre adjustment: ${controlPoints.map(point => point.toFixed(1)).join(', ')} degrees.` : '';
+    const controlDescription = controlPoints ? ` Map control points before centre adjustment: ${controlPoints.map(point => point.toFixed(1)).join(', ')} degrees. Lines connect the two end pairs.` : '';
 
     return <section className="dw-servo" aria-label={label}>
         <dl className="dw-servo-readings">
@@ -39,9 +42,14 @@ export default function ServoInstrument({ label, summary }: { label: string; sum
                     <path className="dw-servo-grid" d={`M ${plotWidth / 2} 0 V ${plotHeight} M 0 ${plotHeight / 2} H ${plotWidth}`} />
                     {curve && <polyline className="dw-servo-curve"
                         points={curve.map((value, index) => `${x(value)},${plotHeight * (1 - index / (curve.length - 1))}`).join(' ')} />}
-                    {controlPoints?.map((point, index) => point >= 0 && point <= 180 &&
-                        <circle key={index} className="dw-servo-point" cx={x(point)}
-                            cy={y(2 * index / (controlPoints.length - 1) - 1)} r="2.5" />)}
+                    {handles && [0, 2].map(index => {
+                        const from = handles[index];
+                        const to = handles[index + 1];
+                        return from && to && <line key={index} className="dw-servo-tangent"
+                            x1={from.x} y1={from.y} x2={to.x} y2={to.y} />;
+                    })}
+                    {handles?.map((handle, index) => handle &&
+                        <circle key={index} className="dw-servo-point" cx={handle.x} cy={handle.y} r="2.5" />)}
                     {inputY !== undefined && <line className="dw-servo-guide" x1="0" x2={outputX ?? plotWidth} y1={inputY} y2={inputY} />}
                     {outputX !== undefined && <line className="dw-servo-guide" x1={outputX} x2={outputX} y1={inputY ?? 0} y2={plotHeight} />}
                     {inputY !== undefined && outputX !== undefined &&

@@ -46,5 +46,6 @@
 .dw-servo-grid { stroke: var(--dw-color-border); }
 .dw-servo-curve { stroke: var(--dw-color-danger); stroke-width: 2; }
 .dw-servo-guide { stroke: var(--dw-color-instrument-reading); stroke-width: 2; stroke-dasharray: 4 2; }
+.dw-servo-tangent { stroke: var(--dw-color-instrument-trace); }
 .dw-servo-point { fill: var(--dw-color-instrument-face); stroke: var(--dw-color-instrument-trace); vector-effect: non-scaling-stroke; }
 .dw-servo-observed { fill: var(--dw-color-instrument-reading); }
