@@ -194,29 +194,19 @@
     background: var(--dw-color-instrument-face);
 }
 
-.dw-power-input h3 { margin: 0; text-align: center; color: var(--dw-color-text); }
 .dw-power-input-readings > div { padding: 0; }
 .dw-power-input-readings > .dw-summary-primary { grid-column: 1 / -1; text-align: center; }
 .dw-power-input-readings > .dw-summary-primary dd { justify-content: center; }
-.dw-power-input-readings .dw-voltage-dial { inline-size: min(100%, 88px); }
-
-@supports (grid-template-rows: subgrid) {
-    @container (min-width: 360px) {
-        .dw-power-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        .dw-power-input {
-            display: grid;
-            grid-row: span 5;
-            grid-template-rows: subgrid;
-        }
-        .dw-power-input-readings {
-            grid-row: span 4;
-            grid-template-rows: subgrid;
-        }
-    }
+.dw-power-input-readings .dw-voltage-dial { inline-size: min(100%, 80px); }
+.dw-power-input-readings > .dw-summary-supporting:last-child {
+    grid-column: span 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--dw-space-1);
 }
 
 @container (min-width: 240px) {
-    .dw-power-input h3 { text-align: start; }
     .dw-power-input-readings { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .dw-power-input-readings > .dw-summary-primary {
         grid-column: 1;
@@ -227,7 +217,13 @@
 
 @supports (grid-template-rows: subgrid) {
     @container (min-width: 360px) {
-        .dw-power-input h3 { text-align: center; }
+        .dw-power-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .dw-power-input,
+        .dw-power-input-readings {
+            display: grid;
+            grid-row: span 4;
+            grid-template-rows: subgrid;
+        }
         .dw-power-input-readings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .dw-power-input-readings > .dw-summary-primary {
             grid-column: 1 / -1;

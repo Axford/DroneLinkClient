@@ -292,6 +292,10 @@ test('INA3221 aligns the readings of each input and keeps provenance on the sour
         expect(input(number).getByText('Power').nextElementSibling).toHaveTextContent('Unavailable');
     }
     expect(input(3).getByText('Device alarm').nextElementSibling).toHaveTextContent('Unavailable');
+    expect(summary.queryByRole('heading', { name: 'Input 1' })).not.toBeInTheDocument();
+    expect(input(1).getByText('Cell voltage')).toHaveClass('visually-hidden');
+    expect(input(1).getByText('Current')).toHaveClass('visually-hidden');
+    expect(input(1).getByText('Power')).not.toHaveClass('visually-hidden');
     fireEvent.click(screen.getByRole('button', { name: 'Channel 6 reading details' }));
     const details = within(screen.getByRole('dialog', { name: 'Channel 6 reading details' }));
     const second = within(details.getByRole('group', { name: 'Input 2' }));

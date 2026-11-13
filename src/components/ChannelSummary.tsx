@@ -7,7 +7,7 @@ import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
 
-function Reading({ summary, primary, inlineSeverity }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean }) {
+function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
     const hasCompass = bearing !== undefined;
     const volts = summary.voltageDial;
@@ -16,7 +16,7 @@ function Reading({ summary, primary, inlineSeverity }: { summary: ObservedSummar
     return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'}
         data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}
         data-graphic={volts !== undefined ? 'voltage' : hasCompass ? 'compass' : undefined}>
-        <dt className={hasCompass ? 'visually-hidden' : 'dw-meta'}>{summary.label}{inlineSeverity && severityIcon}</dt>
+        <dt className={hasCompass || (hideLabel && !summary.unavailable) ? 'visually-hidden' : 'dw-meta'}>{summary.label}{inlineSeverity && severityIcon}</dt>
         <dd>
             {hasCompass && <span className="dw-heading-compass" aria-hidden="true">
                 <span>N</span><span>E</span><span>S</span><span>W</span>
@@ -45,10 +45,9 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
     if ('inputs' in summary) {
         return <section className="dw-power-inputs" aria-label={label}>
             {summary.inputs.map(input => <section className="dw-power-input" key={input.label} role="group" aria-label={input.label}>
-                <h3 className="dw-meta">{input.label}</h3>
                 <dl className="dw-channel-summary dw-power-input-readings">
-                    <Reading summary={input.voltage} primary />
-                    {input.readings.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
+                    <Reading summary={input.voltage} primary hideLabel={input.voltage.voltageDial !== undefined} />
+                    {input.readings.map(reading => <Reading key={reading.parameterId} summary={reading} hideLabel={reading.parameterId !== 16} />)}
                 </dl>
             </section>)}
         </section>;
