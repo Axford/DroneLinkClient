@@ -23,7 +23,10 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary;
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | {
+    sceneColours: (string | undefined)[];
+    details: ObservedSummary[];
+};
 
 export interface AnemometerSummary {
     windSpeed: ObservedSummary;
@@ -260,6 +263,24 @@ function waterSensorSummary(channel: ChannelState): WaterSensorSummary {
 }
 
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Neopixel', {
+        inspector(channel) {
+            const sceneParameter = 8;
+            const headerBytes = 4;
+            const segmentCount = 4;
+            const bytesPerSegment = 3;
+            const bytes = byteArray(channel.params[sceneParameter], headerBytes + segmentCount * bytesPerSegment);
+            const sceneColours = Array.from({ length: segmentCount }, (_, index) => {
+                const offset = headerBytes + index * bytesPerSegment;
+                return bytes && `#${bytes.slice(offset, offset + bytesPerSegment)
+                    .map(component => component.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+            });
+            return {
+                sceneColours,
+                details: [field(channel, sceneParameter, 'Scene colours', bytes ? sceneColours.join(' · ') : undefined)]
+            };
+        }
+    }],
     ['WaterSensor', {
         inspector: waterSensorSummary,
         overlay(channel) {

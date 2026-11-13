@@ -149,3 +149,29 @@ test.each([
         alarm: { unavailable: alarm === 2, reading: observed.params[13] }
     });
 });
+
+test('Neopixel reads four ordered RGB triples after the header and requires a valid complete scene', () => {
+    const observed = channel(6, 0, 'Neopixel');
+    const values = [48, 2, 15, 30, 56, 169, 254, 41, 202, 128, 243, 113, 52, 0, 0, 0];
+    const scene = { ...observed.params[15], param: 8, msgType: DRONE_LINK_MSG_TYPE_UINT8_T,
+        bytesPerValue: 1, numValues: 16, values };
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    observed.params[8] = scene;
+    expect(inspect()).toMatchObject({
+        sceneColours: ['#38A9FE', '#29CA80', '#F37134', '#000000'],
+        details: [{ parameterId: 8, reading: scene }]
+    });
+    for (const invalid of [
+        { ...scene, values: values.slice(0, 15) },
+        { ...scene, numValues: 15 },
+        { ...scene, msgType: DRONE_LINK_MSG_TYPE_FLOAT },
+        { ...scene, values: [...values.slice(0, 15), 256] },
+        { ...scene, lastHeard: undefined }
+    ]) {
+        observed.params[8] = invalid;
+        expect(inspect()).toMatchObject({
+            sceneColours: [undefined, undefined, undefined, undefined],
+            details: [{ unavailable: true }]
+        });
+    }
+});

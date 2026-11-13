@@ -135,6 +135,10 @@ The Anemometer Summary leads with the observed FLOAT parameter 10 in knots and s
 
 WaterSensor compares the observed raw ADC level and threshold (UINT32 parameters 11 and 12) on the legacy 0–4096 scale. The dashed line marks a positive threshold. A zero threshold remains visible as a reading. Out-of-scale readings retain their numeric values. The node chip uses the raw-to-threshold percentage with a positive threshold and shows the raw level otherwise. A ratio strictly between 50% and 100% gives a warning. The independently observed FLOAT alarm at parameter 13 supplies the triggered state and takes precedence over the ratio warning. Reading Details lists the three source observations separately.
 
+### Neopixel scene preview
+
+Neopixel shows four segment colours in firmware order from the observed scene at parameter 8. The UINT8 payload contains 16 bytes. Brightness, effect and two effect arguments occupy the first four bytes, followed by four RGB triples. The preview shows the scene colours directly. Brightness and effect settings remain available through Parameters. A missing or invalid payload leaves all four swatches unavailable, while an observed zero RGB triple is shown as black. Reading Details links to the single source observation.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

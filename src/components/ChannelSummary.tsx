@@ -8,6 +8,7 @@ import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
 import AnemometerInstrument from './AnemometerInstrument';
 import WaterLevelGauge from './WaterLevelGauge';
+import NeopixelScene from './NeopixelScene';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -44,6 +45,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('sceneColours' in summary) {
+        return <NeopixelScene label={label} colours={summary.sceneColours} />;
+    }
     if ('waterLevel' in summary) {
         return <dl className="dw-channel-summary dw-water-sensor" aria-label={label}>
             <div className="dw-water-gauge-tile">
