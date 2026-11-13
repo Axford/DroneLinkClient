@@ -159,6 +159,10 @@ Servo plots normalized input from −1 to +1 against output angle from 0 to 180�
 
 The NMEA Summary keeps heading and satellite status alongside primary position, speed in knots and metres per second, and observed HDOP. The firmware sends HDOP as a UINT8 in tenths with 255 reserved for unknown. Reading Details lists the secondary GPS position, configured reference fix and differential correction offsets when their parameters are present. Coordinates arrive longitude first and display latitude first. Correction shows the signed latitude, longitude and altitude offsets. Some firmware transmits a fourth correction float before assigning its distance, so the Summary relies on the three verified components.
 
+### LSM9DS1 heading and magnetic calibration
+
+LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent map binding retains priority 3. Reading Details shows the latest magnetic X/Y sample, recent samples from parameter 10, the X/Y calibration bounds and centre from parameters 13 and 14, and the quadrant limits ellipse from parameter 18. Axes have equal scale in microteslas. Invalid bounds and limits leave their geometry unavailable. The scatter shares the bounded observation window with the scalar instruments and collects receipts while the live Summary is expanded.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

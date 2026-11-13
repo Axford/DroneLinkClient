@@ -12,6 +12,7 @@ import NeopixelScene from './NeopixelScene';
 import JoystickPlot from './JoystickPlot';
 import ReceiverInstrument from './ReceiverInstrument';
 import MotorInstrument from './MotorInstrument';
+import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import ServoInstrument from './ServoInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
@@ -108,25 +109,28 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
             {summary.signal && <Rfm69Signal key={sampleScope} signal={summary.signal} scope={sampleScope} />}
         </>;
     }
-    const layout = summary.layout ?? (summary.primary.length === 1 ? 'lead' : 'rows');
+    const layout = summary.layout ?? (summary.primary.length === 1 && summary.supporting.length > 0 ? 'lead' : 'rows');
     const supportingRows = layout === 'compact' ? Math.ceil(summary.supporting.length / 2) : summary.supporting.length;
     const leadRows = { '--dw-summary-rows': Math.max(1, supportingRows) } as React.CSSProperties;
-    return <dl className="dw-channel-summary" data-layout={layout} style={leadRows} aria-label={label}>
+    return <dl className="dw-channel-summary" data-layout={layout} data-single-reading={(summary.supporting.length === 0 && summary.primary.length === 1) || undefined} style={leadRows} aria-label={label}>
         {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary inlineSeverity={layout === 'compact'} />)}
         {summary.supporting.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
     </dl>;
 }
 
-export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: number; channelId: number; summary: InspectorSummary }) {
+export function ChannelSummaryDetails({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const [details, setDetails] = useState(false);
     const title = `Channel ${channelId} reading details`;
     const readings = 'waterLevel' in summary ? [summary.rawReading, summary.thresholdReading, summary.alarm]
         : 'windSpeed' in summary ? [summary.windSpeed]
         : 'details' in summary ? summary.details
         : 'primary' in summary ? [...summary.primary, ...summary.supporting, ...(summary.additionalDetails ?? [])] : [];
+    const magnetic = 'primary' in summary ? summary.magneticCalibration : undefined;
+    const samples = useMagneticSamples(magnetic ? sampleScope : undefined, magnetic?.reading);
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
+            {magnetic && <MagneticScatter calibration={magnetic} samples={samples} />}
             {'columns' in summary && summary.note && <p className="dw-meta">{summary.note}</p>}
             {'inputs' in summary ? summary.inputs.map(input => <section key={input.label} role="group" aria-label={input.label}>
                 <h3 className="dw-meta mt-2">{input.label}</h3>

@@ -231,3 +231,6 @@
         }
     }
 }
+
+.dw-channel-summary[data-single-reading] > .dw-summary-primary { grid-column: 1 / -1; text-align: center; }
+.dw-channel-summary[data-single-reading] > .dw-summary-primary dd { justify-content: center; }

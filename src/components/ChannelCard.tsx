@@ -37,6 +37,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
     const target = definition && { nodeAddress: nodeId, channel: channelId, moduleType: definition.moduleType };
     const thresholds = target && settings?.get(target)?.thresholds;
     const summary = showParameters ? undefined : plugin?.inspector?.(channel, thresholds);
+    const sampleScope = sampleLive && expanded ? `${nodeId}/${channelId}/${generation}` : undefined;
     const parameterCount = Object.keys(channel.params).length;
     const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
     const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
@@ -61,9 +62,9 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                     <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
                     <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
                 </div>
-                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} />}
+                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} />}
             </div>}
-            {summary ? <ChannelSummary channelId={channelId} summary={summary} sampleScope={sampleLive && expanded ? `${nodeId}/${channelId}/${generation}` : undefined} /> :
+            {summary ? <ChannelSummary channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>

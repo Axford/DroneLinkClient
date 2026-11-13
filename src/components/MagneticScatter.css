@@ -1,0 +1,27 @@
+.dw-magnetic-scatter {
+    margin: 0 0 var(--dw-space-2);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+    text-align: center;
+}
+
+.dw-magnetic-scatter svg {
+    display: block;
+    width: min(100%, 12rem);
+    margin-inline: auto;
+}
+
+.dw-magnetic-scatter svg text { fill: var(--dw-color-muted); font-size: 10px; }
+.dw-magnetic-axis { fill: none; stroke: var(--dw-color-muted); opacity: 0.5; }
+.dw-magnetic-bounds { fill: none; stroke: var(--dw-color-text); }
+.dw-magnetic-limits { fill: none; stroke: var(--dw-color-danger); stroke-dasharray: 4 2; }
+.dw-magnetic-sample { fill: var(--dw-color-instrument-blue); }
+.dw-magnetic-latest rect { fill: var(--dw-color-instrument-reading); }
+.dw-magnetic-latest line { stroke: var(--dw-color-instrument-reading); }
+.dw-magnetic-key { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 var(--dw-space-2); }
+.dw-magnetic-key i { display: inline-block; width: 0.5rem; height: 0.5rem; margin-inline-end: var(--dw-space-1); }
+.dw-magnetic-key i.dw-magnetic-sample { border-radius: 50%; background: var(--dw-color-instrument-blue); }
+.dw-magnetic-key i.dw-magnetic-latest { transform: rotate(45deg) scale(0.8); background: var(--dw-color-instrument-reading); }
+.dw-magnetic-key i.dw-magnetic-bounds { border: 1px solid var(--dw-color-text); }
+.dw-magnetic-key i.dw-magnetic-limits { border: 1px dashed var(--dw-color-danger); border-radius: 50%; }

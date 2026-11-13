@@ -1,6 +1,6 @@
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
 import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { channelVisualization, moduleSummaries, PacketTelemetryRenderer } from './moduleVisualizations';
+import { channelVisualization, moduleSummaries, spatialSummaries, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
 
 const channel = (id: number, volts: number, type = 'INA219'): ChannelState => ({
@@ -276,4 +276,28 @@ test('Servo projects the configured map and keeps independently reported values'
     observed.params[12] = map;
     delete observed.params[13];
     expect(inspect().curve).toBeUndefined();
+});
+
+test('LSM9DS1 keeps its reported heading and suppresses invalid calibration geometry', () => {
+    const compass = channel(6, 0, 'LSM9DS1');
+    const gps = channel(4, 0, 'NMEA');
+    const scalar = compass.params[15];
+    const reading = (param: number, values: number[]) => ({ ...scalar, param, values, numValues: values.length });
+    compass.params = { ...compass.params, 10: reading(10, [5, -10, 15]), 11: reading(11, [218]),
+        13: reading(13, [-32, 2, 34]), 14: reading(14, [-29, 3, 31]), 18: reading(18, [31, 34, -29, -32]) };
+    gps.params[10] = { ...reading(10, [70]), lastHeard: 8000 };
+    const node: NodeState = { id: 7, lastHeard: 8000, channels: { 4: gps, 6: compass } };
+    const inspect = () => channelVisualization(compass)?.inspector?.(compass);
+    expect(spatialSummaries(node).find(summary => summary.binding?.role === 'heading')).toMatchObject({ channelId: 6, parameterId: 11 });
+    expect(inspect()).toMatchObject({
+        primary: [{ bearing: 218, reading: compass.params[11] }],
+        magneticCalibration: { vector: { x: 5, y: -10, z: 15 }, limits: { minX: -32, maxX: 34, minY: -29, maxY: 31 } }
+    });
+    for (const values of [[0, 0, 0, 0], [31, -32, -29, 34], [31, -32, -29]]) {
+        compass.params[18] = reading(18, values);
+        expect(inspect()).toMatchObject({ magneticCalibration: { limits: undefined } });
+    }
+    delete compass.params[18];
+    compass.params[13] = reading(13, [0, 0, 0]);
+    expect(inspect()).toMatchObject({ magneticCalibration: { limits: undefined, xAxis: undefined } });
 });

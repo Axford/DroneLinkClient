@@ -1,5 +1,6 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
 import type { VisualizationSetting, VisualizationSettingsDefinition, VisualizationTarget, VoltageThresholds } from './visualizationSettings';
 
@@ -22,6 +23,7 @@ export interface ObservedSummary {
 export type InspectorSummary = {
     layout?: 'compact';
     additionalDetails?: ObservedSummary[];
+    magneticCalibration?: MagneticCalibration;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
 } | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | {
@@ -419,7 +421,29 @@ function nmeaSummary(channel: ChannelState): InspectorSummary {
     };
 }
 
+function lsm9ds1Summary(channel: ChannelState): InspectorSummary {
+    const heading = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
+    const vector = magneticVector(channel.params[10]);
+    const xAxis = calibrationAxis(channel.params[13]);
+    const yAxis = calibrationAxis(channel.params[14]);
+    const limits = quadrantBounds(channel.params[18]);
+    const describeAxis = (axis: typeof xAxis) => axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} µT · Centre ${axis.centre.toFixed(2)} µT`;
+    return {
+        primary: [{ ...field(channel, 11, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        supporting: [],
+        magneticCalibration: { reading: channel.params[10], vector, xAxis, yAxis, limits },
+        additionalDetails: [
+            field(channel, 10, 'Magnetic vector', vector && `X ${vector.x.toFixed(2)} µT · Y ${vector.y.toFixed(2)} µT · Z ${vector.z.toFixed(2)} µT`),
+            field(channel, 13, 'X calibration', describeAxis(xAxis)),
+            field(channel, 14, 'Y calibration', describeAxis(yAxis)),
+            field(channel, 18, 'Quadrant limits', limits && `X ${limits.minX.toFixed(2)} to ${limits.maxX.toFixed(2)} µT · Y ${limits.minY.toFixed(2)} to ${limits.maxY.toFixed(2)} µT`)
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['LSM9DS1', { inspector: lsm9ds1Summary }],
     ['Servo', { inspector: servoSummary }],
     ['Motor', { inspector: motorSummary }],
     ['Receiver', { inspector: receiverSummary }],

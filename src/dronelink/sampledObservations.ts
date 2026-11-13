@@ -1,17 +1,17 @@
 import type { ParameterState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_FLOAT } from './DroneLinkMsg';
 
-export interface ObservationSample {
+export interface ObservationSample<T = number> {
     readonly receivedAt: number;
-    readonly value: number | null;
+    readonly value: T | null;
 }
 
-interface SampleWindow {
+export interface SampleWindow<T = number> {
     /** Host-supplied identity for one Domain, node, channel, module, parameter and stream generation. */
     readonly scope: string;
     readonly source: string | undefined;
     readonly lastReceivedAt: number;
-    readonly samples: readonly ObservationSample[];
+    readonly samples: readonly ObservationSample<T>[];
 }
 
 export const sampleWindowMinutes = 5;
@@ -29,6 +29,23 @@ export function sampleObservation(
     now: number,
     interpret: (value: number) => number | undefined
 ): SampleWindow | undefined {
+    return sampleReading(previous, scope, reading, now, observation => {
+        const raw = observation.values[0];
+        if (observation.msgType !== DRONE_LINK_MSG_TYPE_FLOAT || observation.numValues !== 1 ||
+            observation.values.length !== 1 || typeof raw !== 'number' || !Number.isFinite(raw)) return;
+        const value = interpret(raw);
+        if (value !== undefined && Number.isFinite(value)) return value;
+    });
+}
+
+/** Share receipt lifecycle and retention across scalar and vector projections. */
+export function sampleReading<T>(
+    previous: SampleWindow<T> | undefined,
+    scope: string | undefined,
+    reading: ParameterState | undefined,
+    now: number,
+    project: (reading: ParameterState) => T | undefined
+): SampleWindow<T> | undefined {
     if (scope === undefined) return;
     let current = previous?.scope === scope ? previous : undefined;
     const receivedAt = reading?.lastHeard;
@@ -51,16 +68,12 @@ export function sampleObservation(
         return { scope, source: reading.source, lastReceivedAt: receivedAt, samples };
     }
 
-    const raw = reading.values[0];
-    const value = reading.msgType === DRONE_LINK_MSG_TYPE_FLOAT && !reading.unavailable?.value &&
-        reading.numValues === 1 && reading.values.length === 1 && typeof raw === 'number' && Number.isFinite(raw)
-        ? interpret(raw) : undefined;
     return {
         scope,
         source: reading.source,
         lastReceivedAt: receivedAt,
         samples: [...samples.slice(1 - maxObservationSamples), {
-            receivedAt, value: value !== undefined && Number.isFinite(value) ? value : null
+            receivedAt, value: reading.unavailable?.value ? null : project(reading) ?? null
         }]
     };
 }
