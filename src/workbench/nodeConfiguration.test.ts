@@ -1,4 +1,4 @@
-import { appendStarter, connectGpsLocation, setGpsPort } from './nodeConfiguration';
+import { appendStarter, connectGpsLocation, setGpsPort, setPhysicalSetting } from './nodeConfiguration';
 
 describe('guided configuration edits', () => {
     const original = ['; initial settings', 'node = 11', '[Nav = 12]', '  name = Pilot', '  future = "quoted; value"',
@@ -25,4 +25,11 @@ describe('guided configuration edits', () => {
         expect(connectGpsLocation(original + 'publish = packets', 11, 10, 12, 8)).toBeUndefined();
         expect(appendStarter(original + '[Nav = 12]\r\n', 11, 'NMEA')).toBeUndefined();
     });
+});
+
+it('edits a Probe pin alias without adding a second firmware declaration', () => {
+    const draft = 'node = 11\r\n[Probe = 18]\r\n  pin032 = "digital"  ; retain\r\n';
+    expect(setPhysicalSetting(draft, 11, 18, { gpio: 32, mode: 'serial,9600' })?.text)
+        .toBe(draft.replace('"digital"', '"serial,9600"'));
+    expect(setPhysicalSetting(draft + '  pin32 = digital\r\n', 11, 18, { gpio: 32, mode: 'analog' })).toBeUndefined();
 });

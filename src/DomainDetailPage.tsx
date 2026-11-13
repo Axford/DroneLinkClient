@@ -165,13 +165,16 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const canReadFiles = archived
         ? user.isPlatformAdmin === true || domain.myRole === 'owner' || domain.myRole === 'editor'
         : domain.canEdit;
+    const localTransport = selectedNodeId === null ? undefined : workbench.transport(selectedNodeId);
+    const localObservation = local && localTransport && selectedNodeId !== null
+        ? workbench.network?.observations[localTransport][selectedNodeId] : undefined;
     const files = selectedNodeId === null || !canReadFiles
         ? <div className="inspector-content">{selectedNodeId === null
             ? 'Select a node to browse its files.'
             : 'Node files are available to Domain Owners, Editors and Platform Admins.'}</div>
         : <NodeFiles key={archived ? 'archived' : 'active'} node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
             readOnly={archived} available={!archived && workbench.fileBackups && local && !!workbench.transport(selectedNodeId)}
-            transport={archived ? undefined : workbench.transport(selectedNodeId)}
+            transport={archived ? undefined : localTransport} observed={archived ? undefined : localObservation}
             connected={!archived && workbench.fileBackups ? { request: (endpoint, options, path) =>
                 workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />;
     const lensContent = lens === 'map'

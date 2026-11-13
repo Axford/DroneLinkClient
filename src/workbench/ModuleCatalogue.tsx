@@ -21,17 +21,19 @@ export interface Catalogue {
     metadataStatus: 'marker-match' | 'different-build' | 'unverified' | 'unavailable';
     entries: Entry[];
 }
-export type Starter = 'NMEA' | 'Nav';
+export type Starter = 'NMEA' | 'Nav' | 'Probe';
 
-const labels: Record<Starter, string> = { NMEA: 'GPS', Nav: 'Pilot' };
-const isStarter = (type: string): type is Starter => type === 'NMEA' || type === 'Nav';
+const labels: Record<Starter, string> = { NMEA: 'GPS', Nav: 'Pilot', Probe: 'Probe' };
+const isStarter = (type: string): type is Starter => type === 'NMEA' || type === 'Nav' || type === 'Probe';
 const supported = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.entries.find(entry => entry.type === type && entry.support === 'supported');
 const matched = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.metadataStatus === 'marker-match' ? supported(catalogue, type) : undefined;
 
-export function ModuleCatalogue({ catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
+export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
     catalogue?: Catalogue;
+    initialSearch?: string;
+    gpsConnector?: 1 | 2;
     loading: boolean;
     canAdd: boolean;
     onRetry: () => void;
@@ -39,7 +41,7 @@ export function ModuleCatalogue({ catalogue, loading, canAdd, onRetry, onClose, 
     onAdd: (type: Starter) => void;
 }) {
     const id = useId();
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(initialSearch ?? '');
     const words = search.toLowerCase().trim().split(/\s+/);
     const entries = catalogue?.entries.filter(entry => {
         const terms = `${entry.type} ${entry.category} ${entry.description} ${isStarter(entry.type) ? labels[entry.type] : ''}`.toLowerCase();
@@ -58,6 +60,7 @@ export function ModuleCatalogue({ catalogue, loading, canAdd, onRetry, onClose, 
                     : 'Release metadata is unavailable.'}
             </p>
             <button type="button" className="btn btn-outline-secondary mb-2" onClick={onRetry}>Refresh catalogue</button>
+            {gpsConnector && <p className="dw-meta">A GPS added from this connector will use Serial {gpsConnector}.</p>}
             {!canAdd && <p className="dw-meta">A free channel and a structurally valid draft are required to add a module.</p>}
             {!entries?.length && <p>{catalogue?.entries.length ? 'No modules match your search.' : 'No catalogue entries available.'}</p>}
             <ul className="list-unstyled">
@@ -65,7 +68,7 @@ export function ModuleCatalogue({ catalogue, loading, canAdd, onRetry, onClose, 
                     const type = entry.type;
                     const starter = isStarter(type);
                     return <li key={type} className="dw-config-module">
-                        <div><strong>{starter ? `${labels[type]} · ${type}` : type}</strong>{entry.category && ` · ${entry.category}`}</div>
+                        <div><strong>{starter ? type === 'Probe' ? type : `${labels[type]} · ${type}` : type}</strong>{entry.category && ` · ${entry.category}`}</div>
                         <div className="dw-meta">{entry.description}</div>
                         <div className="dw-toolbar">
                             <span className="dw-meta">{entry.support === 'supported' ? 'Supported by this node' :
@@ -96,7 +99,7 @@ export function GuidedModule({ catalogue, overview, channel, node, text, onCheck
     const gps = matched(catalogue, 'NMEA');
     const nav = matched(catalogue, 'Nav');
     const selected = overview.modules.find(module => module.channel === channel);
-    if (!selected || !isStarter(selected.type)) return null;
+    if (!selected || (selected.type !== 'NMEA' && selected.type !== 'Nav')) return null;
     const output = gps?.locationOutput;
     const input = nav?.locationInput;
     const hasPort = gps?.serialPort?.address === 13 && gps.serialPort.type === 'u8' && gps.serialPort.count === 2;

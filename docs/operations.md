@@ -236,6 +236,10 @@ Use **Open node configuration** to open the selected node's existing `/config.in
 
 Use **Edit source** for a manual address change or **Code** for other module types and settings. Click a diagnostic to jump to its line. Correct structural errors before Upload. Upload verifies stored bytes. Restart separately when ready to activate the change, then check fresh observations. Other files, including `/safeMode.ini`, use the generic editor.
 
+Use **Physical** and select **DroneLink V4** to open the legacy board diagram with interactive connector positions. Choose a connector or wired module to inspect its draft assignment. The view supports GPS serial ports, reviewed I²C module bus assignments and Probe modes on eligible marked pins. The board diagram and connector positions come from the [legacy Wiring view](../../DroneLinkServer/public/modules/oui/Wiring.mjs).
+
+To configure a pin, add **Probe** from the catalogue if needed, choose a GPIO and set its mode in the draft. Select a baud for Serial. Upload and Restart separately to run the changed configuration. The diagram shows recent results from the selected local node and transport when the stored pin declaration agrees with the draft mode. A draft assignment and a running Probe's report are different sources of evidence. See the [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+
 ### Connected Workbench
 
 Open the active hosted Domain and select **Connect local gateway**. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)

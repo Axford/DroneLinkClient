@@ -1,3 +1,5 @@
+import { probeModes } from '../components/probeResults';
+
 export interface ConfigurationDiagnostic {
     line: number;
     severity: 'error' | 'warning';
@@ -231,7 +233,7 @@ function patchModuleLine(text: string, module: DraftModule, key: string, value: 
     return { text: lines.join(newline), changes: [{ after }] };
 }
 
-export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav') {
+export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav' | 'Probe', gpsConnector?: 1 | 2) {
     const overview = inspectNodeConfiguration(text, node);
     if (overview.diagnostics.some(item => item.severity === 'error')) return;
     const occupied = new Set(overview.modules.map(module => module.channel));
@@ -239,22 +241,31 @@ export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav') 
     if (channel === undefined) return;
     const newline = ending(text);
     const prefix = text + (text.endsWith(newline) ? newline : newline + newline);
-    const base = type === 'NMEA' ? 'GPS' : 'Pilot';
+    const base = type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : 'Probe';
     const names = new Set(overview.modules.map(module => moduleLookupName(module.name)));
     let name = base;
     for (let index = 2; names.has(name); index++) name = `${base}${index}`;
     const lines = [`[${type} = ${channel}]`, `  name = ${name}`];
+    if (type === 'NMEA' && gpsConnector !== undefined) lines.push(`  port = ${gpsConnector}`);
     const draft = prefix + [...lines, ''].join(newline);
     if (bytes(draft) <= maxNodeFileBytes) return { text: draft, line: prefix.split(newline).length, channel };
 }
 
-export function gpsPort(text: string, module: DraftModule) {
-    const values: string[] = [];
+export function moduleSettings(text: string, module: DraftModule) {
+    const settings = new Map<string, string[]>();
     for (const raw of text.split('\n').slice(module.line)) {
         const line = splitLine(raw, false);
         if (line.section) break;
-        if (line.valid && line.name === 'port') values.push(line.value.replace(/[ \t]/g, ''));
+        if (!line.valid || line.empty) continue;
+        const values = settings.get(line.name) ?? [];
+        values.push(line.value);
+        settings.set(line.name, values);
     }
+    return settings;
+}
+
+export function gpsPort(text: string, module: DraftModule) {
+    const values = moduleSettings(text, module).get('port')?.map(value => value.replace(/[ \t]/g, '')) ?? [];
     if (!values.length) return 'default';
     if (values.length !== 1 || !/^[12](?:,(?:[12]|255))?$/.test(values[0])) return undefined;
     return values[0][0];
@@ -290,4 +301,36 @@ export function connectGpsLocation(text: string, node: number, gps: number, pilo
     const subscription = patchModuleLine(publication.text, updatedTarget, '$location', `@>${gps}.${output}`);
     if (!subscription || bytes(subscription.text) > maxNodeFileBytes || inspectNodeConfiguration(subscription.text, node).diagnostics.some(item => item.severity === 'error')) return;
     return { text: subscription.text, changes: [...publication.changes, ...subscription.changes] };
+}
+
+export function probePinSettings(text: string, module: DraftModule) {
+    const pins = new Map<number, { key: string; values: string[] }>();
+    for (const [key, values] of Array.from(moduleSettings(text, module))) {
+        const match = /^pin(\d+)$/.exec(key);
+        if (!match) continue;
+        const gpio = Number(match[1]);
+        if (!Number.isInteger(gpio) || gpio > 99) continue;
+        const existing = pins.get(gpio);
+        if (existing) existing.values.push(...values);
+        else pins.set(gpio, { key, values: [...values] });
+    }
+    return pins;
+}
+
+export function setPhysicalSetting(text: string, node: number, channel: number, setting: { bus: number } | { gpio: number; mode: string }) {
+    const overview = inspectNodeConfiguration(text, node);
+    if (overview.diagnostics.some(item => item.severity === 'error')) return;
+    const module = overview.modules.find(item => item.channel === channel);
+    if (!module) return;
+    let edit: ModuleEdit | undefined;
+    if ('bus' in setting) {
+        if (!Number.isInteger(setting.bus) || setting.bus < 0 || setting.bus > 7) return;
+        edit = patchModuleLine(text, module, 'bus', String(setting.bus));
+    } else {
+        if (module.type !== 'Probe' || !probeModes(setting.gpio).includes(setting.mode)) return;
+        const existing = probePinSettings(text, module).get(setting.gpio);
+        if (existing && existing.values.length !== 1) return;
+        edit = patchModuleLine(text, module, existing?.key ?? `pin${setting.gpio}`, setting.mode);
+    }
+    if (edit && bytes(edit.text) <= maxNodeFileBytes && !inspectNodeConfiguration(edit.text, node).diagnostics.some(item => item.severity === 'error')) return edit;
 }

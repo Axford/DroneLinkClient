@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
+import type { NodeState } from '../dronelink/DroneLinkState';
 import type { Ace } from 'ace-builds';
 import { Folder2Open, ThreeDots } from 'react-bootstrap-icons';
 import { Dropdown } from 'react-bootstrap';
@@ -14,6 +15,7 @@ import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
 import type { Catalogue, Starter } from './ModuleCatalogue';
 import { Transport, transportLabel } from './useWorkbenchFeed';
 
+const PhysicalConfiguration = React.lazy(() => import('./PhysicalConfiguration'));
 const ConfigurationEditor = React.lazy(() => import('./ConfigurationEditor'));
 const catalogueLifetimeMs = 60_000;
 const noDiagnostics: ReturnType<typeof inspectNodeConfiguration>['diagnostics'] = [];
@@ -30,6 +32,7 @@ interface Props {
     transport?: Transport;
     available: boolean;
     uptimeMs?: number;
+    observed?: NodeState;
     domainId?: string;
     readOnly?: boolean;
     connected?: { request: <T>(endpoint: string, options?: RequestInit, path?: string) => Promise<T> };
@@ -38,7 +41,7 @@ interface Props {
 
 function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 
-export default function NodeFiles({ node, transport, available, uptimeMs, activity, domainId, readOnly = false, connected }: Props) {
+export default function NodeFiles({ node, transport, available, uptimeMs, observed, activity, domainId, readOnly = false, connected }: Props) {
     const codeEditor = React.useRef<Ace.Editor | null>(null);
     const narrow = useNarrowLayout();
     const explorerRef = React.useRef<HTMLElement>(null);
@@ -53,11 +56,16 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         return () => observer.disconnect();
     }, []);
     const [picker, setPicker] = useState(false);
-    const [view, setView] = useState<'logical' | 'code'>('logical');
+    const [view, setView] = useState<'logical' | 'physical' | 'code'>('logical');
+    const [gpsConnector, setGpsConnector] = useState<1 | 2>();
+    const [catalogueSearch, setCatalogueSearch] = useState('');
     const [catalogueOpen, setCatalogueOpen] = useState(false);
     const [catalogueLoading, setCatalogueLoading] = useState(false);
     const [catalogueResult, setCatalogueResult] = useState<{ context: string; value: Catalogue }>();
     const catalogueRequest = React.useRef(0);
+    const [boardNode, setBoardNode] = useState<number>();
+    const [probeSince, setProbeSince] = useState(0);
+    const [selectedPin, setSelectedPin] = useState<string>();
     const [selectedModule, setSelectedModule] = useState<number>();
     const [lineToOpen, setLineToOpen] = useState<number>();
     const [source, setSource] = useState<'node' | 'cloud'>('node');
@@ -122,6 +130,8 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     useEffect(() => {
         setView('logical');
         setSelectedModule(undefined);
+        setSelectedPin(undefined);
+        setProbeSince(0);
         setLineToOpen(undefined);
     }, [node, source, current?.path]);
 
@@ -204,6 +214,13 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         setCatalogueResult(undefined);
     }
 
+    function openCatalogue(search = '', connector?: 1 | 2) {
+        setGpsConnector(connector);
+        setCatalogueSearch(search);
+        setCatalogueOpen(true);
+        void loadCatalogue();
+    }
+
     async function loadCatalogue() {
         const id = ++catalogueRequest.current;
         setCatalogueResult(undefined);
@@ -223,7 +240,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
 
     function addModule(type: Starter) {
         if (!canAddModule || !catalogue?.entries.some(entry => entry.type === type && entry.support === 'supported')) return;
-        const edit = appendStarter(draftText, node, type);
+        const edit = appendStarter(draftText, node, type, gpsConnector);
         if (!edit) {
             setCatalogueOpen(false);
             setFeedback({ text: 'The starter could not fit in the node’s 8 KiB configuration file.', error: true });
@@ -231,6 +248,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         }
         setCurrentDraft(editorText(edit.text));
         setSelectedModule(edit.channel);
+        setSelectedPin(undefined);
         setCatalogueOpen(false);
         if (view === 'code') openCodeAtLine(edit.line);
     }
@@ -276,7 +294,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         const draftNote = dirty ? ' Your unsaved draft will stay in the editor.' : '';
         if (!window.confirm(`Restart node ${node} using its stored configuration?${draftNote}`)) return;
         void run(async () => {
+            const requestedAt = Date.now();
             await request('restart', { method: 'POST', body: '{}' });
+            setProbeSince(requestedAt);
             clearCatalogue();
             setFeedback({ text: 'Restart requested. Check Network for the node’s return.' });
         });
@@ -472,11 +492,12 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
             {current && <>
                 {overview && <div className="dw-file-sources dw-config-views" role="group" aria-label="Configuration views">
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'logical'} onClick={() => setView('logical')}>Logical</button>
+                    <button type="button" className="btn btn-sm" aria-pressed={view === 'physical'} onClick={() => setView('physical')}>Physical</button>
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'code'} onClick={() => setView('code')}>Code</button>
                     {editable && <button type="button" className="btn btn-sm" disabled={busy}
-                        onClick={() => { setCatalogueOpen(true); void loadCatalogue(); }}>Add module</button>}
+                        onClick={() => openCatalogue()}>Add module</button>}
                 </div>}
-                {overview && editable && catalogueOpen && <ModuleCatalogue catalogue={catalogue} loading={catalogueLoading}
+                {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} catalogue={catalogue} loading={catalogueLoading}
                     canAdd={canAddModule} onRetry={() => void loadCatalogue()} onClose={() => setCatalogueOpen(false)} onAdd={addModule} />}
                 <div hidden={!!overview && view !== 'code'}>
                 {highlighted ? <Suspense fallback={plainEditor}><ConfigurationEditor key={`${source}:${current.path}`}
@@ -491,13 +512,20 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                         <button type="button" className="btn btn-link text-start" onClick={() => openCodeAtLine(line)}>Line {line}: {severity} — {message}</button>
                     </li>)}</ul>
                 </details>}
+                {overview && view === 'physical' && <Suspense fallback={<p role="status">Loading motherboard view…</p>}>
+                    <PhysicalConfiguration key={`${node}:${source}`} board={boardNode === node} onBoard={selected => setBoardNode(selected ? node : undefined)}
+                        overview={overview} text={draftText} node={node} observed={showingCloud ? undefined : observed}
+                        available={available && !showingCloud} editable={canGuide}
+                        selectedChannel={selectedModule} onSelect={setSelectedModule} onChange={text => setCurrentDraft(editorText(text))}
+                        selectedPin={selectedPin} setSelectedPin={setSelectedPin} goToLine={openCodeAtLine} onCatalogue={editable && !busy ? openCatalogue : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
+                </Suspense>}
                 {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
-                    selectedChannel={selectedModule} onSelect={setSelectedModule}
+                    selectedChannel={selectedModule} onSelect={channel => { setSelectedModule(channel); setSelectedPin(undefined); }}
                     goToLine={openCodeAtLine}
                     selectedDetails={canGuide && selectedModule !== undefined ? <GuidedModule key={selectedModule}
                         catalogue={catalogue} overview={overview} channel={selectedModule} node={node} text={draftText}
-                        onCheck={() => { setCatalogueOpen(true); void loadCatalogue(); }}
+                        onCheck={openCatalogue}
                         onChange={text => setCurrentDraft(editorText(text))} /> : undefined} />}
                 {!showingCloud && <>
                     {backupHistory && <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={loadVersions}>Backup history</button>}

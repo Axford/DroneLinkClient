@@ -1,0 +1,58 @@
+.dw-physical-board {
+    position: relative;
+}
+
+.dw-physical-board img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.dw-physical-board .react-flow__handle,
+.dw-physical-device .react-flow__handle {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dw-physical-endpoint {
+    position: absolute;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: 2px solid var(--dw-color-text);
+    background: var(--dw-color-panel);
+    transform: translate(-50%, -50%);
+}
+
+.dw-physical-endpoint[aria-pressed="true"],
+.dw-physical-endpoint:hover {
+    background: var(--dw-color-primary);
+}
+
+.dw-physical-device {
+    position: relative;
+    display: grid;
+    gap: var(--dw-space-1);
+    width: 180px;
+    padding: var(--dw-space-2);
+    border: 1px solid var(--dw-color-hover);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-raised);
+    color: var(--dw-color-text);
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.dw-physical-device span {
+    font-size: .875rem;
+    line-height: 1.15;
+}
+
+.react-flow__node.selected .dw-physical-device {
+    border-color: var(--dw-color-primary);
+}
+
+.dw-physical-device:focus-visible,
+.dw-physical-endpoint:focus-visible {
+    outline: 2px solid var(--dw-color-focus);
+}

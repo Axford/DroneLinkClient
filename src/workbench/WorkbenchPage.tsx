@@ -118,7 +118,7 @@ export default function WorkbenchPage() {
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
-                    available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} activity={reportFiles} />} />} />
+                    available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} observed={node} activity={reportFiles} />} />} />
         </DomainWorkspace>
     </main></div>;
 }
