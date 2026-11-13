@@ -443,3 +443,19 @@ test('Wind reads independent World and Local bearings without borrowing the othe
         localWind: { bearing: 0, reading: local }
     });
 });
+
+
+test('WindFromWing uses the reported estimate and never presents its angle of attack as a wind bearing', () => {
+    const observed = channel(6, 0, 'WindFromWing');
+    const estimate = { ...observed.params[15], values: [254], lastHeard: 900 };
+    observed.params[15] = estimate;
+    observed.params[14] = { ...estimate, param: 14, values: [15] };
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        worldWind: { bearing: 254, text: '254°', reading: estimate },
+        details: [{ parameterId: 15, reading: estimate }]
+    });
+    expect(inspect()).not.toHaveProperty('localWind');
+    observed.params[15] = { ...estimate, values: [254, 7.6, 2.8], numValues: 3 };
+    expect(inspect()).toMatchObject({ worldWind: { unavailable: true } });
+});

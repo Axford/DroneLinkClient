@@ -54,7 +54,7 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
     if ('worldWind' in summary) {
-        return <WindDials label={label} summary={summary} scope={sampleScope} />;
+        return <WindDials key={summary.worldWind.parameterId} label={label} summary={summary} scope={sampleScope} />;
     }
     if ('measuredDepth' in summary) {
         return <DepthTrace label={label} summary={summary} scope={sampleScope} />;

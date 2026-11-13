@@ -8,9 +8,10 @@ import './WindDials.css';
 const binSize = 15;
 const binCount = 360 / binSize;
 
-function WindDial({ frame, reading, bins = [], peak = 1 }: {
+function WindDial({ frame, reading, estimateLabel, bins = [], peak = 1 }: {
     frame: 'World' | 'Local';
     reading: ObservedSummary;
+    estimateLabel?: string;
     bins?: number[];
     peak?: number;
 }) {
@@ -18,9 +19,10 @@ function WindDial({ frame, reading, bins = [], peak = 1 }: {
     const distribution = bins.flatMap((count, index) => count ?
         [`${index * binSize} to under ${(index + 1) * binSize} degrees: ${count}`] : []);
     const description = `${frame} wind: ${reading.unavailable ? 'unavailable' : reading.text}. Zero is ${zero}, angles increase clockwise.` +
+        (estimateLabel ? ` ${estimateLabel}.` : '') +
         (distribution.length ? ` Recent World receipts by sector: ${distribution.join('; ')}.` : '');
     return <div className="dw-wind-dial">
-        <dt className="dw-meta">{frame} <span>· {zero}</span></dt>
+        <dt className="dw-meta">{frame} <span>· {zero}{estimateLabel && ` · ${estimateLabel}`}</span></dt>
         <dd data-unavailable={reading.unavailable || undefined}>
             <div className="dw-wind-face">
                 <CircularDial description={description} value={reading.bearing} bins={bins} peak={peak} zero="up" positive="clockwise" ticks />
@@ -39,7 +41,7 @@ export default function WindDials({ label, summary, scope }: { label: string; su
     }
     const peak = Math.max(...bins);
     return <dl className="dw-channel-summary dw-wind-dials" data-single={summary.localWind === undefined || undefined} aria-label={label}>
-        <WindDial frame="World" reading={summary.worldWind} bins={bins} peak={Math.max(1, peak)} />
+        <WindDial frame="World" reading={summary.worldWind} estimateLabel={summary.estimateLabel} bins={bins} peak={Math.max(1, peak)} />
         {summary.localWind && <WindDial frame="Local" reading={summary.localWind} />}
         {peak > 0 && <div className="dw-wind-scale">
             <dt className="dw-meta">Blue sectors · last {sampleWindowMinutes} min · {binSize}° bins</dt>

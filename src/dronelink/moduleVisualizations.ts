@@ -39,6 +39,7 @@ export type InspectorSummary = {
 
 export interface WindDirectionSummary {
     worldWind: ObservedSummary;
+    estimateLabel?: string;
     localWind?: ObservedSummary;
     details: ObservedSummary[];
 }
@@ -651,6 +652,12 @@ function windDirectionSummary(channel: ChannelState): WindDirectionSummary {
 
 const visualizations = new Map<string, ModuleVisualization>([
     ['Wind', { inspector: windDirectionSummary }],
+    ['WindFromWing', {
+        inspector(channel): WindDirectionSummary {
+            const worldWind = windDirectionReading(channel, 15, 'Wing-derived world wind');
+            return { worldWind, estimateLabel: 'Wing estimate', details: [worldWind] };
+        }
+    }],
     ['Depth', { inspector: depthSummary }],
     ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
     ['HMC5883L', { inspector: hmc5883lSummary }],

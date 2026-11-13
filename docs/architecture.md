@@ -193,7 +193,7 @@ The INA3221 Summary presents the firmware's three ordered input slots, each with
 
 ### Wind direction and distribution
 
-Wind reads the independent FLOAT bearings at parameter 14 (World, north-referenced) and 10 (Local, vessel-relative). The clockwise dials use the shared circular geometry. Only World contributes to the 24-sector distribution, which counts actual receipts in the shared five-minute window. The distribution and needle can differ when the latest reading is unavailable. Map bindings select World wind independently of the Inspector.
+Wind reads the independent FLOAT bearings at parameter 14 (World, north-referenced) and 10 (Local, vessel-relative). The clockwise dials use the shared circular geometry. Only World contributes to the 24-sector distribution, which counts actual receipts in the shared five-minute window. The distribution and needle can differ when the latest reading is unavailable. WindFromWing uses the same World dial for its estimated FLOAT bearing at parameter 15 and labels it as a wing estimate. Its samples stay scoped to that channel and parameter. Map bindings select World wind independently of the Inspector and prefer WindFromWing over Wind.
 
 ### Depth readout and log trace
 
