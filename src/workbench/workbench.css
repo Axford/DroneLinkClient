@@ -161,7 +161,6 @@
 .dw-network-card:disabled { cursor: default; }
 .dw-network-queue { display: flex; align-items: center; gap: var(--dw-space-2); }
 .dw-network-queue meter { flex: 1; min-width: 0; }
-.dw-network-handle { visibility: hidden; }
 
 .dw-network-edge-label,
 .dw-network-graph-status {

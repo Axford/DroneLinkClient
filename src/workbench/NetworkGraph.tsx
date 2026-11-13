@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Background, BaseEdge, Controls, EdgeLabelRenderer, Handle, MarkerType,
+    Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType,
     Panel, Position, ReactFlow, getBezierPath, getViewportForBounds, useReactFlow, useStore,
 } from '@xyflow/react';
 import type { Edge, EdgeProps, Node, NodeProps, XYPosition } from '@xyflow/react';
@@ -11,7 +11,20 @@ import type { NodeNetworkSnapshot } from './NodeNetwork';
 
 const cardWidth = 176;
 const cardHeight = 88;
-const sides = [Position.Left, Position.Right, Position.Top, Position.Bottom];
+// Cards have fixed geometry. Supply it with each feed update so React Flow
+// can retain usable endpoints even when updates arrive faster than DOM measurement.
+const cardGeometry: Pick<Node, 'width' | 'height' | 'handles'> = {
+    width: cardWidth,
+    height: cardHeight,
+    handles: [
+        { position: Position.Left, x: 0, y: cardHeight / 2 },
+        { position: Position.Right, x: cardWidth, y: cardHeight / 2 },
+        { position: Position.Top, x: cardWidth / 2, y: 0 },
+        { position: Position.Bottom, x: cardWidth / 2, y: cardHeight },
+    ].flatMap(handle => (['source', 'target'] as const).map(type => ({
+        ...handle, type, id: handle.position, width: 0, height: 0,
+    }))),
+};
 
 function springLayout(ids: string[], links: [string, string][]) {
     // Anchor the gateway. Use springs for observed hops and repulsion for card clearance.
@@ -87,16 +100,10 @@ function NetworkCard({ data }: NodeProps<GraphNode>) {
             <span>{queue.utilisation}%</span>
         </span>}
     </>;
-    return <>
-        {sides.map(side => <React.Fragment key={side}>
-            <Handle id={side} type="target" position={side} className="dw-network-handle" />
-            <Handle id={side} type="source" position={side} className="dw-network-handle" />
-        </React.Fragment>)}
-        {activate
-            ? <button type="button" className="dw-network-card nodrag nopan" aria-pressed={selected}
-                disabled={disabled} onClick={activate}>{content}</button>
-            : <div className="dw-network-card">{content}</div>}
-    </>;
+    return activate
+        ? <button type="button" className="dw-network-card nodrag nopan" aria-pressed={selected}
+            disabled={disabled} onClick={activate}>{content}</button>
+        : <div className="dw-network-card">{content}</div>;
 }
 
 function HopEdge(props: EdgeProps<GraphEdge>) {
@@ -182,11 +189,11 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
         route.inspected) || (item.from === nodeId(selectedNode ?? 0) && !stale);
     const nodes: GraphNode[] = [
         {
-            id: gatewayId, type: 'network-card', style: { width: cardWidth, height: cardHeight }, position: layout.get(gatewayId)!,
+            id: gatewayId, type: 'network-card', ...cardGeometry, position: layout.get(gatewayId)!,
             data: { title: 'Gateway', status: connected ? 'Connected' : topology.hops.length ? 'Last seen' : 'Waiting for feed', selected: false, activate: inspectGateway },
         },
         ...topology.addresses.map((address): GraphNode => ({
-            id: nodeId(address), type: 'network-card', style: { width: cardWidth, height: cardHeight }, position: layout.get(nodeId(address))!,
+            id: nodeId(address), type: 'network-card', ...cardGeometry, position: layout.get(nodeId(address))!,
             data: {
                 title: `Node ${address}`, name: topology.names.get(address), selected: address === selectedNode,
                 status: snapshot?.node === address
