@@ -1,5 +1,6 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_LINK_MSG_MAX_PAYLOAD, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_LINK_MSG_MAX_PAYLOAD, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { decodeAddressBytes } from './observedAddress';
 import type { DiagnosticSceneData, DiagnosticVector } from './diagnosticScene';
 import { observedFloatVector, magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
@@ -29,13 +30,22 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface NavSummary {
+    navigationBearings: Record<'heading' | 'adjusted' | 'wind', ObservedSummary>;
+    crossTrack: ObservedSummary;
+    distance: ObservedSummary;
+    following: ObservedSummary;
+    followingNode?: number;
+    details: ObservedSummary[];
+}
 
 export interface WindDirectionSummary {
     worldWind: ObservedSummary;
@@ -639,22 +649,57 @@ function depthSummary(channel: ChannelState): DepthSummary {
     return { measuredDepth, logReading, details: [measuredDepth, loggedDepth] };
 }
 
-function windDirectionReading(channel: ChannelState, id: number, label: string): ObservedSummary {
-    const bearing = observedBearing(channel.params[id]);
+function bearingReading(channel: ChannelState, id: number, label: string, bearing = observedBearing(channel.params[id])): ObservedSummary {
     return { ...field(channel, id, label, bearing === undefined ? undefined : `${bearing.toFixed(0)}°`), bearing };
 }
 
 function windDirectionSummary(channel: ChannelState): WindDirectionSummary {
-    const worldWind = windDirectionReading(channel, 14, 'World wind');
-    const localWind = windDirectionReading(channel, 10, 'Local wind');
+    const worldWind = bearingReading(channel, 14, 'World wind');
+    const localWind = bearingReading(channel, 10, 'Local wind');
     return { worldWind, localWind, details: [worldWind, localWind] };
 }
 
+function navDistance(channel: ChannelState): ObservedSummary {
+    const metres = numericValue(channel.params[9], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    let text: string | undefined;
+    if (metres !== undefined && metres >= 0) {
+        text = metres < 1000 ? `${metres.toFixed(metres < 10 ? 1 : 0)} m` : `${(metres / 1000).toFixed(1)} km`;
+    }
+    return field(channel, 9, 'Distance to target', text);
+}
+
+function navSummary(channel: ChannelState): NavSummary {
+    const adjusted = numericValue(channel.params[20], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    // The firmware publishes atan2 degrees; the dial uses clockwise bearings from north.
+    const adjustedBearing = adjusted !== undefined && adjusted >= -180 && adjusted < 0 ? adjusted + 360 : undefined;
+    const navigationBearings = {
+        heading: bearingReading(channel, 8, 'Heading'),
+        adjusted: bearingReading(channel, 20, 'Adjusted heading', adjustedBearing),
+        wind: bearingReading(channel, 21, 'Wind')
+    };
+    const reportedCrossTrack = numericValue(channel.params[17], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const crossTrack = field(channel, 17, 'Cross-track', reportedCrossTrack?.toFixed(1));
+    const distance = navDistance(channel);
+    const source = channel.params[13];
+    let following = field(channel, 13, 'Target source');
+    let followingNode: number | undefined;
+    const address = hasReading(source) && source.msgType === DRONE_LINK_MSG_TYPE_ADDR && source.numValues === 1
+        ? decodeAddressBytes(Array.from<number | string>(source.values)) : undefined;
+    if (address?.node === 0) following = field(channel, 13, 'Target source', 'Unbound');
+    else if (address && address.node < 255) {
+        followingNode = address.node;
+        following = field(channel, 13, 'Target source', `${address.node}>${address.channel}.${address.parameter}`);
+    }
+    return { navigationBearings, crossTrack, distance, following, followingNode,
+        details: [...Object.values(navigationBearings), crossTrack, distance, following] };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Nav', { inspector: navSummary, overlay: navDistance }],
     ['Wind', { inspector: windDirectionSummary }],
     ['WindFromWing', {
         inspector(channel): WindDirectionSummary {
-            const worldWind = windDirectionReading(channel, 15, 'Wing-derived world wind');
+            const worldWind = bearingReading(channel, 15, 'Wing-derived world wind');
             return { worldWind, estimateLabel: 'Wing estimate', details: [worldWind] };
         }
     }],

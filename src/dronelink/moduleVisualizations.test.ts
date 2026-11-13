@@ -1,4 +1,4 @@
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
 import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { channelVisualization, moduleSummaries, spatialSummaries, depthLogSample, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
@@ -458,4 +458,26 @@ test('WindFromWing uses the reported estimate and never presents its angle of at
     expect(inspect()).not.toHaveProperty('localWind');
     observed.params[15] = { ...estimate, values: [254, 7.6, 2.8], numValues: 3 };
     expect(inspect()).toMatchObject({ worldWind: { unavailable: true } });
+});
+
+
+test('Nav compares independent bearings and uses observed target subscription bytes', () => {
+    const observed = channel(6, 0, 'Nav');
+    const scalar = observed.params[15];
+    const adjusted = { ...scalar, param: 20, values: [-45], lastHeard: 800 };
+    const targetSource = { ...scalar, param: 13, msgType: DRONE_LINK_MSG_TYPE_ADDR, values: [7, 22, 4, 200], lastHeard: 900 };
+    Object.assign(observed.params, {
+        8: { ...scalar, param: 8, values: [0] }, 9: { ...scalar, param: 9, values: [1250] },
+        13: targetSource, 17: { ...scalar, param: 17, values: [-2.5] }, 20: adjusted
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        navigationBearings: { heading: { bearing: 0 }, adjusted: { bearing: 315, text: '315°', reading: adjusted },
+            wind: { unavailable: true } },
+        crossTrack: { text: '-2.5' },
+        following: { text: '22>4.8', reading: targetSource }, followingNode: 22
+    });
+    expect(moduleSummaries({ id: 7, lastHeard: 1000, channels: { 6: observed } })[0]).toMatchObject({ text: '1.3 km' });
+    observed.params[13] = { ...targetSource, values: [7, 22, 4] };
+    expect(inspect()).toMatchObject({ following: { unavailable: true } });
 });
