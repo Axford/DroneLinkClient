@@ -273,3 +273,5 @@ The Domain map requests geometry for the selected node's reported Waypoint diges
 The Cloud workspace and standalone Workbench share the Nodes, Map and Network toolbar. Switching lenses preserves the selected node and Inspector. Network uses the same gateway routes and diagnostics in Workbench and paired active Domains. In Cloud, the observed node selector remains available independently of live routes, including when viewing an archived Domain.
 
 The Cloud Inspector exposes Files with a prompt when a node or file access is unavailable. In archived Domains, Owners, Editors and Platform Admins can browse and open Cloud files in the read-only Explorer. The archived view omits node operations and Cloud save controls. Hosted authorization also enforces the role and active-Domain requirements on writes.
+
+The shared Inspector size selector switches between a full-window view, the normal resizable panel and a collapsed toolbar. Size is independent of the active tab. The Inspector remains mounted across size changes so file drafts and tab selection survive. Files uses its picker when the available panel width is narrow.

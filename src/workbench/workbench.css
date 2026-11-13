@@ -85,8 +85,6 @@
 .dw-file-more::after { display: none; }
 .dw-config-editor { width: 100%; min-height: max(18rem, calc(100dvh - 20rem)); }
 .dw-file-checks { margin-block: var(--dw-space-2); }
-@media (max-width: 767px) {
-    .dw-file-explorer { display: block; padding: var(--dw-space-3); }
-    .dw-file-workspace { padding: var(--dw-space-3); }
-    .dw-file-row time { max-width: 55%; text-align: end; }
-}
+.dw-file-explorer[data-compact="true"] { display: block; padding: var(--dw-space-3); }
+.dw-file-explorer[data-compact="true"] .dw-file-workspace { padding: var(--dw-space-3); }
+.dw-file-tree .dw-file-row time { max-width: 55%; text-align: end; }

@@ -1,8 +1,9 @@
 .inspector-panel { height: 100%; display: flex; flex-direction: column; overflow: hidden; font-size: 1rem; background: var(--dw-color-canvas); }
 .inspector-header { display: flex; flex: none; align-items: center; gap: var(--dw-space-2); padding: var(--dw-space-2) var(--dw-space-3); background: var(--dw-color-panel); }
 .dw-inspector-context { min-width: 0; flex: 1; }
-.inspector-header .dw-inspector-toggle { flex: none; margin-inline-start: auto; }
-.inspector-panel[data-minimized="true"] > :not(.inspector-header) { display: none; }
+.dw-inspector-size { display: flex; flex: none; gap: var(--dw-space-1); margin-inline-start: auto; }
+[data-bs-theme] .dw-inspector-size [aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
+.inspector-panel[data-size="collapsed"] > :not(.inspector-header) { display: none; }
 .inspector-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); scrollbar-color: var(--dw-color-border) var(--dw-color-canvas); scrollbar-width: thin; }
 .channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
 
@@ -283,3 +284,4 @@
 }
 .inspector-panel > .tab-content { border-top: var(--dw-space-1) solid var(--dw-color-primary); flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); }
 .inspector-panel .dw-workbench-files { margin: 0; }
+.inspector-panel[data-size="full-window"] > .tab-content { padding: 0; }

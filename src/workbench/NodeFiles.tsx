@@ -38,6 +38,17 @@ function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 export default function NodeFiles({ node, transport, available, uptimeMs, activity, domainId, readOnly = false, connected }: Props) {
     const codeEditor = React.useRef<Ace.Editor | null>(null);
     const narrow = useNarrowLayout();
+    const explorerRef = React.useRef<HTMLElement>(null);
+    const [compactPanel, setCompactPanel] = useState(false);
+    const compact = narrow || compactPanel;
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined' || !explorerRef.current) return;
+        const observer = new ResizeObserver(([entry]) => {
+            if (entry.contentRect.width > 0) setCompactPanel(entry.contentRect.width < 560);
+        });
+        observer.observe(explorerRef.current);
+        return () => observer.disconnect();
+    }, []);
     const [picker, setPicker] = useState(false);
     const [source, setSource] = useState<'node' | 'cloud'>('node');
     const [cloudEntries, setCloudEntries] = useState<CloudFileEntry[]>();
@@ -56,7 +67,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     const [feedback, setFeedback] = useState<{ text: string; error?: boolean }>();
     const uploadText = (versionText ?? stored?.text)?.includes('\r\n') ? draft.replace(/\n/g, '\r\n') : draft;
     const dirty = !!stored && uploadText !== stored.text;
-    useEffect(() => { if (!narrow) setPicker(false); }, [narrow]);
+    useEffect(() => { if (!compact) setPicker(false); }, [compact]);
     const path = directory?.path ?? '/';
     const remote = connected?.request;
     const remoteRef = React.useRef(remote);
@@ -297,7 +308,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
                     onClick={() => openCloud(entry.path)} title={entry.path}>
                     <span>{entry.path}</span>
                     <time dateTime={entry.modifiedAt} title={timestampFormat.format(new Date(entry.modifiedAt))}>
-                        {narrow ? timestampFormat.format(new Date(entry.modifiedAt)) : dateFormat.format(new Date(entry.modifiedAt))}
+                        {compact ? timestampFormat.format(new Date(entry.modifiedAt)) : dateFormat.format(new Date(entry.modifiedAt))}
                     </time>
                 </button>
             </li>)}</ul>
@@ -329,12 +340,12 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         aria-invalid={configurationError || undefined} className="form-control font-monospace" rows={12} spellCheck={false}
         value={currentDraft} readOnly={!editable || busy} onChange={event => setCurrentDraft(event.target.value)} />;
 
-    return <section className="dw-workbench-files dw-file-explorer" aria-label={`Node ${node} files`}>
-        {!narrow && explorer}
-        {narrow && <SettingsDialog compact title="Files" show={picker} onHide={() => setPicker(false)}>{explorer}</SettingsDialog>}
+    return <section ref={explorerRef} data-compact={compact} className="dw-workbench-files dw-file-explorer" aria-label={`Node ${node} files`}>
+        {!compact && explorer}
+        {compact && <SettingsDialog compact title="Files" show={picker} onHide={() => setPicker(false)}>{explorer}</SettingsDialog>}
         <div className="dw-file-workspace">
             <header className="dw-toolbar dw-file-header">
-                {narrow && <IconButton label="Browse files" icon={<Folder2Open />} aria-haspopup="dialog" onClick={() => setPicker(true)} />}
+                {compact && <IconButton label="Browse files" icon={<Folder2Open />} aria-haspopup="dialog" onClick={() => setPicker(true)} />}
                 <span className="dw-meta">Node {node}{transport ? ` · ${transportLabel[transport]}` : ''}</span>
                 {current && <strong><code>{current.path}</code></strong>}
                 {(showingCloud ? cloudDirty : dirty) && <span className="dw-meta">Unsaved draft</span>}
