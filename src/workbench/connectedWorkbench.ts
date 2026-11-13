@@ -4,15 +4,15 @@ import type { GlobalState } from '../dronelink/DroneLinkState';
 import { Transport, WorkbenchStream, useWorkbenchFeed } from './useWorkbenchFeed';
 
 export type NodeSource = 'auto' | 'local' | 'cloud';
-interface Pair { domainId: string; gatewayId: string; base: string; key: string }
+interface Pair { domainId: string; gatewayId: string; fileBackups: boolean; base: string; key: string }
 interface Grant { grant: string; expiresAt: number }
 
-function request(pair: Pick<Pair, 'base' | 'key'>, endpoint: string, grant?: string, signal?: AbortSignal, body?: unknown) {
+function request(pair: Pick<Pair, 'base' | 'key'>, endpoint: string, grant?: string, signal?: AbortSignal, body?: unknown, method = body ? 'POST' : 'GET') {
     const headers: Record<string, string> = { 'X-Workbench-Key': pair.key };
     if (grant) headers['X-Workbench-Grant'] = grant;
     if (body) headers['Content-Type'] = 'application/json';
     const options = { headers, credentials: 'omit', redirect: 'error', cache: 'no-store', targetAddressSpace: 'loopback', signal } as const;
-    return fetch(`${pair.base}/${endpoint}`, body ? { ...options, method: 'POST', body: JSON.stringify(body) } : options);
+    return fetch(`${pair.base}/${endpoint}`, body ? { ...options, method, body: JSON.stringify(body) } : options);
 }
 
 async function localError(response: Response) {
@@ -112,7 +112,7 @@ export function useConnectedWorkbench(domainId?: string) {
             const identity = await response.json();
             if (identity.domainId !== domainId) throw new Error('This gateway is configured for a different Domain.');
             if (typeof identity.gatewayId !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(identity.gatewayId)) throw new Error('The gateway did not identify itself.');
-            if (!controller.signal.aborted) setPair({ ...candidate, domainId, gatewayId: identity.gatewayId });
+            if (!controller.signal.aborted) setPair({ ...candidate, domainId, gatewayId: identity.gatewayId, fileBackups: identity.fileBackups === true });
         } catch (problem) {
             if (!controller.signal.aborted || controller.signal.reason === 'timeout') setError(problem instanceof TypeError || controller.signal.reason === 'timeout' ? 'Could not reach the local gateway. Check its port and allow loopback access in the browser.' : String((problem as Error).message));
         } finally {
@@ -175,6 +175,19 @@ export function useConnectedWorkbench(domainId?: string) {
         }
         return result;
     }, [activePair, feed, usesLocal]);
+    async function fileRequest<T>(node: number, endpoint: string, options?: RequestInit, path?: string): Promise<T> {
+        const selected = transport(node);
+        if (!activePair?.fileBackups || !access || !usesLocal(node) || !selected) throw new Error('The selected local route is unavailable.');
+        const signal = AbortSignal.timeout(135000);
+        const grant = await access.token(signal);
+        if (livePair.current !== activePair || currentPath.current?.(node) !== selected) throw new Error('The selected local route changed.');
+        const params = new URLSearchParams({ transport: selected });
+        if (path !== undefined) params.set('path', path);
+        const body = typeof options?.body === 'string' ? JSON.parse(options.body) : undefined;
+        const response = await request(activePair, `nodes/${node}/${endpoint}?${params}`, grant, signal, body, options?.method);
+        if (!response.ok) throw await localError(response);
+        return response.json();
+    }
     async function query(node: number, channel: number, parameter: number) {
         const selected = transport(node);
         if (!activePair || !access || !usesLocal(node) || !selected) throw new Error('The selected local route is unavailable.');
@@ -184,5 +197,5 @@ export function useConnectedWorkbench(domainId?: string) {
         const response = await request(activePair, 'query-value', grant, signal, { node, channel, parameter, transport: selected });
         if (!response.ok) throw await localError(response);
     }
-    return { paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query };
+    return { paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, fileRequest, fileBackups: activePair?.fileBackups === true };
 }

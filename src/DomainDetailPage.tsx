@@ -12,6 +12,7 @@ import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import { CommandScope } from './commands/session';
 import InspectorPanel from './components/InspectorPanel';
 import { InspectorSessionProvider } from './components/InspectorSession';
+import NodeFiles from './workbench/NodeFiles';
 import { useConnectedWorkbench } from './workbench/connectedWorkbench';
 import { ConnectedLocalInspector, GatewayConnection, SourceChoice } from './workbench/ConnectedWorkbenchControls';
 import { VisualizationSettingsNotice, VisualizationSettingsProvider } from './components/VisualizationSettings';
@@ -34,6 +35,13 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
+    const fileActivity = useRef({ busy: false, dirty: false });
+    const recordFileActivity = useCallback((busy: boolean, dirty: boolean) => { fileActivity.current = { busy, dirty }; }, []);
+    function selectNode(node: number | null) {
+        if (node === selectedNodeId || fileActivity.current.busy) return;
+        if (fileActivity.current.dirty && !window.confirm('Discard the unsaved node file draft?')) return;
+        setSelectedNodeId(node);
+    }
     const workbench = useConnectedWorkbench(domain?.status === 'active' && domain._id === domainId && user ? domainId : undefined);
     const currentLocal = useRef(workbench.usesLocal);
     currentLocal.current = workbench.usesLocal;
@@ -160,7 +168,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
                             <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+                                <ObservedMap key={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />
                             </Panel>
                             <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
                             <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
@@ -168,6 +176,12 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 {local && selectedNodeId !== null
                                     ? <ConnectedLocalInspector key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} workbench={workbench} state={state} canQuery={domain.canEdit} />
                                     : <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={{ ...droneLinkState, state }} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />}
+                                {workbench.fileBackups && domain.canEdit && selectedNodeId !== null && <div hidden={!local}>
+                                    <NodeFiles key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} activity={recordFileActivity}
+                                        available={local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
+                                        connected={{ domainId: domain._id, request: (endpoint, options, path) =>
+                                            workbench.fileRequest(selectedNodeId, endpoint, options, path) }} />
+                                </div>}
 
                             </Panel>
                         </PanelGroup>

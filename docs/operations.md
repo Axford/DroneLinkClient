@@ -231,3 +231,7 @@ In standalone Workbench, select a node and list its stored files. Open a text fi
 ### Connected Workbench
 
 Open the active hosted Domain and select **Connect local gateway**. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)
+
+### Connected node-file backups
+
+Pair a backup-enabled gateway in the hosted Domain, select a node with a Local route and open **Node files**. Editors, Owners and Platform Admins can see cloud backup status separately from the node result. **Backup history** lists versions for the opened path. **Load backup** puts a version into the editor for review. **Upload to node** still uses the revision read from the node, and **Restart node** is separate. Standalone Workbench keeps its own local file workflow.
