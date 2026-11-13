@@ -105,6 +105,9 @@
 }
 
 .dw-map-waypoint[data-waypoint="target"] { color: var(--dw-color-navigation-target); }
+.dw-map-waypoint[data-waypoint="last"] { color: var(--dw-color-muted); }
+.dw-map-waypoint[data-draggable="true"] { pointer-events: auto; cursor: grab; }
+.dw-map-waypoint[data-draggable="true"]:active { cursor: grabbing; }
 .dw-map-waypoint[data-waypoint="target"]::before { transform: rotate(45deg); }
 .dw-map-waypoint > span {
   position: absolute;

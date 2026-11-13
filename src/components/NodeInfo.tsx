@@ -6,6 +6,7 @@ import { commandRequest, root, useCommandScope } from '../commands/session';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import MapBindings from './MapBindings';
+import { NodeMapSettings } from './NodeMapSettings';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 import { moduleSummaries, spatialSummaries } from '../dronelink/moduleVisualizations';
@@ -71,7 +72,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
 
     return (
         <SurfacePanel className="mb-3">
-            <div className="dw-item-row"><div className="dw-toolbar dw-item-content"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge></div><div className="dw-row-actions"><IconButton data-inspector-focus="node-details" label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /></div></div>
+            <div className="dw-item-row"><div className="dw-toolbar dw-item-content"><strong>{node.name || `Node ${node.id}`}</strong><Badge bg="secondary">{node.interface === 'cloud' ? 'Cloud observation' : isActive ? 'Active' : 'Inactive'}</Badge></div><div className="dw-row-actions"><IconButton data-inspector-focus="node-details" label="Node details" icon={<InfoCircle />} onClick={() => setDetails(true)} /><MapBindings node={node} /><NodeMapSettings nodeId={node.id} /></div></div>
             <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
             <SummaryChips nodeId={node.id} summaries={summaries} now={currentTime} />
             <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>

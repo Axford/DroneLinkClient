@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ChannelList from '../components/ChannelList';
+import { NodeMapSettings } from '../components/NodeMapSettings';
 import { ObservationNamesContext } from '../components/parameterPresentation';
 import type { GlobalState } from '../dronelink/DroneLinkState';
 import { CommandScope } from '../commands/session';
@@ -47,7 +48,7 @@ export function ConnectedLocalInspector({ node, workbench, state, canQuery }: { 
     const transport = workbench.transport(node);
     const observed = state[node];
     return <div className="inspector-panel text-white">
-        <header className="inspector-header"><h2>Inspector</h2></header>
+        <header className="inspector-header"><h2>Inspector</h2><NodeMapSettings nodeId={node} /></header>
         <div className="inspector-content">
             <p>Node {node} · Local{transport ? ` · ${transportLabel[transport]}` : ' · Last seen'}</p>
             {!transport && <p>The selected local route is unavailable.</p>}

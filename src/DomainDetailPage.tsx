@@ -6,6 +6,7 @@ import PageFeedback from './components/ui/PageFeedback';
 import useNarrowLayout from './components/ui/useNarrowLayout';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import ObservedMap from './components/ObservedMap';
+import { NodeMapSettingsProvider } from './components/NodeMapSettings';
 import { Domain, User } from './App';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
@@ -179,6 +180,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 {domain.status === 'active' && window.isSecureContext && <GatewayConnection workbench={workbench} />}
                 <VisualizationSettingsNotice />
                 <div className="dw-operation-panels">
+                    <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
                             <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
@@ -200,6 +202,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                             </Panel>
                         </PanelGroup>
                     </InspectorSessionProvider>
+                    </NodeMapSettingsProvider>
                 </div>
             </div>
         </VisualizationSettingsProvider>

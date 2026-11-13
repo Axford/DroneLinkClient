@@ -21,10 +21,13 @@ test('observed navigation joins only a coherent waypoint pair and clears an inva
   const state = { 7: node(nav, other) };
   const navigation = observedNavigation(state);
   expect(navigation.waypoints).toEqual([
-    { nodeId: 7, role: 'last', coordinates: [179.75, 51] },
-    { nodeId: 7, role: 'target', coordinates: [-179.75, 51] }
+    { nodeId: 7, role: 'last', coordinates: [179.75, 51], channelId: 4 },
+    { nodeId: 7, role: 'target', coordinates: [-179.75, 51], channelId: 4 }
   ]);
-  expect(navigation.legs.features.map(feature => feature.geometry.coordinates)).toEqual([[[179.75, 51], [180.25, 51]]]);
+  expect(navigation.legs.features.filter(feature => feature.properties.kind === 'leg').map(feature => feature.geometry.coordinates)).toEqual([[[179.75, 51], [180.25, 51]]]);
+
+  expect(navigation.legs.features.map(feature => feature.properties.kind)).toEqual(['target-radius', 'leg', 'corridor', 'corridor']);
+  expect(observedNavigation(state, id => id === 7).legs.features.map(feature => feature.properties.kind)).toContain('previous-radius');
 
   nav.params[12] = reading(12, [0, 51, 10]);
   expect(observedNavigation(state).waypoints).toEqual([navigation.waypoints[0]]);
@@ -32,7 +35,7 @@ test('observed navigation joins only a coherent waypoint pair and clears an inva
 
   delete nav.params[12];
   expect(observedNavigation(state).waypoints).toHaveLength(2);
-  expect(observedNavigation(state).legs.features).toEqual([]);
+  expect(observedNavigation(state).legs.features.map(feature => feature.properties.kind)).toEqual(['target-radius']);
   expect(observedNavigation({ 7: node() }).waypoints).toEqual([]);
 });
 

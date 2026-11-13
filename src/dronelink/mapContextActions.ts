@@ -5,6 +5,8 @@ import {
   DRONE_LINK_MSG_TYPE_FLOAT as FLOAT, DRONE_MODULE_PARAM_TYPE as MODULE_TYPE
 } from './DroneLinkMsg';
 import { ObservedPosition } from './observedPositions';
+import type { ObservedWaypoint } from './navigationLegs';
+import { mapBindings } from './mapBindings';
 
 export type MapContext = { kind: 'background'; longitude: number; latitude: number } | { kind: 'marker'; nodeId: number };
 
@@ -105,6 +107,15 @@ const navActions: MapActionProvider = {
 };
 
 const providers: MapActionProvider[] = [navActions];
+
+export function observedTargetMove(waypoint: ObservedWaypoint, nodes: GlobalState, longitude: number, latitude: number) {
+  const node = nodes[waypoint.nodeId];
+  if (waypoint.role !== 'target' || !node || mapBindings(node).target?.channelId !== waypoint.channelId) return;
+  const groups = navActions.background?.({ kind: 'background', longitude, latitude }, { nodes: { [node.id]: node }, positions: [] });
+  const action = groups?.[0]?.entries.find(entry => entry.intent.target.channel === waypoint.channelId);
+  // Zero longitude is the firmware's unset-target sentinel, including after wrapping.
+  if (action?.intent.operation === 'write' && 'values' in action.intent.payload && action.intent.payload.values[0] !== 0) return action;
+}
 
 export function mapContextActions(context: MapContext, observations: Observations): ActionGroup[] {
   const groups = new Map<string, MapAction[]>();

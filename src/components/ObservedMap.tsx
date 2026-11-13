@@ -11,6 +11,9 @@ import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
 import { windLines } from '../dronelink/windLines';
 import { observedNavigation } from '../dronelink/navigationLegs';
+import { observedTargetMove } from '../dronelink/mapContextActions';
+import { message, submit, useCommandJournal, useCommandScope } from '../commands/session';
+import { useNodeMapSettings } from './NodeMapSettings';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './ObservedMap.css';
@@ -58,6 +61,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const [windSource, setWindSource] = useState<mapboxgl.GeoJSONSource>();
   const [legSource, setLegSource] = useState<mapboxgl.GeoJSONSource>();
   const waypointMarkers = useRef(new Map<string, mapboxgl.Marker>());
+  const draggingWaypoint = useRef<string | undefined>(undefined);
   const markers = useRef(new Map<number, {
     marker: mapboxgl.Marker;
     button: HTMLButtonElement;
@@ -69,11 +73,17 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [dragFeedback, setDragFeedback] = useState('');
+  const scope = useCommandScope();
+  const { attempt } = useCommandJournal(scope);
   const [cameraRevision, setCameraRevision] = useState(0);
   const [now, setNow] = useState(Date.now());
   const positions = React.useMemo(() => observedPositions(state), [state]);
   const secondaryPositions = React.useMemo(() => observedPositions(state, 'location2'), [state]);
-  const navigation = React.useMemo(() => observedNavigation(state), [state]);
+  const showPreviousRadius = useNodeMapSettings()?.showPreviousRadius;
+  const navigation = React.useMemo(() => observedNavigation(state, showPreviousRadius), [state, showPreviousRadius]);
+  const dragState = useRef({ state, navigation, scope, attempt, mapError });
+  dragState.current = { state, navigation, scope, attempt, mapError };
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -106,13 +116,21 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         });
         setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
-        activeMap.addLayer({
-          id: legLayerId, source: legLayerId, type: 'line',
-          paint: {
-            'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-target').trim(),
-            'line-width': 2, 'line-dasharray': [2, 2]
-          }
-        }, windLayerId);
+        const palette = getComputedStyle(mapContainer);
+        const target = palette.getPropertyValue('--dw-color-navigation-target').trim();
+        const previous = palette.getPropertyValue('--dw-color-muted').trim();
+        for (const kind of ['leg', 'corridor', 'target-radius', 'previous-radius']) {
+          activeMap.addLayer({
+            id: `${legLayerId}-${kind}`, source: legLayerId, type: 'line',
+            filter: ['==', ['get', 'kind'], kind],
+            paint: {
+              'line-color': kind === 'previous-radius' ? previous : target,
+              'line-width': kind === 'leg' ? 2 : 1.5,
+              'line-opacity': kind === 'corridor' ? 0.65 : 1,
+              ...(kind === 'corridor' ? { 'line-dasharray': [4, 4] } : {})
+            }
+          }, windLayerId);
+        }
         setLegSource(activeMap.getSource<mapboxgl.GeoJSONSource>(legLayerId));
       });
       current.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -143,6 +161,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       ownedMarkers.clear();
       ownedSecondaryMarkers.forEach(({ marker }) => marker.remove()); ownedSecondaryMarkers.clear();
       ownedWaypointMarkers.forEach(marker => marker.remove()); ownedWaypointMarkers.clear();
+      draggingWaypoint.current = undefined;
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
       current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined);
     };
@@ -173,18 +192,57 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         label.textContent = `${waypoint.nodeId} · ${waypoint.role === 'target' ? 'Target' : 'Previous'}`;
         element.append(label);
         marker = new mapboxgl.Marker({ element }).setLngLat(waypoint.coordinates).addTo(activeMap);
+        const dragMarker = marker;
+        if (waypoint.role === 'target') {
+          let started: string | undefined;
+          dragMarker.on('dragstart', () => {
+            const current = dragState.current;
+            const active = current.navigation.waypoints.find(point => point.nodeId === waypoint.nodeId && point.role === 'target');
+            const action = active && observedTargetMove(active, current.state, ...active.coordinates);
+            started = action && JSON.stringify([action.key, active?.coordinates]);
+            draggingWaypoint.current = key;
+          });
+          dragMarker.on('dragend', () => {
+            const current = dragState.current;
+            const active = current.navigation.waypoints.find(point => point.nodeId === waypoint.nodeId && point.role === 'target');
+            const { lng, lat } = dragMarker.getLngLat();
+            draggingWaypoint.current = undefined;
+            if (active) dragMarker.setLngLat(active.coordinates);
+            const action = active && observedTargetMove(active, current.state, lng, lat);
+            const commandScope = current.scope;
+            if (!started || !action || JSON.stringify([action.key, active?.coordinates]) !== started || current.mapError || !commandScope?.canSubmit ||
+              commandScope.canTarget?.(waypoint.nodeId) === false ||
+              (current.attempt && current.attempt.status !== 'rejected')) {
+              setDragFeedback('Target move unavailable. Check the current node and Domain commands.');
+              return;
+            }
+            setDragFeedback('Submitting target move…');
+            void submit(commandScope, action.intent).then(
+              () => setDragFeedback('Target move requested. See Domain commands.'),
+              error => setDragFeedback(`${message(error)} See Domain commands.`)
+            );
+          });
+        }
         waypointMarkers.current.set(key, marker);
-      } else {
+      } else if (draggingWaypoint.current !== key) {
         marker.setLngLat(waypoint.coordinates);
+      }
+      if (waypoint.role === 'target') {
+        const action = scope?.canSubmit && scope.canTarget?.(waypoint.nodeId) !== false &&
+          (!attempt || attempt.status === 'rejected') && observedTargetMove(waypoint, state, ...waypoint.coordinates);
+        if (draggingWaypoint.current !== key) marker.setDraggable(!!action);
+        marker.getElement().dataset.draggable = String(!!action);
+        marker.getElement().title = action ? ['Drag to request a new target', action.warning].filter(Boolean).join('. ') : '';
       }
     }
     waypointMarkers.current.forEach((marker, key) => {
       if (!visible.has(key)) {
+        if (draggingWaypoint.current === key) draggingWaypoint.current = undefined;
         marker.remove();
         waypointMarkers.current.delete(key);
       }
     });
-  }, [navigation, mapError, mapReady, token, user, viewState]);
+  }, [navigation, mapError, mapReady, token, user, viewState, scope, attempt, state]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -281,11 +339,14 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     </div>
     <MapContextMenu pane={pane} canvas={container} enabled={mapReady && !mapError} state={state} positions={positions}
       cameraRevision={cameraRevision} unproject={point => map.current?.isMoving() ? undefined : map.current?.unproject(point)} now={now} />
+    {dragFeedback && <div className="dw-map-command-feedback" role="status">{dragFeedback}
+      <button type="button" aria-label="Dismiss target move status" onClick={() => setDragFeedback('')}>×</button>
+    </div>}
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
       <p>The green chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
       <p>A blue line extends 10 metres from the node in the last-known wind bearing from its wing sensor.</p>
-      <p>The yellow diamond marks the observed target and the square marks the previous waypoint. A dashed line joins them when both come from the same Nav channel. Map source bindings lists their source and receipt time.</p>
+      <p>The yellow diamond and ring show the observed target and its radius. The dashed corridor extends one target radius to either side of the leg. The grey square marks the previous waypoint. Use Node settings to show its radius.</p>
       <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
       <p>Observations remain available in the inspector when the map is unavailable.</p>
     </SurfacePanel></SettingsDialog>
