@@ -48,7 +48,7 @@ function Recovery({ scope }: { scope: Scope }) {
     <p>{attempt.error}</p>
     <div className="dw-row-actions">
       <IconButton label="Check submission" icon={<ArrowClockwise />} onClick={() => action(false)} />
-      {scope.canSubmit && <IconButton label="Retry same request" icon={<CheckLg />} onClick={() => action(true)} />}
+      {scope.canSubmit && attempt.request && scope.canTarget?.(attempt.request.target.nodeAddress) !== false && <IconButton label="Retry same request" icon={<CheckLg />} onClick={() => action(true)} />}
     </div>
     {error && <p role="status">{error}</p>}
   </Alert>;
@@ -119,7 +119,7 @@ export function ParameterCommands({ target, observation }: { target: Target; obs
     setError('');
     void submit(scope, { target, operation }).catch(problem => setError(message(problem)));
   };
-  return <SurfacePanel title="Commands">
+  return <SurfacePanel title="Cloud commands">
     {last && sameTarget(last.target, target) && <Acceptance command={last} />}
     <Recovery scope={scope} />
     {error && <Alert variant="warning">{error}</Alert>}
@@ -162,6 +162,7 @@ function CommandHistory({ scope, target }: { scope: Scope; target?: Target }) {
       request = active;
       try {
         const result = await commandRequest<Page>(url, { signal: active.signal, userId: scope.userId });
+        if (!Array.isArray(result.data.items) || !result.pagination) throw new Error('The command history response was incomplete.');
         if (request === active) { setPage(result); setError(''); }
       } catch (problem) {
         if (request === active) setError(message(problem));
@@ -182,6 +183,7 @@ function CommandHistory({ scope, target }: { scope: Scope; target?: Target }) {
     return () => { stop(); document.removeEventListener('visibilitychange', visibility); };
   }, [url, revision, last, scope.userId]);
   const cancel = async (command: Command) => {
+    if (!scope.canSubmit || scope.captureEditAccess?.()() === false) return;
     setCancelling(command.id);
     try {
       const { data } = await commandRequest<{ data: { command: Command } }>(root(scope.domainId) + '/commands/' + command.id + '/cancel', { method: 'POST', body: '{}', userId: scope.userId });
@@ -287,7 +289,7 @@ export function DomainCommands({ node }: { node?: number }) {
       {show && <>
         <Recovery scope={scope} />
         {last && <SurfacePanel title="Latest request"><Acceptance command={last} /></SurfacePanel>}
-        {scope.canSubmit && node !== undefined && <NumericQuery key={node} scope={scope} node={node} />}
+        {scope.canSubmit && node !== undefined && scope.canTarget?.(node) !== false && <NumericQuery key={node} scope={scope} node={node} />}
         <SurfacePanel title="Command queue"><CommandHistory scope={scope} /></SurfacePanel>
         <CommandSettings scope={scope} />
       </>}

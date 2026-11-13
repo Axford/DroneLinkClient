@@ -207,7 +207,7 @@ Viewers and archived Domains see the saved colours. Settings are retained across
 
 Open a parameter's details to query its value or name, or edit a writable observation. The editor captures the observation generation, type and size when opened. The Domain commands dialog provides numeric queries for the selected node, pending and history views, and HTTP command lifetime. Owners and Platform Admins can change the lifetime.
 
-A submission with an unknown outcome can be checked or retried with its original request. Recovery stays in memory for the signed-in user and Domain while the page application is running. A Viewer can check their existing submission and read history. The observed value continues to reflect actual publications and the command outcome shows when the polling node retrieved the request.
+A submission with an unknown outcome can be checked or retried with its original request. Retry requires current edit access and a Cloud target. Changing Domain, losing edit access, or switching the target to Local while a reservation is pending stops the new submission. Specialist summaries link to the channel’s Parameters view for the same command workflow. Recovery stays in memory for the signed-in user and Domain while the page application is running. A Viewer can check their existing submission and read history. The observed value continues to reflect actual publications and the command outcome shows when the polling node retrieved the request.
 
 Run the React, TypeScript, protocol and release checks. The hosted command browser fixture uses two Chrome contexts, synthetic accounts and an owned Firestore emulator. The shared M2 plan records the compatible Server and release evidence.
 

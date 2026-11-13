@@ -6,7 +6,12 @@ import mapboxgl from 'mapbox-gl';
 jest.mock('react-resizable-panels', () => ({ Panel: ({ children }: any) => <div>{children}</div>, PanelGroup: ({ children }: any) => <div>{children}</div>, PanelResizeHandle: () => null }));
 jest.mock('mapbox-gl', () => ({ Map: jest.fn(), NavigationControl: jest.fn() }));
 jest.mock('./components/DomainCollaboration', () => () => <div>Collaboration</div>);
-jest.mock('./components/InspectorPanel', () => () => <div>Inspector</div>);
+jest.mock('./components/InspectorPanel', () => {
+  const { ParameterCommands } = jest.requireActual('./commands/CommandControls');
+  return () => <div>Inspector{['demotion', 'archive', 'navigation', 'revocation'].includes(
+    jest.requireActual('./commands/session').useCommandScope()?.userId
+  ) && <ParameterCommands target={{ nodeAddress: 7, channel: 4, param: 8 }} />}</div>;
+});
 function Harness() {
   const navigate = useNavigate();
   return <><button onClick={() => navigate('/private/domain/b')}>Switch domain</button><Routes><Route path="/private/domain/:domainId" element={<DomainDetailPage />} /></Routes></>;
@@ -130,4 +135,43 @@ test('a settings load failure keeps observations visible and offers a retry', as
   fail = false;
   fireEvent.click(screen.getByRole('button', { name: /^Retry$/ }));
   await waitFor(() => expect(screen.queryByText('Could not refresh visualization settings.')).not.toBeInTheDocument());
+});
+
+test.each(['demotion', 'archive', 'navigation', 'revocation'])('a delayed reservation cannot submit after %s', async change => {
+  let finish: (response: Response) => void = () => {};
+  const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => ({ success: true, data }) } as Response);
+  let editable = true;
+  let archived = false;
+  const requests = jest.fn().mockImplementation((url: string) => {
+    if (url.includes('timeoutMs=25000')) return new Promise(() => {});
+    if (observationReply(url)) return Promise.resolve(observationReply(url));
+    if (url === '/api/user') return Promise.resolve({ ok: true, json: async () => ({ _id: change }) });
+    if (url === '/api/config') return Promise.resolve(reply({ mapboxAccessToken: null }));
+    if (url === '/api/session') return Promise.resolve(reply({ csrfToken: 'fixture' }));
+    if (url.endsWith('/command-submissions')) return new Promise(resolve => { finish = resolve; });
+    if (url.includes('/commands')) return Promise.resolve({ ok: true, json: async () => ({ success: true, data: { items: [] }, pagination: { nextCursor: null } }) });
+    const id = url.endsWith('/a') ? 'a' : 'b';
+    return Promise.resolve(reply({ _id: id, name: id === 'a' ? 'Alpha' : 'Bravo',
+      status: archived ? 'archived' : 'active', canEdit: editable }));
+  });
+  global.fetch = requests;
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Query value' }));
+  await waitFor(() => expect(requests.mock.calls.some(([url]) => url.endsWith('/command-submissions'))).toBe(true));
+  if (change === 'navigation') {
+    fireEvent.click(screen.getByRole('button', { name: 'Switch domain' }));
+    await screen.findByText('Bravo');
+  } else if (change === 'revocation') {
+    act(() => window.dispatchEvent(new CustomEvent('dronelink:access-changed', {
+      detail: { status: 403, url: '/api/domains/a/observations' },
+    })));
+    await screen.findByText('Domain access denied.');
+  } else {
+    editable = false;
+    archived = change === 'archive';
+    act(() => window.dispatchEvent(new Event('focus')));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Query value' })).not.toBeInTheDocument());
+  }
+  await act(async () => finish(reply({ submissionId: 's'.repeat(43), firstUseExpiresAt: '2099-01-01T00:00:00Z' })));
+  expect(requests.mock.calls.some(([url, options]) => url.endsWith('/commands') && options?.method === 'POST')).toBe(false);
 });

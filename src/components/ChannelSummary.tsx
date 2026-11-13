@@ -3,6 +3,7 @@ import { ExclamationOctagon, ExclamationTriangle, InfoCircle } from 'react-boots
 import type { InspectorSummary, ObservedSummary } from '../dronelink/moduleVisualizations';
 import { SummaryDetails } from './NodeSummary';
 import IconButton from './ui/IconButton';
+import { useCommandScope } from '../commands/session';
 import SettingsDialog from './ui/SettingsDialog';
 
 function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
@@ -31,13 +32,21 @@ export default function ChannelSummary({ channelId, summary }: { channelId: numb
     </dl>;
 }
 
-export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: number; channelId: number; summary: InspectorSummary }) {
+export function ChannelSummaryDetails({ nodeId, channelId, summary, onShowParameters }: {
+    nodeId: number; channelId: number; summary: InspectorSummary; onShowParameters: () => void;
+}) {
+    const scope = useCommandScope();
     const [details, setDetails] = useState(false);
     const title = `Channel ${channelId} reading details`;
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
             <SummaryDetails nodeId={nodeId} summaries={[...summary.primary, ...summary.supporting]} now={Date.now()} />
+            {scope?.canSubmit && scope.canTarget?.(nodeId) !== false &&
+                <button type="button" className="btn btn-outline-secondary" onClick={() => {
+                    setDetails(false);
+                    onShowParameters();
+                }}>Open parameters for commands</button>}
         </SettingsDialog>
     </>;
 }

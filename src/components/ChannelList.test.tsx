@@ -1,3 +1,4 @@
+import { CommandScope } from '../commands/session';
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import ChannelList from './ChannelList';
@@ -188,4 +189,20 @@ test('invalid readings stay unavailable and view choice follows the channel only
     fireEvent.click(controls().getByRole('button', { name: 'Parameters' }));
     view.rerender(session(reset, { ...nodes, 7: reset }, 'b'));
     expect(controls().getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('specialist reading details link to the same parameter view only with cloud edit access', () => {
+    const gps = specialist(4, 'NMEA', { 8: reading(8, DRONE_LINK_MSG_TYPE_FLOAT, [-1, 51]) });
+    const selected = node(7, { 4: gps });
+    const scope = { domainId: 'specialist', userId: 'operator', canSubmit: true, canSettings: false };
+    const fixture = (canSubmit: boolean) => <CommandScope.Provider value={{ ...scope, canSubmit }}>
+        {session(selected, { 7: selected })}
+    </CommandScope.Provider>;
+    const view = render(fixture(false));
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
+    expect(screen.queryByRole('button', { name: 'Open parameters for commands' })).not.toBeInTheDocument();
+    view.rerender(fixture(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Open parameters for commands' }));
+    expect(screen.getByRole('button', { name: 'Parameters' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('article', { name: 'Parameter 7>4.8' })).toBeVisible();
 });

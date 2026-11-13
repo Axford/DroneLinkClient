@@ -60,7 +60,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                     <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
                     <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
                 </div>
-                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} />}
+                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} onShowParameters={() => onShowParameters(true)} />}
             </div>}
             {summary ? <ChannelSummary channelId={channelId} summary={summary} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :

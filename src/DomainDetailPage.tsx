@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
 import WorkspaceShell from './components/WorkspaceShell';
@@ -46,6 +46,15 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const currentLocal = useRef(workbench.usesLocal);
     currentLocal.current = workbench.usesLocal;
     const canCloudTarget = useCallback((node: number) => !currentLocal.current(node), []);
+
+    const editableDomain = !loading && !error && domain?._id === domainId && domain?.status === 'active' &&
+        domain.canEdit === true && user ? JSON.stringify([user._id, domain._id]) : undefined;
+    const editAuthority = useRef<{ scope: string } | undefined>(undefined);
+    useLayoutEffect(() => {
+        if (!editableDomain) editAuthority.current = undefined;
+        else if (editAuthority.current?.scope !== editableDomain) editAuthority.current = { scope: editableDomain };
+    }, [editableDomain, domain]);
+    useLayoutEffect(() => () => { editAuthority.current = undefined; }, []);
 
     // DroneLink state management
     const droneLinkState = useDroneLinkState();
@@ -114,6 +123,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             throw error;
         }
         if (selectedDomain.current !== domainId || generation !== refreshGeneration.current) return;
+        if (result.data.status !== 'active' || !result.data.canEdit) editAuthority.current = undefined;
         const wasArchived = statusRef.current === 'archived'; statusRef.current = result.data.status;
         setDomain(previous => previous?._id === result.data._id ? result.data : previous);
         if (result.data.status === 'archived') stopStreaming();
@@ -127,6 +137,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             const { status, url, method } = (event as CustomEvent).detail || {};
             const commandMutation = typeof url === 'string' && /\/command(?:s|-(?:submissions|settings))(?:\/|$)/.test(url) &&
                 ['POST', 'PATCH'].includes(method);
+            if (status === 401 || status === 403) editAuthority.current = undefined;
             if (status === 403 && commandMutation) {
                 setDomain(previous => previous && { ...previous, canEdit: false, canManageMembers: false });
                 refresh();
@@ -147,7 +158,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const state = workbench.mixed(droneLinkState.state);
     const local = selectedNodeId !== null && workbench.usesLocal(selectedNodeId);
     return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={{
-        userId: user._id, domainId: domain._id, canSubmit: domain.status === 'active' && domain.canEdit,
+        userId: user._id, domainId: domain._id, canSubmit: editableDomain !== undefined, captureEditAccess: () => {
+            const authority = editAuthority.current;
+            return () => authority !== undefined && editAuthority.current === authority;
+        },
         canSettings: domain.status === 'active' && domain.canManageMembers, canTarget: canCloudTarget
     }}><WorkspaceShell user={user} activeDomain={domain}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>

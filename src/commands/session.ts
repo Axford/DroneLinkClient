@@ -2,7 +2,7 @@ import { createContext, useContext, useSyncExternalStore } from 'react';
 import { ApiError, authenticatedFetch } from '../utils/api';
 import { Command, Intent } from './model';
 
-export interface Scope { domainId: string; userId: string; canSubmit: boolean; canSettings: boolean; canTarget?: (node: number) => boolean }
+export interface Scope { domainId: string; userId: string; canSubmit: boolean; canSettings: boolean; canTarget?: (node: number) => boolean; captureEditAccess?: () => () => boolean }
 export const CommandScope = createContext<Scope | null>(null);
 export const useCommandScope = () => useContext(CommandScope);
 export const root = (domainId: string) => '/api/domains/' + encodeURIComponent(domainId);
@@ -80,9 +80,14 @@ async function send(scope: Scope, attempt: Attempt, recovering: boolean) {
     throw error;
   }
 }
+function requireSubmissionAccess(scope: Scope, target: Intent['target'], hasAccess = scope.captureEditAccess?.()) {
+  if (!scope.canSubmit || hasAccess?.() === false) throw new Error('Command submission requires current edit access.');
+  if (scope.canTarget?.(target.nodeAddress) === false) throw new Error('The selected node is using the local gateway.');
+}
+
 export async function submit(scope: Scope, intent: Intent) {
-  if (!scope.canSubmit) throw new Error('Command submission requires current edit access.');
-  if (scope.canTarget?.(intent.target.nodeAddress) === false) throw new Error('The selected node is using the local gateway.');
+  const hasAccess = scope.captureEditAccess?.();
+  requireSubmissionAccess(scope, intent.target, hasAccess);
   const prior = current(scope);
   if (prior.attempt && prior.attempt.status !== 'rejected') throw new Error('Resolve the current submission first.');
   let reservation = prior.attempt?.reservation;
@@ -97,9 +102,10 @@ export async function submit(scope: Scope, intent: Intent) {
       throw error;
     }
   }
-  if (scope.canTarget?.(intent.target.nodeAddress) === false) {
+  try { requireSubmissionAccess(scope, intent.target, hasAccess); }
+  catch (error) {
     update(scope, { last: prior.last });
-    throw new Error('The selected node is using the local gateway.');
+    throw error;
   }
   return send(scope, { status: 'sending', reservation, request: { ...intent, submissionId: reservation.submissionId } }, false);
 }
@@ -107,7 +113,8 @@ export async function resolveAttempt(scope: Scope, retry = false) {
   const attempt = current(scope).attempt;
   if (attempt?.status !== 'uncertain' || !attempt.reservation) return;
   if (retry) {
-    if (!scope.canSubmit) throw new Error('Current edit access is required to retry.');
+    if (!attempt.request) return;
+    requireSubmissionAccess(scope, attempt.request.target);
     return send(scope, attempt, true);
   }
   update(scope, { ...current(scope), attempt: { ...attempt, status: 'checking' } });

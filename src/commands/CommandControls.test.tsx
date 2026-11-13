@@ -73,3 +73,29 @@ test('Viewer reads canonical history and lifetime without mutation controls', as
   await waitFor(() => expect(screen.getByRole('textbox', { name: 'Command lifetime seconds' })).toHaveValue('3600'));
   expect(screen.queryByRole('button', { name: /Cancel Write|Save command lifetime|Query addressed/ })).not.toBeInTheDocument();
 });
+
+test('a submission can still be checked after its original target switches to Local', async () => {
+  const scope = { domainId: 'source-change', userId: 'user', canSubmit: true, canSettings: false, canTarget: () => cloud };
+  let cloud = true;
+  const post = jest.fn(() => Promise.reject(new TypeError('Connection closed')));
+  jest.spyOn(global, 'fetch').mockImplementation((path, options) => {
+    const url = String(path);
+    if (url === '/api/session') return response({ csrfToken: 'test' });
+    if (url.endsWith('/command-submissions')) return response(reservation, 201);
+    if (url.endsWith('/commands') && options?.method === 'POST') return post();
+    if (url.includes('/command-submissions/')) return response({ status: 'accepted', command: command(scope.domainId) });
+    return response({ items: [] });
+  });
+  const controls = () => <CommandScope.Provider value={{ ...scope }}>
+    <ParameterCommands target={target} observation={observed} />
+  </CommandScope.Provider>;
+  const view = render(controls());
+  fireEvent.click(screen.getByRole('button', { name: 'Query value' }));
+  await screen.findByRole('button', { name: 'Retry same request' });
+  cloud = false;
+  view.rerender(controls());
+  expect(screen.queryByRole('button', { name: 'Retry same request' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Check submission' }));
+  await screen.findByText(/Write accepted at/);
+  expect(post).toHaveBeenCalledTimes(1);
+});
