@@ -1,0 +1,27 @@
+.dw-heading-compass {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: calc(var(--dw-space-8) + var(--dw-space-12));
+    aspect-ratio: 1;
+    border: var(--dw-border-width) solid var(--dw-color-muted);
+    border-radius: 50%;
+    font-size: var(--dw-font-size-meta);
+    line-height: var(--dw-line-height-meta);
+    color: var(--dw-color-muted);
+}
+.dw-heading-compass span { position: absolute; }
+.dw-heading-compass span:nth-child(1) { top: 0; color: var(--dw-color-text); }
+.dw-heading-compass span:nth-child(2) { right: var(--dw-space-1); }
+.dw-heading-compass span:nth-child(3) { bottom: 0; }
+.dw-heading-compass span:nth-child(4) { left: var(--dw-space-1); }
+.dw-heading-compass i { width: var(--dw-space-2); height: var(--dw-space-12); color: var(--dw-color-instrument-reading); }
+.dw-heading-compass i::before {
+    content: '';
+    display: block;
+    width: var(--dw-space-2);
+    height: var(--dw-space-6);
+    background: currentColor;
+    clip-path: polygon(50% 0, 100% 30%, 70% 30%, 70% 100%, 30% 100%, 30% 30%, 0 30%);
+}

@@ -6,6 +6,7 @@ import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
+import HeadingCompass from './HeadingCompass';
 import AnemometerInstrument from './AnemometerInstrument';
 import WaterLevelGauge from './WaterLevelGauge';
 import NeopixelScene from './NeopixelScene';
@@ -27,10 +28,7 @@ function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: Obs
         data-graphic={volts !== undefined ? 'voltage' : hasCompass ? 'compass' : undefined}>
         <dt className={hasCompass || (hideLabel && !summary.unavailable) ? 'visually-hidden' : 'dw-meta'}>{summary.label}{inlineSeverity && severityIcon}</dt>
         <dd>
-            {hasCompass && <span className="dw-heading-compass" aria-hidden="true">
-                <span>N</span><span>E</span><span>S</span><span>W</span>
-                <i style={{ transform: `rotate(${bearing % 360}deg)` }} />
-            </span>}
+            {hasCompass && <HeadingCompass bearing={bearing} />}
             {!inlineSeverity && severityIcon}
             {volts !== undefined ? <CellVoltageDial volts={volts} text={summary.text} /> : summary.lines ? <span className="dw-summary-lines">
                 {summary.lines.map(line => <span key={line}>{line}</span>)}

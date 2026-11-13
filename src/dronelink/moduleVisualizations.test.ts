@@ -323,3 +323,19 @@ test('CMPS12 keeps the adjusted heading and reads pitch before roll', () => {
     observed.params[13] = { ...observed.params[13], values: [91, 0] };
     expect(inspect()).toMatchObject({ primary: [{ bearing: 142 }], attitude: undefined });
 });
+
+test.each([['NMEA', 10], ['LSM9DS1', 11], ['CMPS12', 10]] as const)(
+    '%s validates the heading at its own parameter and preserves its provenance',
+    (type, parameter) => {
+        const observed = channel(6, 0, type);
+        const heading = { ...observed.params[15], param: parameter, values: [360] };
+        observed.params[parameter] = heading;
+        observed.params[parameter === 10 ? 11 : 10] = { ...heading, values: [123] };
+        const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+        expect(inspect()).toMatchObject({ primary: [{ bearing: 360, text: '360.0°', reading: heading }] });
+        for (const invalid of [-1, 361, NaN]) {
+            observed.params[parameter] = { ...heading, values: [invalid] };
+            expect(inspect()).toMatchObject({ primary: [{ bearing: undefined, unavailable: true }] });
+        }
+    }
+);

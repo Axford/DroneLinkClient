@@ -163,6 +163,10 @@ The NMEA Summary keeps heading and satellite status alongside primary position, 
 
 LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent map binding retains priority 3. Reading Details shows the latest magnetic X/Y sample, recent samples from parameter 10, the X/Y calibration bounds and centre from parameters 13 and 14, and the quadrant limits ellipse from parameter 18. Axes have equal scale in microteslas. Invalid bounds and limits leave their geometry unavailable. The scatter shares the bounded observation window with the scalar instruments and collects receipts while the live Summary is expanded.
 
+### Shared heading and attitude displays
+
+NMEA, LSM9DS1 and CMPS12 use the same heading projection and compass face. Each registry entry supplies its own heading parameter and supporting observations. Map role selection still uses the independent bindings registry. The signed attitude dial shares geometry between pitch and roll. The caller supplies the zero direction, positive rotation and common scale for the bins. CMPS12 owns the signed vector decoding and receipt distribution.
+
 ### CMPS12 heading and attitude
 
 CMPS12 shows the reported heading at FLOAT parameter 10. Firmware already applies declination and the trim at parameter 12 to that heading. The pitch and roll dials use the signed degrees from FLOAT parameter 13 in vector order. Positive pitch rises from the rightward horizontal reference and positive roll moves clockwise from the upright reference. The polar distributions count observed vector receipts in 15-degree bins using the shared five-minute window and the same radial count scale for both dials. Reading Details keeps the heading, trim and attitude vector provenance.

@@ -398,9 +398,13 @@ function correctionText(reading: ParameterState | undefined): string | undefined
     return `Δlat ${latitude.toFixed(6)}°, Δlon ${longitude.toFixed(6)}°, Δalt ${altitude.toFixed(2)} m`;
 }
 
-function nmeaSummary(channel: ChannelState): InspectorSummary {
-    const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
+function headingReading(channel: ChannelState, parameterId: number): ObservedSummary {
+    const heading = numericValue(channel.params[parameterId], [DRONE_LINK_MSG_TYPE_FLOAT]);
     const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
+    return { ...field(channel, parameterId, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing };
+}
+
+function nmeaSummary(channel: ChannelState): InspectorSummary {
     const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
     const speedLines = speed === undefined || speed < 0 ? undefined : [`${speed.toFixed(1)} kn`, `${(speed / knotsPerMetrePerSecond).toFixed(1)} m/s`];
     const rawHdop = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_UINT8_T]);
@@ -408,7 +412,7 @@ function nmeaSummary(channel: ChannelState): InspectorSummary {
     const hdop = rawHdop !== undefined && Number.isInteger(rawHdop) && rawHdop >= 0 && rawHdop < 255
         ? (rawHdop / 10).toFixed(1) : undefined;
     return {
-        primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        primary: [headingReading(channel, 10)],
         supporting: [
             field(channel, 8, 'Position', positionText(channel.params[8])),
             satelliteCount(channel),
@@ -424,15 +428,13 @@ function nmeaSummary(channel: ChannelState): InspectorSummary {
 }
 
 function lsm9ds1Summary(channel: ChannelState): InspectorSummary {
-    const heading = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
     const vector = magneticVector(channel.params[10]);
     const xAxis = calibrationAxis(channel.params[13]);
     const yAxis = calibrationAxis(channel.params[14]);
     const limits = quadrantBounds(channel.params[18]);
     const describeAxis = (axis: typeof xAxis) => axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} µT · Centre ${axis.centre.toFixed(2)} µT`;
     return {
-        primary: [{ ...field(channel, 11, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        primary: [headingReading(channel, 11)],
         supporting: [],
         magneticCalibration: { reading: channel.params[10], vector, xAxis, yAxis, limits },
         additionalDetails: [
@@ -458,13 +460,11 @@ export function cmps12Attitude(reading: ParameterState | undefined): Attitude | 
 }
 
 function cmps12Summary(channel: ChannelState): InspectorSummary {
-    const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
     const attitudeReading = channel.params[13];
     const attitude = cmps12Attitude(attitudeReading);
     const trim = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_FLOAT]);
     return {
-        primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
+        primary: [headingReading(channel, 10)],
         supporting: [],
         attitudeReading,
         attitude,
