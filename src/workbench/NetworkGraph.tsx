@@ -220,7 +220,16 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
         const historical = item.routes.every(route => route.status === 'Last seen' || route.status === 'Expired' || route.status.startsWith('Interface down'));
         const stroke = highlighted ? 'var(--dw-color-accent)' : 'var(--dw-color-muted)';
         const pair = pairs.get(pairKey(item))!;
-        const bend = (pair.indexOf(item) - (pair.length - 1) / 2) * 46 * (item.from < item.to ? 1 : -1);
+        const direction = item.from < item.to ? 1 : -1;
+        const distanceSquared = dx * dx + dy * dy;
+        const obstructed = Array.from(layout.values()).some(point => {
+            const projection = ((point.x - from.x) * dx + (point.y - from.y) * dy) / distanceSquared;
+            return projection > 0.1 && projection < 0.9 &&
+                Math.abs(point.x - from.x - projection * dx) < cardWidth / 2 + 12 &&
+                Math.abs(point.y - from.y - projection * dy) < cardHeight / 2 + 12;
+        });
+        const bend = (pair.indexOf(item) - (pair.length - 1) / 2) * 46 * direction +
+            (obstructed ? 112 * direction : 0);
         return {
             id: item.id, source: item.from, target: item.to, sourceHandle, targetHandle, type: 'reported-hop',
             markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
