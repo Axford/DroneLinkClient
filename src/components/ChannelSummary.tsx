@@ -7,21 +7,22 @@ import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
 import CellVoltageDial from './CellVoltageDial';
 
-function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
+function Reading({ summary, primary, inlineSeverity }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean }) {
     const bearing = summary.bearing;
     const hasCompass = bearing !== undefined;
     const volts = summary.voltageDial;
+    const severityIcon = summary.severity === 'warning' ? <ExclamationTriangle aria-hidden="true" />
+        : summary.severity === 'danger' ? <ExclamationOctagon aria-hidden="true" /> : null;
     return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'}
         data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}
         data-graphic={volts !== undefined ? 'voltage' : hasCompass ? 'compass' : undefined}>
-        <dt className={hasCompass ? 'visually-hidden' : 'dw-meta'}>{summary.label}</dt>
+        <dt className={hasCompass ? 'visually-hidden' : 'dw-meta'}>{summary.label}{inlineSeverity && severityIcon}</dt>
         <dd>
             {hasCompass && <span className="dw-heading-compass" aria-hidden="true">
                 <span>N</span><span>E</span><span>S</span><span>W</span>
                 <i style={{ transform: `rotate(${bearing % 360}deg)` }} />
             </span>}
-            {summary.severity === 'warning' && <ExclamationTriangle aria-hidden="true" />}
-            {summary.severity === 'danger' && <ExclamationOctagon aria-hidden="true" />}
+            {!inlineSeverity && severityIcon}
             {volts !== undefined ? <CellVoltageDial volts={volts} text={summary.text} /> : summary.lines ? <span className="dw-summary-lines">
                 {summary.lines.map(line => <span key={line}>{line}</span>)}
             </span> : <span>{summary.text}</span>}
@@ -53,10 +54,11 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
             {summary.signal && <Rfm69Signal key={sampleScope} signal={summary.signal} scope={sampleScope} />}
         </>;
     }
-    const layout = summary.primary.length === 1 ? 'lead' : 'rows';
-    const leadRows = { '--dw-summary-rows': Math.max(1, summary.supporting.length) } as React.CSSProperties;
+    const layout = summary.layout ?? (summary.primary.length === 1 ? 'lead' : 'rows');
+    const supportingRows = layout === 'compact' ? Math.ceil(summary.supporting.length / 2) : summary.supporting.length;
+    const leadRows = { '--dw-summary-rows': Math.max(1, supportingRows) } as React.CSSProperties;
     return <dl className="dw-channel-summary" data-layout={layout} style={leadRows} aria-label={label}>
-        {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary />)}
+        {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary inlineSeverity={layout === 'compact'} />)}
         {summary.supporting.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
     </dl>;
 }

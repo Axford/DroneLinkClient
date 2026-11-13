@@ -19,6 +19,7 @@ export interface ObservedSummary {
 }
 
 export type InspectorSummary = {
+    layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
 } | PacketTelemetrySummary;
@@ -201,6 +202,7 @@ const visualizations = new Map<string, ModuleVisualization>([
             const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
             const alarm = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_UINT8_T]);
             return {
+                layout: 'compact',
                 primary: [{
                     ...cellVoltage(channel, volts, thresholds),
                     voltageDial: volts !== undefined && volts >= 0 ? volts : undefined

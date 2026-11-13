@@ -122,6 +122,31 @@
     }
     .dw-channel-summary[data-layout="lead"] > .dw-summary-supporting { grid-column: 2; }
 }
+/* Keep the dial and its supporting readings compact without changing the text scale. */
+.dw-channel-summary[data-layout="compact"] > .dw-summary-primary {
+    display: grid;
+    grid-column: 1 / -1;
+    align-content: center;
+    text-align: center;
+}
+.dw-channel-summary[data-layout="compact"] > .dw-summary-primary dd { justify-content: center; }
+.dw-channel-summary[data-layout="compact"] > .dw-summary-primary dt {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--dw-space-1);
+}
+.dw-channel-summary[data-layout="compact"] > .dw-summary-supporting {
+    padding-block: var(--dw-space-1);
+}
+@container (min-width: 272px) {
+    .dw-channel-summary[data-layout="compact"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .dw-channel-summary[data-layout="compact"] > .dw-summary-primary {
+        grid-column: 1;
+        grid-row: 1 / span var(--dw-summary-rows);
+    }
+}
 .dw-channel-summary > [data-graphic="voltage"] { text-align: center; }
 .dw-channel-summary > [data-graphic] { display: grid; align-content: center; }
 .dw-channel-summary > [data-graphic] dd {

@@ -3,7 +3,7 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
     align-items: center;
-    inline-size: min(100%, 128px);
+    inline-size: min(100%, 104px);
 }
 
 .dw-voltage-dial svg,
