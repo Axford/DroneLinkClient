@@ -2,7 +2,7 @@ import { Expected, Intent, WriteObservation } from '../commands/model';
 import { ChannelState, GlobalState, NodeState, ParameterState } from './DroneLinkState';
 import {
   DRONE_LINK_MSG_TYPE_ADDR as ADDR, DRONE_LINK_MSG_TYPE_CHAR as CHAR,
-  DRONE_LINK_MSG_TYPE_FLOAT as FLOAT, DRONE_MODULE_PARAM_TYPE as MODULE_TYPE
+  DRONE_LINK_MSG_TYPE_FLOAT as FLOAT, DRONE_LINK_MSG_TYPE_UINT32_T as UINT32, DRONE_MODULE_PARAM_TYPE as MODULE_TYPE
 } from './DroneLinkMsg';
 import { ObservedPosition } from './observedPositions';
 import type { ObservedWaypoint } from './navigationLegs';
@@ -108,13 +108,34 @@ const navActions: MapActionProvider = {
 
 const providers: MapActionProvider[] = [navActions];
 
-export function observedTargetMove(waypoint: ObservedWaypoint, nodes: GlobalState, longitude: number, latitude: number) {
+export function observedTargetMove(waypoint: ObservedWaypoint, nodes: GlobalState, longitude: number, latitude: number): MapAction | undefined {
   const node = nodes[waypoint.nodeId];
   if (waypoint.role !== 'target' || !node || mapBindings(node).target?.channelId !== waypoint.channelId) return;
-  const groups = navActions.background?.({ kind: 'background', longitude, latitude }, { nodes: { [node.id]: node }, positions: [] });
-  const action = groups?.[0]?.entries.find(entry => entry.intent.target.channel === waypoint.channelId);
-  // Zero longitude is the firmware's unset-target sentinel, including after wrapping.
-  if (action?.intent.operation === 'write' && 'values' in action.intent.payload && action.intent.payload.values[0] !== 0) return action;
+  const channel = navChannels(node).find(entry => entry.channel === waypoint.channelId);
+  if (!channel) return;
+  const moveParam = 27;
+  const move = observedWrite(node, channel.params[moveParam], UINT32, [12]);
+  if (!move) return;
+  const view = new DataView(move.bytes.buffer, move.bytes.byteOffset, move.bytes.byteLength);
+  const guard = view.getUint32(0, true);
+  if (!guard || view.getFloat32(4, true) !== waypoint.coordinates[0] ||
+      view.getFloat32(8, true) !== waypoint.coordinates[1]) return;
+
+  const lng = Math.abs(longitude) <= 180 ? longitude : ((longitude + 180) % 360 + 360) % 360 - 180;
+  if (!Number.isFinite(lng) || Math.fround(lng) === 0 || !Number.isFinite(latitude) || Math.abs(latitude) > 90) return;
+  const coordinate = new DataView(new ArrayBuffer(4));
+  const coordinateBits = (value: number) => {
+    coordinate.setFloat32(0, value, true);
+    return coordinate.getUint32(0, true);
+  };
+  return {
+    key: JSON.stringify(['move-target', ...recipientKey(node, channel, move.expected), guard]),
+    label: `${nodeLabel(node)} · ${channelLabel(channel)}`,
+    intent: {
+      operation: 'write', target: { nodeAddress: node.id, channel: channel.channel, param: moveParam },
+      expected: move.expected, payload: { values: [guard, coordinateBits(lng), coordinateBits(latitude)] }
+    }
+  };
 }
 
 export function mapContextActions(context: MapContext, observations: Observations): ActionGroup[] {

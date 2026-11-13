@@ -187,7 +187,12 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         const element = document.createElement('span');
         element.className = 'dw-map-waypoint';
         element.dataset.waypoint = waypoint.role;
-        element.setAttribute('aria-hidden', 'true');
+        if (waypoint.role === 'target') {
+          element.setAttribute('role', 'img');
+          element.tabIndex = 0;
+        } else {
+          element.setAttribute('aria-hidden', 'true');
+        }
         const label = document.createElement('span');
         label.textContent = `${waypoint.nodeId} · ${waypoint.role === 'target' ? 'Target' : 'Previous'}`;
         element.append(label);
@@ -199,7 +204,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
             const current = dragState.current;
             const active = current.navigation.waypoints.find(point => point.nodeId === waypoint.nodeId && point.role === 'target');
             const action = active && observedTargetMove(active, current.state, ...active.coordinates);
-            started = action && JSON.stringify([action.key, active?.coordinates]);
+            started = action?.key;
             draggingWaypoint.current = key;
           });
           dragMarker.on('dragend', () => {
@@ -210,7 +215,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
             if (active) dragMarker.setLngLat(active.coordinates);
             const action = active && observedTargetMove(active, current.state, lng, lat);
             const commandScope = current.scope;
-            if (!started || !action || JSON.stringify([action.key, active?.coordinates]) !== started || current.mapError || !commandScope?.canSubmit ||
+            if (!started || !action || action.key !== started || current.mapError || !commandScope?.canSubmit ||
               commandScope.canTarget?.(waypoint.nodeId) === false ||
               (current.attempt && current.attempt.status !== 'rejected')) {
               setDragFeedback('Target move unavailable. Check the current node and Domain commands.');
@@ -232,7 +237,10 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
           (!attempt || attempt.status === 'rejected') && observedTargetMove(waypoint, state, ...waypoint.coordinates);
         if (draggingWaypoint.current !== key) marker.setDraggable(!!action);
         marker.getElement().dataset.draggable = String(!!action);
-        marker.getElement().title = action ? ['Drag to request a new target', action.warning].filter(Boolean).join('. ') : '';
+        const hint = action ? 'Drag to request a new target' :
+          scope?.canSubmit ? 'Target move unavailable for the current source or device firmware' : 'Target is read-only';
+        marker.getElement().title = hint;
+        marker.getElement().setAttribute('aria-label', `Node ${waypoint.nodeId} active target. ${hint}`);
       }
     }
     waypointMarkers.current.forEach((marker, key) => {
