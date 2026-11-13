@@ -19,7 +19,7 @@ export default function NodeInspector({ selected, actions, context, modules, fil
     const [view, setView] = useState<InspectorView>('modules');
     const [minimized, setMinimized] = useState(false);
     const active = files && filesAvailable ? view : 'modules';
-    return <section aria-label="Node Inspector" className="inspector-panel text-white" data-minimized={minimized} {...focusTracking}>
+    return <section aria-label="Node Inspector" className="inspector-panel text-white" data-minimized={minimized} data-files-active={active === 'files' && !minimized} {...focusTracking}>
         <header className="inspector-header">
             {context && <div className="dw-inspector-context" hidden={minimized}>{context}</div>}
             {actions && <div hidden={minimized}>{actions}</div>}

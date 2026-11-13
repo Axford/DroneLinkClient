@@ -188,12 +188,11 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 localModules={local && selectedNodeId !== null ? <ConnectedLocalInspector node={selectedNodeId}
                                     workbench={workbench} state={state} canQuery={domain.canEdit} /> : undefined}
                                 localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}
-                                filesAvailable={local}
-                                files={workbench.fileBackups && domain.canEdit && selectedNodeId !== null && <NodeFiles
-                                    node={selectedNodeId} activity={recordFileActivity}
-                                    available={local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
-                                    connected={{ domainId: domain._id, request: (endpoint, options, path) =>
-                                        workbench.fileRequest(selectedNodeId, endpoint, options, path) }} />} />} />
+                                files={domain.canEdit && domain.status === 'active' && selectedNodeId !== null && <NodeFiles
+                                    node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
+                                    available={workbench.fileBackups && local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
+                                    connected={workbench.fileBackups ? { request: (endpoint, options, path) =>
+                                        workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />} />} />
                     </InspectorSessionProvider>
                     </NodeMapSettingsProvider>
             </DomainWorkspace>

@@ -63,3 +63,30 @@
 .dw-config-subscription { padding-block: var(--dw-space-1); overflow-wrap: anywhere; }
 .dw-config-source { display: grid; gap: var(--dw-space-1); }
 .dw-config-subscription > .dw-toolbar > .btn-outline-secondary { margin-inline-start: auto; }
+
+.dw-file-explorer {
+    display: grid;
+    grid-template-columns: minmax(12rem, 23%) minmax(0, 1fr);
+    gap: var(--dw-space-4);
+    min-height: 100%;
+    padding: var(--dw-space-4) var(--dw-space-6);
+}
+.dw-file-browser, .dw-file-workspace { min-width: 0; background: var(--dw-color-panel); border-radius: var(--dw-radius); }
+.dw-file-workspace { padding: var(--dw-space-4); }
+.dw-file-sources { display: flex; gap: var(--dw-space-1); padding: var(--dw-space-2) var(--dw-space-2) 0; border-bottom: var(--dw-space-1) solid var(--dw-color-primary); }
+.dw-file-sources .btn { flex: 1; border-radius: var(--dw-radius-small) var(--dw-radius-small) 0 0; }
+.dw-file-sources [aria-pressed="true"], .dw-file-row[aria-current="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
+.dw-file-tree { padding: var(--dw-space-2); }
+.dw-file-row.btn { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: start; gap: var(--dw-space-2); }
+.dw-file-row > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-file-row time { flex: none; font-size: var(--dw-font-size-meta); }
+.dw-file-header { margin-bottom: var(--dw-space-2); }
+.dw-file-actions { margin-inline-start: auto; }
+.dw-file-more::after { display: none; }
+.dw-config-editor { width: 100%; min-height: max(18rem, calc(100dvh - 20rem)); }
+.dw-file-checks { margin-block: var(--dw-space-2); }
+@media (max-width: 767px) {
+    .dw-file-explorer { display: block; padding: var(--dw-space-3); }
+    .dw-file-workspace { padding: var(--dw-space-3); }
+    .dw-file-row time { max-width: 55%; text-align: end; }
+}

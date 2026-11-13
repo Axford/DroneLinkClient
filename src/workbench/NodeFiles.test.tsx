@@ -1,6 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import NodeFiles from './NodeFiles';
 
+jest.mock('./ConfigurationEditor', () => ({
+    __esModule: true,
+    default: ({ text, label, readOnly, onChange }: {
+        text: string; label: string; readOnly: boolean; onChange: (text: string) => void;
+    }) => <textarea data-testid="configuration-editor" aria-label={label} value={text} readOnly={readOnly} onChange={event => onChange(event.target.value)} />,
+}));
+
 const stored = { path: '/sample.txt', text: 'First line\r\n', revision: 'a'.repeat(64), editable: true };
 
 it('opens a stored file, keeps a rejected draft, preserves line endings, and sends Restart separately', async () => {
@@ -18,7 +25,7 @@ it('opens a stored file, keeps a rejected draft, preserves line endings, and sen
     try {
         const view = render(<NodeFiles node={11} transport="wifi" available activity={activity} />);
         fireEvent.click(screen.getByRole('button', { name: 'List files' }));
-        fireEvent.click(await screen.findByRole('button', { name: 'sample.txt' }));
+        fireEvent.click(await screen.findByRole('button', { name: /^sample\.txt/ }));
         const editor = await screen.findByRole('textbox', { name: /Stored file/ });
         expect(editor).toHaveValue('First line\n');
         fireEvent.change(editor, { target: { value: 'Second line\n' } });
@@ -33,7 +40,8 @@ it('opens a stored file, keeps a rejected draft, preserves line endings, and sen
         expect(await screen.findByText(/Stored file verified by readback/)).toBeInTheDocument();
         expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toEqual({ path: stored.path, revision: stored.revision, text: 'Second line\r\n' });
         expect(fetchMock).toHaveBeenCalledTimes(4);
-        fireEvent.click(screen.getByRole('button', { name: 'Restart node' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Node actions' }));
+        fireEvent.click(screen.getByText('Restart node', { selector: 'button' }));
         expect(await screen.findByText(/Restart requested/)).toBeInTheDocument();
         expect(confirm).toHaveBeenCalledWith('Restart node 11 using its stored configuration?');
         expect(fetchMock.mock.calls[4][0]).toBe('/api/workbench/v1/nodes/11/restart?transport=wifi');
@@ -61,7 +69,7 @@ it('checks the node configuration draft before sending its exact bytes and keeps
     try {
         render(<NodeFiles node={11} transport="wifi" available activity={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
-        const editor = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: /Stored file/ });
+        const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         const upload = screen.getByRole('button', { name: 'Upload to node' });
         expect(fetchMock.mock.calls[0][0]).toBe('/api/workbench/v1/nodes/11/file?transport=wifi&path=%2Fconfig.ini');
         expect(screen.getByText('No structural issues found.')).toBeInTheDocument();
@@ -75,9 +83,8 @@ it('checks the node configuration draft before sending its exact bytes and keeps
         fireEvent.change(editor, { target: { value: original.replace(/\r\n/g, '\n') } });
         fireEvent.change(editor, { target: { value: editor.value.replace('1000', 'fast') } });
         expect(upload).toBeDisabled();
+        fireEvent.click(screen.getByText('Fix configuration errors before uploading.'));
         fireEvent.click(screen.getByRole('button', { name: /^Line 4: error/ }));
-        expect(editor).toHaveFocus();
-        expect(editor.value.slice(editor.selectionStart, editor.selectionEnd)).toBe('  interval = fast');
         fireEvent.change(editor, { target: { value: editor.value.replace('fast', '2000').replace('@>GPS.location', '@>missing.location') } });
         expect(screen.getByText(/source module is not declared/)).toBeInTheDocument();
         expect(upload).toBeEnabled();
@@ -116,14 +123,13 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         const props = { node: 11, transport: 'wifi' as const, activity: jest.fn() };
         const view = render(<NodeFiles {...props} available />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
-        const editor = await screen.findByRole('textbox', { name: /Stored file/ });
+        const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         fireEvent.click(screen.getByText(/Modules and subscriptions/));
         expect(screen.getAllByText('Local: GPS Main (channel 10)')).toHaveLength(2);
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
         expect(screen.getByText('Local source module missing')).toBeInTheDocument();
         expect(screen.getByText('Local source module name is ambiguous')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Line 4: $location' }));
-        expect(editor).toHaveFocus();
         fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
         const source = screen.getByRole('textbox', { name: 'Source for $location' });
         for (const value of ['invalid ; comment', '+255>1.8', '3>+256.8', '3>1.-1', '@other>10.8']) {

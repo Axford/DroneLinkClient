@@ -120,3 +120,21 @@
   flex-shrink: 0;
 }
 .dw-map-inspector-slot :is(.inspector-content, .tab-content) { overscroll-behavior: contain; }
+
+.dw-lens-panels:has(.inspector-panel[data-files-active="true"]) > .dw-panel-resize { display: none; }
+.dw-inspector-slot:has(.inspector-panel[data-files-active="true"]) {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: auto;
+  background: var(--dw-color-canvas);
+}
+.dw-inspector-slot:has(.inspector-panel[data-files-active="true"]) .dw-inspector-frame { padding: 0; display: block; }
+.dw-inspector-slot .inspector-panel[data-files-active="true"] {
+  height: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: var(--dw-color-canvas);
+  backdrop-filter: none;
+}
+.inspector-panel[data-files-active="true"] > .tab-content { padding: 0; }
