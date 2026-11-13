@@ -16,9 +16,11 @@ export default function MapBindings({ node }: MapBindingsProps) {
     {Object.keys(bindings).length === 0 ? <p>No recognised map bindings received.</p> :
       <div className="table-responsive"><table className="table table-sm"><thead><tr><th>Role</th><th>Priority</th><th>Address / path</th><th>Observation</th></tr></thead>
         <tbody>{Object.values(bindings).map(binding => <tr key={binding.role}>
-          <td>{binding.role}{binding.role !== 'location' && ' (visualisation deferred)'}</td>
+          <td>{binding.role === 'last' ? 'Previous waypoint' : binding.role === 'target' ? 'Target' : binding.role}</td>
           <td>{binding.priority}</td><td>{node.id}&gt;{binding.channelId}.{binding.parameterId}<br />{binding.path}</td>
-          <td>{binding.reading.source || 'Unknown source'}<br />Received {receiptLabel(binding.reading.lastHeard)}</td>
+          <td>{binding.reading.source || 'Unknown source'}<br />Received {receiptLabel(binding.reading.lastHeard)}
+            {(binding.role === 'target' || binding.role === 'last') && <><br />{binding.reading.values.join(', ')}</>}
+          </td>
         </tr>)}</tbody></table></div>}
     {bindings.location && !locationCoordinates(bindings.location) && <p>Selected location cannot be plotted. No lower-priority source is substituted.</p>}
   </SurfacePanel></SettingsDialog></>;

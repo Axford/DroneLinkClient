@@ -1,5 +1,6 @@
 import { mapBindings, locationCoordinates } from './mapBindings';
 import { observedPositions } from './observedPositions';
+import { observedNavigation } from './navigationLegs';
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT } from './DroneLinkMsg';
 
@@ -12,6 +13,28 @@ const channel = (id: number, type: string, param: number, values: number[], time
 });
 const node = (...channels: ChannelState[]): NodeState => ({ id: 7, droneId: 'drone-seven', interface: 'cloud', lastHeard: 9000,
   channels: Object.fromEntries(channels.map(row => [row.channel, row])) });
+
+test('observed navigation joins only a coherent waypoint pair and clears an invalid target without hiding the origin', () => {
+  const nav = channel(4, 'Nav', 12, [-179.75, 51, 10, 60]);
+  nav.params[15] = reading(15, [179.75, 51, 5]);
+  const other = channel(9, 'Nav', 12, [-178, 51, 10], 9000);
+  const state = { 7: node(nav, other) };
+  const navigation = observedNavigation(state);
+  expect(navigation.waypoints).toEqual([
+    { nodeId: 7, role: 'last', coordinates: [179.75, 51] },
+    { nodeId: 7, role: 'target', coordinates: [-179.75, 51] }
+  ]);
+  expect(navigation.legs.features.map(feature => feature.geometry.coordinates)).toEqual([[[179.75, 51], [180.25, 51]]]);
+
+  nav.params[12] = reading(12, [0, 51, 10]);
+  expect(observedNavigation(state).waypoints).toEqual([navigation.waypoints[0]]);
+  expect(observedNavigation(state).legs.features).toEqual([]);
+
+  delete nav.params[12];
+  expect(observedNavigation(state).waypoints).toHaveLength(2);
+  expect(observedNavigation(state).legs.features).toEqual([]);
+  expect(observedNavigation({ 7: node() }).waypoints).toEqual([]);
+});
 
 test('legacy mapping priority and lower channel beat receipt recency, including after reload', () => {
   const state = node(channel(1, 'Nav', 10, [-1, 51, 0], 9000), channel(9, 'NMEA', 8, [-2, 52, 0], 8000), channel(4, 'NMEA', 8, [-3, 53, 0]));

@@ -10,6 +10,7 @@ import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
 import { windLines } from '../dronelink/windLines';
+import { observedNavigation } from '../dronelink/navigationLegs';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './ObservedMap.css';
@@ -28,6 +29,7 @@ function positionDescription(position: ObservedPosition, label: string, now: num
 }
 
 const windLayerId = 'dw-wind-lines';
+const legLayerId = 'dw-navigation-legs';
 
 function updateHeadingMarker(marker: mapboxgl.Marker | undefined, bearing: ObservedBearing | undefined,
   coordinates: ObservedPosition['coordinates'], map: mapboxgl.Map) {
@@ -54,6 +56,8 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [windSource, setWindSource] = useState<mapboxgl.GeoJSONSource>();
+  const [legSource, setLegSource] = useState<mapboxgl.GeoJSONSource>();
+  const waypointMarkers = useRef(new Map<string, mapboxgl.Marker>());
   const markers = useRef(new Map<number, {
     marker: mapboxgl.Marker;
     button: HTMLButtonElement;
@@ -69,6 +73,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const [now, setNow] = useState(Date.now());
   const positions = React.useMemo(() => observedPositions(state), [state]);
   const secondaryPositions = React.useMemo(() => observedPositions(state, 'location2'), [state]);
+  const navigation = React.useMemo(() => observedNavigation(state), [state]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -83,6 +88,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     let resizeObserver: ResizeObserver | undefined;
     const ownedMarkers = markers.current;
     const ownedSecondaryMarkers = secondaryMarkers.current;
+    const ownedWaypointMarkers = waypointMarkers.current;
     const controller = new AbortController();
     setMapError(false);
     try {
@@ -99,6 +105,15 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
           paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(), 'line-width': 3 }
         });
         setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
+        activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
+        activeMap.addLayer({
+          id: legLayerId, source: legLayerId, type: 'line',
+          paint: {
+            'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-target').trim(),
+            'line-width': 2, 'line-dasharray': [2, 2]
+          }
+        }, windLayerId);
+        setLegSource(activeMap.getSource<mapboxgl.GeoJSONSource>(legLayerId));
       });
       current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       if (typeof ResizeObserver !== 'undefined') {
@@ -127,14 +142,49 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       });
       ownedMarkers.clear();
       ownedSecondaryMarkers.forEach(({ marker }) => marker.remove()); ownedSecondaryMarkers.clear();
+      ownedWaypointMarkers.forEach(marker => marker.remove()); ownedWaypointMarkers.clear();
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
-      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined);
+      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined);
     };
   }, [token, user, viewState]);
 
   useEffect(() => {
     windSource?.setData(windLines(mapError ? [] : positions));
   }, [windSource, positions, mapError]);
+
+  useEffect(() => {
+    legSource?.setData(mapError ? observedNavigation({}).legs : navigation.legs);
+  }, [legSource, navigation, mapError]);
+
+  useEffect(() => {
+    const activeMap = map.current;
+    if (!activeMap) return;
+    const visible = new Set<string>();
+    for (const waypoint of mapError ? [] : navigation.waypoints) {
+      const key = `${waypoint.nodeId}:${waypoint.role}`;
+      visible.add(key);
+      let marker = waypointMarkers.current.get(key);
+      if (!marker) {
+        const element = document.createElement('span');
+        element.className = 'dw-map-waypoint';
+        element.dataset.waypoint = waypoint.role;
+        element.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.textContent = `${waypoint.nodeId} · ${waypoint.role === 'target' ? 'Target' : 'Previous'}`;
+        element.append(label);
+        marker = new mapboxgl.Marker({ element }).setLngLat(waypoint.coordinates).addTo(activeMap);
+        waypointMarkers.current.set(key, marker);
+      } else {
+        marker.setLngLat(waypoint.coordinates);
+      }
+    }
+    waypointMarkers.current.forEach((marker, key) => {
+      if (!visible.has(key)) {
+        marker.remove();
+        waypointMarkers.current.delete(key);
+      }
+    });
+  }, [navigation, mapError, mapReady, token, user, viewState]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -235,6 +285,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
       <p>The green chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
       <p>A blue line extends 10 metres from the node in the last-known wind bearing from its wing sensor.</p>
+      <p>The yellow diamond marks the observed target and the square marks the previous waypoint. A dashed line joins them when both come from the same Nav channel. Map source bindings lists their source and receipt time.</p>
       <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
       <p>Observations remain available in the inspector when the map is unavailable.</p>
     </SurfacePanel></SettingsDialog>

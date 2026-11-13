@@ -52,6 +52,8 @@ A blue 10 m map line starts at the primary position and follows the saved world-
 
 The shared navigation tokens use the module renderer palette. The map heading chevron and Inspector compass share readout green, and the wind layer uses instrument blue. The node list's identity ring and map markers share the platform blue accent and the selected card and marker share the primary blue fill. See the [navigation and node identity guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#navigation-indicators-and-node-identity).
 
+The map plots the observed Nav target and previous waypoint independently of the GPS fix. It draws a dashed leg when both selected bindings belong to the same Nav channel and their coordinates differ. The overlay reads only observations, so a pending Set target command leaves the displayed target in place until the drone publishes a new one. The Inspector's Map source bindings table exposes both observations with their values and provenance.
+
 
 ## M1.2 bounded codec corrections — 2026-11-08
 
