@@ -20,3 +20,8 @@
 .dw-node-age { flex-shrink: 0; margin-left: auto; padding-inline: var(--dw-space-1); border-radius: var(--dw-radius-small); background: var(--dw-color-control); color: var(--dw-color-text); font-size: var(--dw-font-size-meta); font-weight: normal; }
 .dw-node-list-empty { padding: var(--dw-space-2); }
 @media (max-width: 767px) { .dw-node-list { width: min(224px, calc(100% - var(--dw-space-8) - var(--dw-space-6))); max-height: calc(100% - 112px); } .dw-node-list-header .dw-meta { max-height: 40px; overflow: auto; } }
+
+.dw-node-list.dw-node-list-inline { position: static; width: 100%; max-height: 100%; min-height: 0; }
+.dw-node-list-inline .dw-node-select { grid-column: 1 / -1; flex-wrap: wrap; }
+.dw-node-list-inline .dw-node-list-header { margin-bottom: var(--dw-space-2); }
+.dw-node-route-status { overflow-wrap: anywhere; }

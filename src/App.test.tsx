@@ -5,6 +5,7 @@ import App from './App';
 // These pages use Mapbox/device workflows outside the app startup contract.
 jest.mock('./HomePage', () => () => <div>Domain list</div>);
 jest.mock('./DomainDetailPage', () => () => <div>Domain detail</div>);
+jest.mock('./workbench/WorkbenchPage', () => () => null);
 jest.mock('./InvitePage', () => () => <div>Invitation</div>);
 jest.mock('./PrimaryNavBar', () => () => <nav>Navigation</nav>);
 

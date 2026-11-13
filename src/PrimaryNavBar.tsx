@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Dropdown, Image, Nav } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { BoxArrowRight, Compass, HouseDoor, LayoutSidebar, List, PersonCircle } from 'react-bootstrap-icons';
+import { BoxArrowRight, Compass, HouseDoor, LayoutSidebar, List, PersonCircle, Tools } from 'react-bootstrap-icons';
 import type { Domain, User } from './App';
 import IconButton from './components/ui/IconButton';
 import useMediaQuery from './components/ui/useMediaQuery';
@@ -27,6 +27,9 @@ export default function PrimaryNavBar({ user, domains, activeDomainId }: Primary
   const destinations = <>
     <Destination as={Link} to="/private/" className="primary-nav-link" title="Home" aria-label="Home" aria-current={!activeDomainId ? 'page' : undefined}>
       <HouseDoor aria-hidden="true" /><span className="primary-nav-label">Home</span>
+    </Destination>
+    <Destination href="http://127.0.0.1:8002/workbench/" className="primary-nav-link primary-nav-workbench" title="Open local Workbench" aria-label="Workbench">
+      <Tools aria-hidden="true" /><span className="primary-nav-label">Workbench</span>
     </Destination>
     {domains.filter(domain => domain.status === 'active').map(domain => (
       <Destination as={Link} key={domain._id} to={`/private/domain/${domain._id}`} className="primary-nav-link" title={domain.name} aria-label={`Open ${domain.name}`} aria-current={domain._id === activeDomainId ? 'page' : undefined}>

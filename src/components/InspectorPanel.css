@@ -209,3 +209,19 @@
 
 .dw-channel-summary[data-single-reading] > .dw-summary-primary { grid-column: 1 / -1; text-align: center; }
 .dw-channel-summary[data-single-reading] > .dw-summary-primary dd { justify-content: center; }
+
+.dw-inspector-context { padding: 0 var(--dw-space-3); background: var(--dw-color-panel); }
+.dw-inspector-tabs {
+    flex: none;
+    padding-inline: var(--dw-space-3);
+    background: var(--dw-color-panel);
+    border-color: var(--dw-color-border);
+}
+.dw-inspector-tabs .nav-link { color: var(--dw-color-muted); }
+.dw-inspector-tabs .nav-link.active {
+    color: var(--dw-color-text);
+    background: var(--dw-color-canvas);
+    border-color: var(--dw-color-border) var(--dw-color-border) var(--dw-color-canvas);
+}
+.inspector-panel > .tab-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); }
+.inspector-panel .dw-workbench-files { margin: 0; }

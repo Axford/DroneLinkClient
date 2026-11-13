@@ -1,24 +1,18 @@
-.dw-workbench {
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 24px;
+.dw-workbench-lens {
+    height: 100%;
+    overflow: auto;
+    padding: var(--dw-space-3);
 }
 
-.dw-workbench-panels {
+.dw-workbench-lens-network {
     display: grid;
-    grid-template-columns: minmax(200px, 1fr) minmax(0, 3fr);
-    gap: 24px;
-    margin-top: 24px;
+    align-items: start;
+    grid-template-columns: minmax(140px, 224px) minmax(0, 1fr);
+    gap: var(--dw-space-3);
 }
 
-@media (max-width: 640px) {
-    .dw-workbench-panels {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-.dw-workbench-network {
-    margin-top: 24px;
+@media (max-width: 767px) {
+    .dw-workbench-lens-network { grid-template-columns: minmax(0, 1fr); }
 }
 
 .dw-workbench-interfaces {
@@ -31,7 +25,7 @@
 .dw-workbench-transport {
     display: block;
     max-width: 240px;
-    margin-bottom: 12px;
+    margin: var(--dw-space-2) 0;
 }
 
 .dw-workbench-log {

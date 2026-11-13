@@ -3,10 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
 import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
-import useNarrowLayout from './components/ui/useNarrowLayout';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { DomainLensPanels, DomainWorkspace } from './components/DomainWorkspace';
 import ObservedMap from './components/ObservedMap';
-import { NodeMapSettingsProvider } from './components/NodeMapSettings';
+import { NodeMapSettings, NodeMapSettingsProvider } from './components/NodeMapSettings';
 import { Domain, User } from './App';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
@@ -23,7 +22,6 @@ interface DomainDetailPageProps {}
 
 const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const { domainId } = useParams<{ domainId: string }>();
-    const narrow = useNarrowLayout();
     const mapView = useMemo<React.MutableRefObject<User['mapState']>>(() => ({ current: undefined }), [domainId]);
     const refreshGeneration = useRef(0);
     const statusRef = useRef<string | undefined>(undefined);
@@ -166,45 +164,38 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         canSettings: domain.status === 'active' && domain.canManageMembers, canTarget: canCloudTarget
     }}><WorkspaceShell user={user} activeDomain={domain}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
-            <div className="dw-operations">
-                <header className="dw-operations-header">
-                    <h1>{domain.name}</h1>
+            <DomainWorkspace name={domain.name} lenses={[{ id: 'map', label: 'Map' }]} activeLens="map" status={
                     <div className="dw-toolbar">
                         <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
                         <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
                         <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
                         {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
                     </div>
-                </header>
+            } notices={<>
                 {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
                 {domain.status === 'active' && window.isSecureContext && <GatewayConnection workbench={workbench} />}
                 <VisualizationSettingsNotice />
-                <div className="dw-operation-panels">
+            </>}>
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
-                        <PanelGroup key={narrow ? 'vertical' : 'horizontal'} direction={narrow ? 'vertical' : 'horizontal'}>
-                            <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>
-                                <ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken} user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />
-                            </Panel>
-                            <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
-                            <Panel defaultSize={narrow ? 50 : 35} minSize={narrow ? 25 : 25} maxSize={narrow ? 75 : 65}>
-                                {workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
-                                {local && selectedNodeId !== null
-                                    ? <ConnectedLocalInspector key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} workbench={workbench} state={state} canQuery={domain.canEdit} />
-                                    : <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />}
-                                {workbench.fileBackups && domain.canEdit && selectedNodeId !== null && <div hidden={!local}>
-                                    <NodeFiles key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} activity={recordFileActivity}
-                                        available={local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
-                                        connected={{ domainId: domain._id, request: (endpoint, options, path) =>
-                                            workbench.fileRequest(selectedNodeId, endpoint, options, path) }} />
-                                </div>}
-
-                            </Panel>
-                        </PanelGroup>
+                        <DomainLensPanels lens={<ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
+                            user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />}
+                            inspector={<InspectorPanel key={`${domain._id}:${selectedNodeId}`} selectedNodeId={selectedNodeId}
+                                droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}
+                                canReset={domain.canEdit === true && domain.status !== 'archived'}
+                                sourceChoice={workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
+                                localModules={local && selectedNodeId !== null ? <ConnectedLocalInspector node={selectedNodeId}
+                                    workbench={workbench} state={state} canQuery={domain.canEdit} /> : undefined}
+                                localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}
+                                filesAvailable={local}
+                                files={workbench.fileBackups && domain.canEdit && selectedNodeId !== null && <NodeFiles
+                                    node={selectedNodeId} activity={recordFileActivity}
+                                    available={local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}
+                                    connected={{ domainId: domain._id, request: (endpoint, options, path) =>
+                                        workbench.fileRequest(selectedNodeId, endpoint, options, path) }} />} />} />
                     </InspectorSessionProvider>
                     </NodeMapSettingsProvider>
-                </div>
-            </div>
+            </DomainWorkspace>
         </VisualizationSettingsProvider>
     </WorkspaceShell></CommandScope.Provider>;
 };

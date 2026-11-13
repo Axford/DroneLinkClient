@@ -121,3 +121,5 @@
   .primary-nav-profile img { object-fit: cover; }
   .primary-nav-popup { max-width: calc(100vw - var(--dw-space-4)); }
 }
+
+.primary-nav-workbench.primary-nav-link { color: var(--dw-color-workbench); }

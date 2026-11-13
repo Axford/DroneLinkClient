@@ -36,3 +36,22 @@
 
 .dw-domain-card .card-body { display: flex; flex-direction: column; }
 .dw-domain-card-actions { margin-top: auto; }
+
+.dw-lens-nav {
+  display: flex;
+  gap: var(--dw-space-1);
+  padding-inline: var(--dw-space-3);
+  background: var(--dw-color-panel);
+  border-bottom: 1px solid var(--dw-color-border);
+}
+.dw-lens-nav button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--dw-color-muted);
+  padding: var(--dw-space-2) var(--dw-space-3);
+  min-height: var(--dw-control-size);
+}
+.dw-lens-nav button:hover { background: var(--dw-color-hover); color: var(--dw-color-text); }
+.dw-lens-nav button[aria-current="page"] { border-color: var(--dw-color-accent); color: var(--dw-color-text); }
+.dw-lens-only { height: 100%; overflow: auto; }

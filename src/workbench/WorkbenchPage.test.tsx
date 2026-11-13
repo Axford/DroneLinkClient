@@ -4,6 +4,9 @@ import App from '../App';
 jest.mock('../DomainDetailPage', () => () => null);
 jest.mock('../HomePage', () => () => null);
 jest.mock('../InvitePage', () => () => null);
+jest.mock('react-resizable-panels', () => ({
+    Panel: 'div', PanelGroup: 'div', PanelResizeHandle: 'div',
+}));
 
 class Feed extends EventTarget {
     static connections: Feed[] = [];
@@ -103,6 +106,7 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
         expect(screen.getByText('Node 11 · Local · Serial')).toBeInTheDocument();
         expect(screen.getByText('91')).toBeInTheDocument();
         expect(screen.queryByText('42')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Network' }));
         expect(screen.getByText('<device message>')).toBeInTheDocument();
         expect(screen.queryByText('Line 0', { exact: true })).not.toBeInTheDocument();
         expect(within(screen.getByRole('list', { name: 'Recent serial messages' })).getAllByRole('listitem')).toHaveLength(200);

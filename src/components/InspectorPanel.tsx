@@ -11,16 +11,21 @@ import { ObservationNamesContext } from './parameterPresentation';
 import ChannelList from './ChannelList';
 import { useInspectorFocus } from './InspectorSession';
 import { DomainCommands } from '../commands/CommandControls';
-import './InspectorPanel.css';
+import NodeInspector from './NodeInspector';
 
 interface InspectorPanelProps {
     droneLinkState: DroneLinkStateHook;
     canReset?: boolean;
     liveDomain?: boolean;
     selectedNodeId: number | null;
+    sourceChoice?: React.ReactNode;
+    files?: React.ReactNode;
+    filesAvailable?: boolean;
+    localModules?: React.ReactNode;
+    localActions?: React.ReactNode;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId, sourceChoice, files, filesAvailable, localModules, localActions }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -36,22 +41,18 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
     const selectedNode = selectedNodeId ? droneLinkState.state[selectedNodeId] : null;
 
     const focusTracking = useInspectorFocus(selectedNodeId, selectedNode?.observationGeneration);
-    return (
-        <div {...focusTracking} className="inspector-panel text-white">
-            <header className="inspector-header">
-                <h2>Inspector</h2>
-                <div className="dw-row-actions">
-                    <DomainCommands node={selectedNode?.id} />
-                    <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
-                </div>
-            </header>
+    return <NodeInspector selected={selectedNodeId !== null} context={sourceChoice} files={files} filesAvailable={filesAvailable}
+        focusTracking={focusTracking} actions={localModules ? localActions : <div className="dw-row-actions">
+            <DomainCommands node={selectedNode?.id} />
+            <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />
+        </div>} modules={localModules ?? <>
             <SettingsDialog title="Inspector tools" show={tools} onHide={() => setTools(false)}>
                 <SurfacePanel title="Observations"><p>Shared observations: {droneLinkState.observationStatus}. Saved failed snapshot writes: {droneLinkState.snapshotWriteFailures ?? 0}</p>
                 {canReset && selectedNode && <DangerAction label={`Reset Node ${selectedNode.id}`} warning="Clears shared observations for everyone. Identity and history stay."><IconButton label="Reset node observations" icon={<Gear />} variant="outline-danger" disabled={resetting} onClick={resetSelected} /></DangerAction>}
                 {resetError && <Alert variant="danger">{resetError}</Alert>}
                 </SurfacePanel>
             </SettingsDialog>
-            <div className="inspector-content">
+            <div>
                 {droneLinkState.error && <Alert variant="danger">{droneLinkState.error}</Alert>}
                 {!!droneLinkState.unavailableObservationParts && <Alert variant="warning">{droneLinkState.unavailableObservationParts} observation parts are unavailable because packet validation failed.</Alert>}
                 {!!droneLinkState.snapshotWriteFailures && <Alert variant="warning">{droneLinkState.snapshotWriteFailures} saved snapshot write failures</Alert>}
@@ -75,8 +76,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
                     </div>
                 )}
             </div>
-        </div>
-    );
+        </>} />
 };
 
 export default InspectorPanel;

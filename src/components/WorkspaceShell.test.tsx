@@ -32,6 +32,7 @@ afterEach(() => {
 test('an open Domain starts as an expandable landscape rail with active destinations and the account', () => {
   const nav = renderWorkspace();
   expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/private/');
+  expect(nav.getByRole('link', { name: 'Workbench' })).toHaveAttribute('href', 'http://127.0.0.1:8002/workbench/');
   expect(nav.getByRole('link', { name: 'Open Fleet' })).toHaveAttribute('aria-current', 'page');
   expect(nav.queryByRole('link', { name: 'Open Old Fleet' })).not.toBeInTheDocument();
   expect(nav.getByRole('button', { name: 'Account: Pilot' })).toBeInTheDocument();

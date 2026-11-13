@@ -226,7 +226,7 @@ The Network panel shows the configured interfaces, packet counters and local pat
 
 ### Node files
 
-In standalone Workbench, select a node and list its stored files. Open a text file from the node, edit the draft, and explicitly upload it. Readback verifies what is stored. The runtime uptime is shown separately. Restart is a separate confirmed action. If the route drops or Upload fails, the editor keeps the draft for the current page. No local project folder is needed.
+Standalone Workbench opens on the **Nodes** lens. Select a node to open the shared Inspector on **Modules**, or use **Network** to see gateway interfaces and routes. Open the Inspector’s **Files** tab to list stored files. Open a text file from the node, edit the draft, and explicitly upload it. Readback verifies what is stored. The runtime uptime is shown separately. Restart is a separate confirmed action. If the route drops or Upload fails, the editor keeps the draft for the current page. No local project folder is needed.
 
 Use **Open node configuration** to open the selected node's existing `/config.ini`. Click a diagnostic to jump to its line. Correct structural errors before Upload. Warnings identify addresses that need review; the editor has no firmware-matched module catalog and cannot confirm that settings or subscriptions will work at runtime. Upload writes the draft and verifies stored bytes. Restart separately when ready to activate the change, then check fresh observations. Other files, including `/safeMode.ini`, use the generic editor.
 
@@ -236,4 +236,4 @@ Open the active hosted Domain and select **Connect local gateway**. Enter the po
 
 ### Connected node-file backups
 
-Pair a backup-enabled gateway in the hosted Domain, select a node with a Local route and open **Node files**. Editors, Owners and Platform Admins can see cloud backup status separately from the node result. **Backup history** lists versions for the opened path. **Load backup** puts a version into the editor for review. **Upload to node** still uses the revision read from the node, and **Restart node** is separate. Standalone Workbench keeps its own local file workflow.
+Pair a backup-enabled gateway in the hosted Domain, select a node with a Local route and open the Inspector’s **Files** tab. Editors, Owners and Platform Admins can see cloud backup status separately from the node result. **Backup history** lists versions for the opened path. **Load backup** puts a version into the editor for review. **Upload to node** still uses the revision read from the node, and **Restart node** is separate. Standalone Workbench keeps its own local file workflow.
