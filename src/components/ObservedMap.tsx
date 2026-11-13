@@ -112,7 +112,11 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
         activeMap.addSource(windLayerId, { type: 'geojson', data: windLines([]) });
         activeMap.addLayer({
           id: windLayerId, source: windLayerId, type: 'line',
-          paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(), 'line-width': 3 }
+          paint: {
+            'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(),
+            'line-width': 3,
+            'line-emissive-strength': 1
+          }
         });
         setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
