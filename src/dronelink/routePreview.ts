@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FeatureCollection, LineString } from 'geojson';
+import type { FeatureCollection, LineString, Point } from 'geojson';
 import { authenticatedFetchJson } from '../utils/api';
 import { NodeState } from './DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR as CHAR, DRONE_LINK_MSG_TYPE_UINT8_T as UINT8,
@@ -15,7 +15,8 @@ function routeObservation(node: NodeState | undefined) {
     const type = channel.params[MODULE_TYPE];
     return type?.msgType === CHAR && !type.unavailable?.value && type.values[0] === 'Waypoint';
   });
-  if (modules.length !== 1) return;
+  if (modules.length > 1) return { ambiguous: true };
+  if (!modules.length) return;
   const channel = modules[0];
   const value = channel.params[17];
   if (value?.msgType !== UINT8 || value.writable || !value.lastHeard || value.unavailable?.value ||
@@ -53,7 +54,7 @@ export function useRoutePreview(domainId: string | undefined, node: NodeState | 
 
   const result = response?.key === key && response?.retry === retry ? response.data : undefined;
   const status: Result['status'] | 'loading' | undefined = result?.status ??
-    (query ? 'loading' : observation ? 'unreported' : undefined);
+    (query ? 'loading' : observation?.ambiguous ? 'unavailable' : observation ? 'unreported' : undefined);
   return {
     status,
     coordinates: result?.status === 'matched' ? result.coordinates : undefined,
@@ -63,13 +64,15 @@ export function useRoutePreview(domainId: string | undefined, node: NodeState | 
   };
 }
 
-export function routeLine(points: Coordinates[] = []): FeatureCollection<LineString> {
+export function routeLine(points: Coordinates[] = []): FeatureCollection<LineString | Point> {
   const coordinates: Coordinates[] = [];
   for (const [longitude, latitude] of points) {
     const previous = coordinates.at(-1)?.[0];
     coordinates.push([previous === undefined ? longitude :
       previous + ((((longitude - previous + 180) % 360) + 360) % 360) - 180, latitude]);
   }
+  if (coordinates.length === 1) return { type: 'FeatureCollection',
+    features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: coordinates[0] }, properties: {} }] };
   return { type: 'FeatureCollection', features: coordinates.length > 1 ?
     [{ type: 'Feature', geometry: { type: 'LineString', coordinates }, properties: {} }] : [] };
 }

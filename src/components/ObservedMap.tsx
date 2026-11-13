@@ -128,8 +128,15 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         activeMap.addSource(routeLayerId, { type: 'geojson', data: routeLine() });
         activeMap.addLayer({
           id: routeLayerId, source: routeLayerId, type: 'line',
+          filter: ['==', ['geometry-type'], 'LineString'],
           paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
             'line-width': 2, 'line-opacity': 0.75, 'line-emissive-strength': 1 }
+        }, windLayerId);
+        activeMap.addLayer({
+          id: `${routeLayerId}-point`, source: routeLayerId, type: 'circle',
+          filter: ['==', ['geometry-type'], 'Point'],
+          paint: { 'circle-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
+            'circle-radius': 4, 'circle-emissive-strength': 1 }
         }, windLayerId);
         setRouteSource(activeMap.getSource<mapboxgl.GeoJSONSource>(routeLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
