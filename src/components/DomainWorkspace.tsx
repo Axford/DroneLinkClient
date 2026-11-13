@@ -5,11 +5,12 @@ import useNarrowLayout from './ui/useNarrowLayout';
 const lenses = [{ id: 'nodes', label: 'Nodes' }, { id: 'map', label: 'Map' }, { id: 'network', label: 'Network' }] as const;
 export type DomainLens = typeof lenses[number]['id'];
 
-export function DomainWorkspace({ name, status, notices, activeLens, onLensChange, children }: {
+export function DomainWorkspace({ name, status, notices, activeLens, onLensChange, lensAction, children }: {
     name: string;
     status?: React.ReactNode;
     notices?: React.ReactNode;
-    activeLens: DomainLens;
+    lensAction?: React.ReactNode;
+    activeLens?: DomainLens;
     onLensChange: (id: DomainLens) => void;
     children: React.ReactNode;
 }) {
@@ -19,6 +20,7 @@ export function DomainWorkspace({ name, status, notices, activeLens, onLensChang
         <nav className="nav nav-tabs dw-workspace-tabs" aria-label="Domain lenses">
             {lenses.map(({ id, label }) => <button key={id} type="button" className={id === activeLens ? 'nav-link active' : 'nav-link'} aria-current={id === activeLens ? 'page' : undefined}
                 onClick={() => onLensChange(id)}>{label}</button>)}
+            {lensAction}
         </nav>
         <div className="dw-operation-panels">{children}</div>
     </div>;

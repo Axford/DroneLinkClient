@@ -17,6 +17,8 @@
     "@xyflow/react": "12.12.1",
     "ace-builds": "1.45.2",
     "bootstrap": "^5.3.7",
+    "echarts": "6.0.0",
+    "echarts-for-react": "3.0.6",
     "mapbox-gl": "^3.13.0",
     "maplibre-gl": "5.24.0",
     "react": "^19.1.0",

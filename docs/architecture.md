@@ -283,3 +283,7 @@ The Cloud Inspector exposes Files with a prompt when a node or file access is un
 The shared Inspector size selector switches between a full-window view, the normal resizable panel and a collapsed toolbar. Size is independent of the active tab. The Inspector remains mounted across size changes so file drafts and tab selection survive. Files uses its picker when the available panel width is narrow.
 
 The root configuration draft opens in the Logical graph within Files. React Flow renders module cards, subscription ports and the viewport from the existing draft parser. Code and Logical share the Files draft, and source edits patch the declared address in place. Graph edges show references to local modules declared in the file. Parameter compatibility and remote sources remain unverified.
+
+### Standalone Live charts
+
+Workbench captures numeric publications at the validated gateway event boundary before updating the Inspector's latest state. The page owns one capture and its selected series across lens and node changes. It uses the same per-node Wi-Fi/Serial/Auto selection as the Inspector and segments receipts on source or connectivity changes. The captured bytes and indexing metadata live in fixed-capacity typed arrays. Freezing allocates at most a second store of the same size. Chart queries bound plotted points per time bucket and retain extrema. Cursor reads resolve against exact stored receipts. ECharts loads when the chart panel opens. See the [operator workflow](operations.md#workbench-live-charts).

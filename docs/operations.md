@@ -263,3 +263,13 @@ The serial row displays the configured baud and 8N1. The receipt age is the
 time since Workbench received the result. Edit the startup settings through
 **Files**, verify Upload, then Restart separately. See the
 [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+
+## Workbench live charts
+
+Open **Live charts** in standalone Workbench, or choose **Plot** on a numeric Inspector parameter. Use **Find parameters** and **Add series** to compare signals across nodes and select individual vector components. Signals with a known common unit share a panel by default. Use **Separate** to put a signal on its own scale.
+
+**Start capture** collects subsequent numeric publications from each node's selected Inspector route. The browser keeps up to 15 minutes and up to 120,000 packets in the rolling window. Start a fresh run to replace the previous capture while keeping the series and panel setup. Capture continues when you change node or close the charts within Workbench. Reloading or leaving Workbench ends the browser session.
+
+**Freeze view** preserves the inspectable interval while capture continues. Adjust the view bounds, move the shared time cursor, and choose **Pin time** to measure elapsed time. The values beside each series identify the actual gateway receipt and transport. A route or connection break starts a new line segment when observations resume. **Stop capture** retains the run and any frozen inspection. **Show final window** leaves the frozen inspection and opens the final rolling window. Receipt time includes transport and gateway delay.
+
+The [Workbench plan](../../DroneLinkDatastore/docs/planning/workbench.md#standalone-live-charts) records validation and scope.

@@ -126,3 +126,7 @@
 .dw-config-graph-output { padding: var(--dw-space-1) var(--dw-space-3); text-align: end; }
 .dw-config-graph-output, .dw-config-graph-port .btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dw-config-module[data-selected="true"] { box-shadow: inset 3px 0 var(--dw-color-primary); }
+
+.dw-workspace .dw-parameter:has(.dw-parameter-plot) { display: flex; align-items: stretch; gap: var(--dw-space-1); }
+.dw-parameter:has(.dw-parameter-plot) .dw-parameter-tile { min-width: 0; }
+.dw-parameter .dw-parameter-plot { flex-shrink: 0; align-self: center; }

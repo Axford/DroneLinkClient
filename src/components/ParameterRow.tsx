@@ -5,6 +5,10 @@ import { ObservationNamesContext, presentParameter } from './parameterPresentati
 import { ParameterCommands } from '../commands/CommandControls';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
+import { GraphUp } from 'react-bootstrap-icons';
+import IconButton from './ui/IconButton';
+import { SignalPlotContext } from '../workbench/liveCharts/catalogue';
+import { isNumeric } from '../workbench/liveCharts/capture';
 
 const shortTypes: Readonly<Partial<Record<string, string>>> = {
     UINT8: 'U8', ADDR: 'A', UINT32: 'U32', FLOAT: 'F', CHAR: 'C'
@@ -15,6 +19,7 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     const [details, setDetails] = useState(false);
     const descriptionId = useId();
     const names = useContext(ObservationNamesContext);
+    const plot = useContext(SignalPlotContext);
     const presentation = presentParameter(parameter, names);
     const observedName = !parameter.unavailable?.name && parameter.name?.trim() ? parameter.name : undefined;
     const catalogLabel = observedName ? undefined : catalogName;
@@ -44,6 +49,9 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
             </span> : <span className="dw-meta">Value unavailable</span>}
             {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
         </button>
+        {plot && isNumeric(parameter.msgType) && presentation.values.length > 0 &&
+            <IconButton className="dw-parameter-plot" label={`Plot ${name}`} icon={<GraphUp aria-hidden="true" />}
+                onClick={() => plot(nodeId, channelId, parameterId)} />}
         <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
             <SurfacePanel title="Observation">
                 <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Priority</dt><dd>{priority ?? 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>

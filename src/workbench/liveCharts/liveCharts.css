@@ -1,0 +1,37 @@
+.dw-live-charts {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--dw-space-3);
+    padding: var(--dw-space-4);
+}
+.dw-chart-actions, .dw-chart-picker, .dw-chart-ranges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--dw-space-2);
+}
+.dw-chart-picker label, .dw-chart-ranges label {
+    flex: 1 1 9rem;
+    min-width: 0;
+    font-size: var(--dw-font-size-meta);
+}
+.dw-chart-picker label:nth-child(2) { flex-basis: 15rem; }
+.dw-chart-ranges input[type="range"] { width: 100%; display: block; accent-color: var(--dw-color-accent); }
+.dw-chart-ranges label span { font-family: var(--dw-font-mono); }
+.dw-chart-series { list-style: none; padding: 0; margin: 0; }
+.dw-chart-series li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--dw-space-2);
+    align-items: center;
+    padding: var(--dw-space-2);
+    border-bottom: 1px solid var(--dw-color-border);
+}
+.dw-chart-series-name { flex: 1 1 12rem; display: grid; min-width: 0; overflow-wrap: anywhere; }
+.dw-chart-swatch { width: 0.65rem; height: 0.65rem; border-radius: 50%; }
+.dw-chart-value { font-family: var(--dw-font-mono); font-size: 0.8rem; }
+.dw-chart-timeline { flex-shrink: 0; position: relative; background: var(--dw-color-panel); cursor: crosshair; }
+.dw-chart-marker { position: absolute; border-left: 1px dashed #aebacd; pointer-events: none; }
+.dw-chart-marker-pinned { border-left: 2px solid #ffbf70; }

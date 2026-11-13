@@ -87,10 +87,16 @@ export interface WorkbenchStream extends EventTarget {
     close(): void;
 }
 const standalone = () => new EventSource('/api/workbench/v1/events?diagnostics=1') as unknown as WorkbenchStream;
+export interface WorkbenchCapture {
+    routes: (routes: Feed['routes'], paths: Feed['paths'], interfaces: Feed['interfaces']) => void;
+    packet: (bytes: Uint8Array, message: DroneLinkMsg, time: number, transport: Transport) => void;
+    disconnect: () => void;
+}
+
 const emptyFeed: Feed = { status: 'connecting', routes: {}, paths: { wifi: {}, serial: {} },
         observations: { wifi: {}, serial: {} }, interfaces: {}, diagnostics: [] };
 
-export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalone): Feed {
+export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalone, capture?: WorkbenchCapture): Feed {
     const [feed, setFeed] = useState<Feed>(emptyFeed);
 
     useEffect(() => {
@@ -108,6 +114,10 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
         const publish = (status: Feed['status']) => setFeed({ status, routes, paths, interfaces, diagnostics,
             observations: { wifi: { ...observations.wifi.getState() }, serial: { ...observations.serial.getState() } },
         });
+        const publishRoutes = () => {
+            capture?.routes(routes, paths, interfaces);
+            publish('connected');
+        };
 
         function setPath(route: Route) {
             const { node, transport } = route;
@@ -160,26 +170,26 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
                 observations.wifi.reset();
                 observations.serial.reset();
                 receivedSnapshot = true;
-                publish('connected');
+                publishRoutes();
             });
             on('route', payload => {
                 const route = readRoute(payload, payload.reachable, enhanced);
                 if (!receivedSnapshot || !route) return;
                 if (!enhanced) setPath(route);
                 routes = { ...routes, [route.node]: route };
-                publish('connected');
+                publishRoutes();
             });
             on('path', payload => {
                 const route = readRoute(payload, payload.reachable, true);
                 if (!receivedSnapshot || !enhanced || !route) return;
                 setPath(route);
-                publish('connected');
+                publishRoutes();
             });
             on('interface', payload => {
                 const status = readInterface(payload);
                 if (!receivedSnapshot || !enhanced || !status) return;
                 interfaces = { ...interfaces, [status.transport]: status };
-                publish('connected');
+                publishRoutes();
             });
             on('diagnostic', ({ text, receivedAtMs }) => {
                 if (!receivedSnapshot || !enhanced || typeof text !== 'string' || text.length > 550 || !isTimestamp(receivedAtMs)) return;
@@ -188,8 +198,10 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
             });
             on('observation', ({ packetBase64, receivedAtMs, transport = enhanced ? undefined : 'wifi' }) => {
                 if (!receivedSnapshot || !isTransport(transport) || !isTimestamp(receivedAtMs) || typeof packetBase64 !== 'string' || packetBase64.length > 32) return;
-                const message = new DroneLinkMsg(Uint8Array.from(atob(packetBase64), character => character.charCodeAt(0)));
+                const bytes = Uint8Array.from(atob(packetBase64), character => character.charCodeAt(0));
+                const message = new DroneLinkMsg(bytes);
                 if (message.msgType > DRONE_LINK_MSG_TYPE_NAME || !paths[transport][message.node]?.reachable) return;
+                capture?.packet(bytes, message, receivedAtMs, transport);
                 observations[transport].handleLinkMsg(message, false, 'Local', receivedAtMs);
                 publish('connected');
             });
@@ -197,6 +209,7 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
                 if (currentStream !== stream) return;
                 currentStream = undefined;
                 stream.close();
+                capture?.disconnect();
                 publish('reconnecting');
                 retry = setTimeout(connect, 1000);
             };
@@ -211,7 +224,7 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
             observations.wifi.destroy();
             observations.serial.destroy();
         };
-    }, [open]);
+    }, [open, capture]);
 
     return open ? feed : emptyFeed;
 }
