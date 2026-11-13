@@ -20,10 +20,10 @@
 .dw-map { width: 100%; height: 100%; position: relative; background: var(--dw-color-canvas); }
 .dw-map-canvas { width: 100%; height: 100%; }
 .dw-map-toolbar { position: absolute; bottom: calc(var(--dw-space-3) + var(--dw-space-8)); left: var(--dw-space-3); right: var(--dw-space-3); display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-2); padding: var(--dw-space-2); border-radius: var(--dw-radius-small); background: var(--dw-color-surface); width: fit-content; max-width: calc(100% - var(--dw-space-6)); }
-.dw-map .mapboxgl-ctrl-group { background: var(--dw-color-raised); }
-.dw-map .mapboxgl-ctrl-icon { filter: invert(1); }
-.dw-map .mapboxgl-ctrl-attrib { background: var(--dw-color-surface); color: var(--dw-color-muted); }
-.dw-map .mapboxgl-ctrl-attrib a { color: var(--dw-color-muted); }
+.dw-map :is(.mapboxgl-ctrl-group, .maplibregl-ctrl-group) { background: var(--dw-color-raised); }
+.dw-map :is(.mapboxgl-ctrl-icon, .maplibregl-ctrl-icon) { filter: invert(1); }
+.dw-map :is(.mapboxgl-ctrl-attrib, .maplibregl-ctrl-attrib) { background: var(--dw-color-surface); color: var(--dw-color-muted); }
+.dw-map :is(.mapboxgl-ctrl-attrib, .maplibregl-ctrl-attrib) a { color: var(--dw-color-muted); }
 .dw-parameter { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; }
 .dw-parameter-label { min-width: 0; overflow-wrap: anywhere; }
 .dw-parameter-value { margin-left: auto; overflow-wrap: anywhere; font-family: var(--dw-font-mono); }
@@ -31,8 +31,8 @@
 .dw-home-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--dw-space-3); }
 .dw-home-toolbar > .dw-icon-button { align-self: center; }
 
-.dw-map .mapboxgl-ctrl-group button { width: var(--dw-control-size); height: var(--dw-control-size); }
-.dw-map .mapboxgl-ctrl-top-right .mapboxgl-ctrl { margin: var(--dw-space-3) var(--dw-space-3) 0 0; }
+.dw-map :is(.mapboxgl-ctrl-group, .maplibregl-ctrl-group) button { width: var(--dw-control-size); height: var(--dw-control-size); }
+.dw-map :is(.mapboxgl-ctrl-top-right, .maplibregl-ctrl-top-right) .mapboxgl-ctrl { margin: var(--dw-space-3) var(--dw-space-3) 0 0; }
 
 .dw-domain-card .card-body { display: flex; flex-direction: column; }
 .dw-domain-card-actions { margin-top: auto; }

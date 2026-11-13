@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import maplibregl from 'maplibre-gl';
 import { ArrowsFullscreen, InfoCircle } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
@@ -17,6 +18,7 @@ import { message, submit, useCommandJournal, useCommandScope } from '../commands
 import { useNodeMapSettings } from './NodeMapSettings';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import './ObservedMap.css';
 
 export interface ObservedMapProps {
@@ -35,7 +37,7 @@ function positionDescription(position: ObservedPosition, label: string, now: num
   return `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · ${label}`;
 }
 
-const localMapStyle: mapboxgl.StyleSpecification = {
+const localMapStyle: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     streets: {
@@ -53,8 +55,23 @@ const windLayerId = 'dw-wind-lines';
 const routeLayerId = 'dw-route-preview';
 const legLayerId = 'dw-navigation-legs';
 
-function updateHeadingMarker(marker: mapboxgl.Marker | undefined, bearing: ObservedBearing | undefined,
-  coordinates: ObservedPosition['coordinates'], map: mapboxgl.Map) {
+type ObservationMap = mapboxgl.Map | maplibregl.Map;
+type ObservationMarker = mapboxgl.Marker | maplibregl.Marker;
+type ObservationSource = mapboxgl.GeoJSONSource | maplibregl.GeoJSONSource;
+
+function geoJSONSource(map: ObservationMap, id: string): ObservationSource | undefined {
+  return map instanceof maplibregl.Map ? map.getSource<maplibregl.GeoJSONSource>(id) : map.getSource<mapboxgl.GeoJSONSource>(id);
+}
+
+function addMarker(map: ObservationMap, element: HTMLElement, coordinates: [number, number], rotationAlignment?: 'map'): ObservationMarker {
+  if (map instanceof maplibregl.Map) {
+    return new maplibregl.Marker({ element, rotationAlignment }).setLngLat(coordinates).addTo(map);
+  }
+  return new mapboxgl.Marker({ element, rotationAlignment }).setLngLat(coordinates).addTo(map);
+}
+
+function updateHeadingMarker(marker: ObservationMarker | undefined, bearing: ObservedBearing | undefined,
+  coordinates: ObservedPosition['coordinates'], map: ObservationMap) {
   if (!bearing) {
     marker?.remove();
     return;
@@ -63,7 +80,7 @@ function updateHeadingMarker(marker: mapboxgl.Marker | undefined, bearing: Obser
     const element = document.createElement('span');
     element.className = 'dw-map-heading';
     element.setAttribute('aria-hidden', 'true');
-    marker = new mapboxgl.Marker({ element, rotationAlignment: 'map' }).setLngLat(coordinates).addTo(map);
+    marker = addMarker(map, element, coordinates, 'map');
   }
   marker.setLngLat(coordinates).setRotation(bearing.degrees);
   return marker;
@@ -76,20 +93,20 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
 export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [windSource, setWindSource] = useState<mapboxgl.GeoJSONSource>();
-  const [routeSource, setRouteSource] = useState<mapboxgl.GeoJSONSource>();
+  const map = useRef<ObservationMap | null>(null);
+  const [windSource, setWindSource] = useState<ObservationSource>();
+  const [routeSource, setRouteSource] = useState<ObservationSource>();
   const route = useRoutePreview(domainId, selectedNodeId === null ? undefined : state[selectedNodeId]);
-  const [legSource, setLegSource] = useState<mapboxgl.GeoJSONSource>();
-  const waypointMarkers = useRef(new Map<string, mapboxgl.Marker>());
+  const [legSource, setLegSource] = useState<ObservationSource>();
+  const waypointMarkers = useRef(new Map<string, ObservationMarker>());
   const draggingWaypoint = useRef<string | undefined>(undefined);
   const markers = useRef(new Map<number, {
-    marker: mapboxgl.Marker;
+    marker: ObservationMarker;
     button: HTMLButtonElement;
     label: HTMLSpanElement;
-    heading?: mapboxgl.Marker;
+    heading?: ObservationMarker;
   }>());
-  const secondaryMarkers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
+  const secondaryMarkers = useRef(new Map<number, { marker: ObservationMarker; button: HTMLButtonElement }>());
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -116,7 +133,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     const mapContainer = container.current;
     if ((!local && (!token || !user)) || !mapContainer) return;
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
-    let current: mapboxgl.Map | undefined;
+    let current: ObservationMap | undefined;
     let resizeObserver: ResizeObserver | undefined;
     const ownedMarkers = markers.current;
     const ownedSecondaryMarkers = secondaryMarkers.current;
@@ -126,12 +143,17 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     try {
       if (token) mapboxgl.accessToken = token;
       const saved = viewState?.current || user?.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
-      current = new mapboxgl.Map({ container: mapContainer,
-        ...(local ? { attributionControl: false } : {}),
-        style: local ? localMapStyle : 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku', center: [saved.lng, saved.lat], zoom: saved.zoom });
+      const camera = { container: mapContainer, center: [saved.lng, saved.lat] as [number, number], zoom: saved.zoom };
+      if (local) {
+        current = new maplibregl.Map({ ...camera, style: localMapStyle, attributionControl: { compact: false } });
+        current.addControl(new maplibregl.NavigationControl(), 'top-right');
+      } else {
+        current = new mapboxgl.Map({ ...camera, style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku' });
+        current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      }
       map.current = current; setMapReady(true);
       const activeMap = current;
-      activeMap.on('style.load', () => {
+      const addOverlays = () => {
         activeMap.addSource(windLayerId, { type: 'geojson', data: windLines([]) });
         activeMap.addLayer({
           id: windLayerId, source: windLayerId, type: 'line',
@@ -139,24 +161,24 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
             'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-wind').trim(),
             'line-width': 3,
             // Keep the instrument colour readable on dark basemaps with 3D lighting.
-            'line-emissive-strength': 1
+            ...(!local && { 'line-emissive-strength': 1 })
           }
         });
-        setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
+        setWindSource(geoJSONSource(activeMap, windLayerId));
         activeMap.addSource(routeLayerId, { type: 'geojson', data: routeLine() });
         activeMap.addLayer({
           id: routeLayerId, source: routeLayerId, type: 'line',
           filter: ['==', ['geometry-type'], 'LineString'],
           paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
-            'line-width': 2, 'line-opacity': 0.75, 'line-emissive-strength': 1 }
+            'line-width': 2, 'line-opacity': 0.75, ...(!local && { 'line-emissive-strength': 1 }) }
         }, windLayerId);
         activeMap.addLayer({
           id: `${routeLayerId}-point`, source: routeLayerId, type: 'circle',
           filter: ['==', ['geometry-type'], 'Point'],
           paint: { 'circle-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-muted').trim(),
-            'circle-radius': 4, 'circle-emissive-strength': 1 }
+            'circle-radius': 4, ...(!local && { 'circle-emissive-strength': 1 }) }
         }, windLayerId);
-        setRouteSource(activeMap.getSource<mapboxgl.GeoJSONSource>(routeLayerId));
+        setRouteSource(geoJSONSource(activeMap, routeLayerId));
         activeMap.addSource(legLayerId, { type: 'geojson', data: observedNavigation({}).legs });
         const palette = getComputedStyle(mapContainer);
         const target = palette.getPropertyValue('--dw-color-navigation-target').trim();
@@ -173,20 +195,16 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
             }
           }, windLayerId);
         }
-        setLegSource(activeMap.getSource<mapboxgl.GeoJSONSource>(legLayerId));
-      });
-      current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      if (local) current.addControl(new mapboxgl.AttributionControl({ compact: false }), "bottom-right");
+        setLegSource(geoJSONSource(activeMap, legLayerId));
+      };
+      if (activeMap instanceof maplibregl.Map) activeMap.once('style.load', addOverlays);
+      else activeMap.on('style.load', addOverlays);
       if (typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => current?.resize());
         resizeObserver.observe(mapContainer);
       }
-      current.on('error', event => {
-        if (local) setBasemapError(true);
-        else { console.error('Map rendering failed:', event.error); setMapError(true); }
-      });
-      current.on('movestart', () => setCameraRevision(revision => revision + 1));
-      current.on('moveend', () => {
+      const onMoveStart = () => setCameraRevision(revision => revision + 1);
+      const onMoveEnd = () => {
         if (viewState) { const center = current!.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current!.getZoom() }; }
         if (local) return;
         clearTimeout(saveTimer);
@@ -197,7 +215,19 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
             body: JSON.stringify({ lng: center.lng, lat: center.lat, zoom: current.getZoom() }) })
             .catch(error => { if (!controller.signal.aborted) console.error('Failed to save map state:', error); });
         }, 5000);
-      });
+      };
+      if (activeMap instanceof maplibregl.Map) {
+        activeMap.on('error', event => {
+          if ('sourceId' in event && event.sourceId === 'streets') setBasemapError(true);
+          else console.error('Workbench map rendering failed:', event.error);
+        });
+        activeMap.on('movestart', onMoveStart);
+        activeMap.on('moveend', onMoveEnd);
+      } else {
+        activeMap.on('error', event => { console.error('Map rendering failed:', event.error); setMapError(true); });
+        activeMap.on('movestart', onMoveStart);
+        activeMap.on('moveend', onMoveEnd);
+      }
     } catch (error) { console.error('Map initialization failed:', error); setMapError(true); }
     return () => {
       clearTimeout(saveTimer); controller.abort(); resizeObserver?.disconnect();
@@ -247,7 +277,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         const label = document.createElement('span');
         label.textContent = `${waypoint.nodeId} · ${waypoint.role === 'target' ? 'Target' : 'Previous'}`;
         element.append(label);
-        marker = new mapboxgl.Marker({ element }).setLngLat(waypoint.coordinates).addTo(activeMap);
+        marker = addMarker(activeMap, element, waypoint.coordinates);
         const dragMarker = marker;
         if (waypoint.role === 'target') {
           let started: string | undefined;
@@ -323,7 +353,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         label.className = 'dw-map-node-label';
         button.append(label);
         button.addEventListener('click', () => select.current(position.nodeId));
-        entry = { button, label, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(map.current) };
+        entry = { button, label, marker: addMarker(map.current, button, position.coordinates) };
         markers.current.set(position.nodeId, entry);
       }
       entry.marker.setLngLat(position.coordinates);
@@ -358,7 +388,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
         button.setAttribute('role', 'button');
         button.className = 'dw-map-secondary';
         button.addEventListener('click', () => select.current(position.nodeId));
-        entry = { button, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(currentMap) };
+        entry = { button, marker: addMarker(currentMap, button, position.coordinates) };
         secondaryMarkers.current.set(position.nodeId, entry);
       }
       entry.marker.setLngLat(position.coordinates);
@@ -379,10 +409,17 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
 
   const fitPositions = () => {
     if (!map.current || !positionCount) return;
-    const bounds = new mapboxgl.LngLatBounds();
-    positions.forEach(position => bounds.extend(position.coordinates));
-    secondaryPositions.forEach(position => bounds.extend(position.coordinates));
-    map.current.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 0 });
+    const coordinates = [...positions, ...secondaryPositions].map(position => position.coordinates);
+    const options = { padding: 50, maxZoom: 16, duration: 0 };
+    if (map.current instanceof maplibregl.Map) {
+      const bounds = new maplibregl.LngLatBounds();
+      coordinates.forEach(position => bounds.extend(position));
+      map.current.fitBounds(bounds, options);
+    } else {
+      const bounds = new mapboxgl.LngLatBounds();
+      coordinates.forEach(position => bounds.extend(position));
+      map.current.fitBounds(bounds, options);
+    }
   };
 
   const routeMessage = {

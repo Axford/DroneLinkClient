@@ -106,7 +106,7 @@ function useMapContextGestures({ canvas, enabled, onOpen, onClose, menu, cameraR
 }
 
 function isMapSurface(target: EventTarget | null): target is Element {
-  return target instanceof Element && !target.closest('.mapboxgl-control-container');
+  return target instanceof Element && !target.closest('.mapboxgl-control-container, .maplibregl-control-container');
 }
 
 function useMenuPlacement(pane: Props['pane'], menu: React.RefObject<HTMLDivElement | null>, open: OpenMenu | undefined) {
