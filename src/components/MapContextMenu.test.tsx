@@ -4,6 +4,8 @@ import { CommandScope, submit } from '../commands/session';
 import { ChannelState, GlobalState, ParameterState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_ADDR as ADDR, DRONE_LINK_MSG_TYPE_CHAR as CHAR, DRONE_LINK_MSG_TYPE_FLOAT as FLOAT } from '../dronelink/DroneLinkMsg';
 import { observedPositions } from '../dronelink/observedPositions';
+import ChannelSummary from './ChannelSummary';
+import { channelVisualization } from '../dronelink/moduleVisualizations';
 import MapContextMenu from './MapContextMenu';
 
 jest.mock('../commands/session', () => ({ ...jest.requireActual('../commands/session'), submit: jest.fn() }));
@@ -43,11 +45,14 @@ function nodes(radius = 5, useGps = true, configured = true): GlobalState {
 function Fixture({ state, canSubmit = true, select, cameraRevision = 0 }: { state: GlobalState; canSubmit?: boolean; select?: () => void; cameraRevision?: number }) {
   const pane = React.useRef<HTMLDivElement>(null);
   const canvas = React.useRef<HTMLDivElement>(null);
+  const nav = state[11].channels[4];
+  const summary = channelVisualization(nav)?.inspector?.(nav);
   return <CommandScope.Provider value={{ domainId: 'domain', userId: 'editor', canSubmit, canSettings: false }}>
     <div ref={pane}><div ref={canvas} data-testid="canvas"><button data-map-node="11" onClick={select}>Rover marker</button></div>
       <MapContextMenu pane={pane} canvas={canvas} enabled state={state} positions={observedPositions(state)}
         cameraRevision={cameraRevision} unproject={() => ({ lng: 358, lat: 52 })} now={121000} />
     </div>
+    {summary && <ChannelSummary nodeId={11} channelId={4} summary={summary} />}
   </CommandScope.Provider>;
 }
 
@@ -112,6 +117,13 @@ test('Follow isolates the marker and requires reopening after a source binding c
     payload: { addresses: [{ source: 11, node: 22, channel: 4, param: 10, priority: 0 }] }
   });
   await screen.findByText(/Command accepted/);
+  const summary = within(screen.getByLabelText('Observed readings for channel 4'));
+  expect(summary.getByText('Unbound')).toBeVisible();
+  const observed = nodes(5, false);
+  observed[11].channels[4].params[13] = param(13, ADDR, [11, 22, 4, 10]);
+  rerender(<Fixture state={observed} />);
+  expect(summary.getByText('Node 22')).toBeVisible();
+
 });
 
 test('an open menu closes on authority loss, reset, and outside pointer interaction', () => {

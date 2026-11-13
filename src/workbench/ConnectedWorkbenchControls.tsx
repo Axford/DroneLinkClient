@@ -53,7 +53,7 @@ export function ConnectedLocalInspector({ node, workbench, state, canQuery }: { 
             <p>Node {node} · Local{transport ? ` · ${transportLabel[transport]}` : ' · Last seen'}</p>
             {!transport && <p>The selected local route is unavailable.</p>}
             {observed && <CommandScope.Provider value={null}>
-                <ObservationNamesContext.Provider value={state}><ChannelList node={observed} /></ObservationNamesContext.Provider>
+                <ObservationNamesContext.Provider value={state}><ChannelList node={observed} sampleLive={!!transport} /></ObservationNamesContext.Provider>
             </CommandScope.Provider>}
             {canQuery && <form className="dw-toolbar" onSubmit={event => {
                 event.preventDefault();

@@ -1,0 +1,28 @@
+.dw-turn-rate {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--dw-space-2);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+.dw-turn-rate-dial { position: relative; justify-self: center; width: min(100%, 10rem); }
+.dw-turn-rate-dial svg { display: block; width: 100%; }
+.dw-turn-rate-north, .dw-turn-rate-centre { position: absolute; left: 50%; translate: -50% -50%; }
+.dw-turn-rate-north { top: 4%; }
+.dw-turn-rate-centre { top: 50%; display: grid; justify-items: center; line-height: 1; gap: 2px; }
+.dw-turn-rate dl { margin: 0; display: grid; gap: var(--dw-space-1); }
+.dw-turn-rate dl > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--dw-space-1); }
+.dw-turn-rate dt { font-weight: 400; }
+.dw-turn-rate dd, .dw-turn-rate strong { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; }
+.dw-turn-rate [data-unavailable] { color: var(--dw-color-muted); }
+.dw-turn-rate-band { fill: var(--dw-color-instrument-trace); fill-opacity: 0.2; }
+circle.dw-turn-rate-band { fill: none; stroke: var(--dw-color-instrument-trace); stroke-opacity: 0.2; stroke-width: 29; }
+.dw-turn-rate-arc { fill: var(--dw-color-instrument-reading); fill-opacity: 0.45; }
+.dw-turn-rate-arc[data-gybing] { fill: var(--dw-color-instrument-wing); }
+.dw-turn-rate-hand { stroke: var(--dw-color-instrument-reading); stroke-width: 3; }
+.dw-turn-rate-hand[data-hand="target"] { stroke: var(--dw-color-instrument-trace); stroke-dasharray: 5 3; }
+
+.dw-turn-rate-centre strong { font-size: var(--dw-font-size-heading); }
+.dw-turn-rate-centre strong[data-unavailable] { font-size: var(--dw-font-size-meta); }

@@ -1,5 +1,6 @@
 import { createContext } from 'react';
 import { GlobalState, ParameterState } from '../dronelink/DroneLinkState';
+import { decodeAddressBytes } from '../dronelink/observedAddress';
 import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT } from '../dronelink/DroneLinkMsg';
 
 // Supplied by the current Inspector only; name resolution never consults another Domain or retained history.
@@ -18,10 +19,11 @@ export function presentParameter(parameter: ParameterState, state: GlobalState =
     const values: PresentedValue[] = [];
     if (parameter.msgType === DRONE_LINK_MSG_TYPE_ADDR) {
         const bytes = parameter.values;
-        if (bytes.length % 4 || bytes.some(value => typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 255)) return { type: null, values: [] };
+        if (bytes.length % 4) return { type: null, values: [] };
         for (let i = 0; i < bytes.length; i += 4) {
-            const [source, nodeId, channelId, packed] = bytes.slice(i, i + 4) as number[];
-            const paramId = packed & 63;
+            const address = decodeAddressBytes(Array.from<number | string>(bytes.slice(i, i + 4)));
+            if (!address) return { type: null, values: [] };
+            const { source, node: nodeId, channel: channelId, parameter: paramId } = address;
             const node = state[nodeId], channel = node?.channels[channelId], param = channel?.params[paramId];
             const paramName = param?.unavailable?.name ? undefined : param?.name;
             const name = node?.name || channel?.name || paramName

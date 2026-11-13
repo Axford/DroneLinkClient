@@ -16,10 +16,11 @@ import './InspectorPanel.css';
 interface InspectorPanelProps {
     droneLinkState: DroneLinkStateHook;
     canReset?: boolean;
+    liveDomain?: boolean;
     selectedNodeId: number | null;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, selectedNodeId }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -68,7 +69,7 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
 
                         {selectedNode && (
                             <ObservationNamesContext.Provider value={droneLinkState.state}>
-                                <ChannelList key={`${selectedNode.id}:${selectedNode.observationGeneration}`} node={selectedNode} />
+                                <ChannelList key={`${selectedNode.id}:${selectedNode.observationGeneration}`} node={selectedNode} sampleLive={liveDomain && droneLinkState.observationStatus === 'ready'} />
                             </ObservationNamesContext.Provider>
                         )}
                     </div>

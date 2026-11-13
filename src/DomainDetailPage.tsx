@@ -191,7 +191,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 {workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
                                 {local && selectedNodeId !== null
                                     ? <ConnectedLocalInspector key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} workbench={workbench} state={state} canQuery={domain.canEdit} />
-                                    : <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={{ ...droneLinkState, state }} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />}
+                                    : <InspectorPanel key={`${domain._id}:${selectedNodeId}`} droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'} canReset={domain.canEdit === true && domain.status !== 'archived'} selectedNodeId={selectedNodeId} />}
                                 {workbench.fileBackups && domain.canEdit && selectedNodeId !== null && <div hidden={!local}>
                                     <NodeFiles key={`${domain._id}:${selectedNodeId}`} node={selectedNodeId} activity={recordFileActivity}
                                         available={local && !!workbench.transport(selectedNodeId)} transport={workbench.transport(selectedNodeId)}

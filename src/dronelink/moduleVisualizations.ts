@@ -1,5 +1,8 @@
 import { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_LINK_MSG_MAX_PAYLOAD, DRONE_MODULE_PARAM_TYPE } from './DroneLinkMsg';
+import { decodeAddressBytes } from './observedAddress';
+import type { DiagnosticSceneData, DiagnosticVector } from './diagnosticScene';
+import { observedFloatVector, magneticVector, calibrationAxis, quadrantBounds, type MagneticCalibration } from './magneticCalibration';
 import { locationCoordinates, MapBinding, mapBindings } from './mapBindings';
 import type { VisualizationSetting, VisualizationSettingsDefinition, VisualizationTarget, VoltageThresholds } from './visualizationSettings';
 
@@ -11,14 +14,210 @@ export interface ObservedSummary {
     reading?: ParameterState;
     severity?: 'warning' | 'danger';
     status?: string;
+    unavailable?: boolean;
     binding?: MapBinding;
     bearing?: number;
+    voltageDial?: number;
     lines?: string[];
+    sources?: Pick<ObservedSummary, 'label' | 'channelId' | 'parameterId' | 'reading'>[];
 }
 
-export interface InspectorSummary {
+export type InspectorSummary = {
+    layout?: 'compact' | 'paired';
+    additionalDetails?: ObservedSummary[];
+    magneticCalibration?: MagneticCalibration;
+    attitudeReading?: ParameterState;
+    attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | KiteControllerSummary | PolarSummary | {
+    joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
+    details: ObservedSummary[];
+} | {
+    sceneColours: (string | undefined)[];
+    details: ObservedSummary[];
+};
+
+export interface PolarSummary {
+    polarResponse: number[] | undefined;
+    sampleCounts?: number[];
+    relativeHeading?: number;
+    heading: ObservedSummary;
+    wind: ObservedSummary;
+    mode: ObservedSummary;
+    details: ObservedSummary[];
+}
+
+export interface KiteControllerSummary {
+    kiteVector: { yaw: number; pitch: number; distance: number; roll: number } | undefined;
+    kiteWaypoint?: { yaw: number; pitch: number; radius: number };
+    vectorReading?: ParameterState;
+    readings: { label: string; text?: string }[];
+    details: ObservedSummary[];
+}
+
+export interface TankSteerSummary {
+    drives: Record<'left' | 'right', { reading: ObservedSummary; output?: number }>;
+    heading: ObservedSummary;
+    target: ObservedSummary;
+    distance: ObservedSummary;
+    distanceMetres?: number;
+    mode: ObservedSummary;
+    details: ObservedSummary[];
+}
+
+export interface TurnRateSummary {
+    turnOutput: ObservedSummary;
+    output?: number;
+    heading: ObservedSummary;
+    target: ObservedSummary;
+    threshold: ObservedSummary;
+    thresholdDegrees?: number;
+    mode: ObservedSummary;
+    gybing: boolean;
+    details: ObservedSummary[];
+}
+
+export interface ProaSummary {
+    proaBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'frame', ObservedSummary>;
+    steering: Record<'wing' | 'left' | 'right' | 'bow', ObservedSummary>;
+    polar?: number[];
+    speeds: [number[] | undefined, number[] | undefined];
+    context: ObservedSummary[];
+    details: ObservedSummary[];
+}
+
+export interface SailorSummary {
+    sailBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'courseWind' | 'wing', ObservedSummary>;
+    sheet: ObservedSummary;
+    rudder: ObservedSummary;
+    rudderOutput?: number;
+    gybing: boolean;
+    polar?: number[];
+    speeds: [number[] | undefined, number[] | undefined];
+    context: ObservedSummary[];
+    details: ObservedSummary[];
+}
+
+export interface WaypointSummary {
+    waypoint: ObservedSummary;
+    total: ObservedSummary;
+    speed: ObservedSummary;
+    eta?: string;
+    loop: ObservedSummary;
+    covered: ObservedSummary;
+    remaining: ObservedSummary;
+    leg: ObservedSummary;
+    routeProgress?: { completed: number; next: number };
+    details: ObservedSummary[];
+}
+
+export interface NavSummary {
+    navigationBearings: Record<'heading' | 'adjusted' | 'wind', ObservedSummary>;
+    crossTrack: ObservedSummary;
+    distance: ObservedSummary;
+    following: ObservedSummary;
+    followingNode?: number;
+    details: ObservedSummary[];
+}
+
+export interface WindDirectionSummary {
+    worldWind: ObservedSummary;
+    estimateLabel?: string;
+    localWind?: ObservedSummary;
+    details: ObservedSummary[];
+}
+
+export interface DepthSummary {
+    measuredDepth: ObservedSummary;
+    logReading?: ParameterState;
+    details: ObservedSummary[];
+}
+
+export interface HorizonReadings {
+    pitch: ObservedSummary;
+    roll: ObservedSummary;
+    pitchDegrees?: number;
+    rollDegrees?: number;
+}
+
+export interface Mpu6050Summary extends HorizonReadings {
+    temperature: ObservedSummary;
+    scene: DiagnosticSceneData;
+    diagnosticReadings: ObservedSummary[];
+    details: ObservedSummary[];
+}
+
+export interface Hmc5883lSummary extends HorizonReadings {
+    magneticHeading: ObservedSummary;
+    quality: ObservedSummary;
+    vector: ObservedSummary;
+    calibrated?: DiagnosticVector;
+    diagnosticReadings: ObservedSummary[];
+    rawReading?: ParameterState;
+    scene: DiagnosticSceneData;
+    details: ObservedSummary[];
+}
+
+export interface ServoSummary {
+    servoPosition: ObservedSummary;
+    pwmAngle: ObservedSummary;
+    position?: number;
+    angle?: number;
+    curve?: number[];
+    controlPoints?: number[];
+    details: ObservedSummary[];
+}
+
+export interface MotorSummary {
+    motorSpeed: ObservedSummary;
+    configuredLimits: ObservedSummary;
+    deadbandReading: ObservedSummary;
+    mappedSpeed?: number;
+    limits?: { min: number; max: number };
+    deadband?: number;
+    details: ObservedSummary[];
+}
+
+export interface ReceiverSummary {
+    receiverOutputs: { value?: number; reading: ObservedSummary }[];
+    mode: ObservedSummary & { kind?: 'active' | 'passthrough' };
+    rawPwm?: number[];
+    details: ObservedSummary[];
+}
+
+export interface AnemometerSummary {
+    windSpeed: ObservedSummary;
+    knots?: number;
+    metresPerSecond?: string;
+}
+
+interface WaterSensorSummary {
+    waterLevel: number | undefined;
+    thresholdRatio?: number;
+    threshold: number | undefined;
+    rawReading: ObservedSummary;
+    thresholdReading: ObservedSummary;
+    alarm: ObservedSummary;
+}
+
+interface PowerInputSummary {
+    label: string;
+    voltage: ObservedSummary;
+    readings: ObservedSummary[];
+}
+
+interface PacketTelemetrySummary {
+    columns: { label: string; count?: string; rate?: string }[];
+    details: ObservedSummary[];
+    note?: string;
+    signal?: ObservedSummary;
+}
+
+interface PacketTelemetryDefinition {
+    countsParameter: number;
+    ratesParameter: number;
+    note?: string;
 }
 
 interface ModuleVisualization {
@@ -38,8 +237,9 @@ function numericValue(reading: ParameterState | undefined, types: number[]): num
 }
 
 function field(channel: ChannelState, parameterId: number, label: string, text?: string): ObservedSummary {
+    const unavailable = text === undefined;
     return { label, text: text ?? '—', channelId: channel.channel, parameterId, reading: channel.params[parameterId],
-        status: text === undefined ? 'Unavailable' : undefined };
+        status: unavailable ? 'Unavailable' : undefined, unavailable };
 }
 
 function satelliteCount(channel: ChannelState): ObservedSummary {
@@ -48,20 +248,6 @@ function satelliteCount(channel: ChannelState): ObservedSummary {
     const summary = field(channel, 9, 'Satellites', `${count} sats`);
     if (count < 4) return { ...summary, severity: 'danger', status: 'Very low satellite count' };
     if (count < 9) return { ...summary, severity: 'warning', status: 'Low satellite count' };
-    return summary;
-}
-
-function quantity(channel: ChannelState, parameterId: number, label: string, unit: string, decimals: number): ObservedSummary {
-    const value = numericValue(channel.params[parameterId], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    return field(channel, parameterId, label, value === undefined ? undefined : `${value.toFixed(decimals)} ${unit}`);
-}
-
-function cellVoltage(channel: ChannelState, thresholds?: VoltageThresholds | null): ObservedSummary {
-    const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
-    const summary = field(channel, 15, 'Cell voltage', volts === undefined ? undefined : `${volts.toFixed(2)} V`);
-    if (volts === undefined || !thresholds) return summary;
-    if (volts < thresholds.redBelow) return { ...summary, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
-    if (volts < thresholds.amberBelow) return { ...summary, severity: 'warning', status: `Below amber threshold (${thresholds.amberBelow} V)` };
     return summary;
 }
 
@@ -86,6 +272,15 @@ const resetReasons: Record<number, string> = {
     14: 'CPU reset by other core', 15: 'Brownout', 16: 'RTC module watchdog'
 };
 
+function firmwareBuild(reading: ParameterState | undefined): string | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_CHAR || reading.values.length !== 1) return;
+    const build = reading.values[0];
+    // DroneNode reports an abbreviated Git commit. CHAR decoding removes trailing NUL padding.
+    if (typeof build === 'string' && /^[0-9a-f]{4,16}$/i.test(build) &&
+        Number.isInteger(reading.numValues) && reading.numValues >= build.length &&
+        reading.numValues <= DRONE_LINK_MSG_MAX_PAYLOAD) return build;
+}
+
 function uptimeText(seconds: number | undefined): string | undefined {
     if (seconds === undefined || !Number.isInteger(seconds) || seconds < 0 || seconds > 0xffffffff) return;
     const days = Math.floor(seconds / 86400);
@@ -94,20 +289,879 @@ function uptimeText(seconds: number | undefined): string | undefined {
     return [days && `${days}d`, hours && `${hours}h`, minutes && `${minutes}m`, `${seconds % 60}s`].filter(Boolean).join(' ');
 }
 
+function packetValues(reading: ParameterState | undefined, type: number): number[] | undefined {
+    if (!hasReading(reading) || reading.msgType !== type || reading.numValues !== 3 || reading.values.length !== 3) return;
+    const values = Array.from<number | string>(reading.values);
+    const valid = (value: number | string): value is number =>
+        typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
+        (type !== DRONE_LINK_MSG_TYPE_UINT32_T || (Number.isInteger(value) && value <= 0xffffffff));
+    if (values.every(valid)) return values;
+}
+
+export class PacketTelemetryRenderer {
+    constructor(private readonly definition: PacketTelemetryDefinition) {}
+
+    inspector(channel: ChannelState): PacketTelemetrySummary {
+        const { countsParameter, ratesParameter, note } = this.definition;
+        const counts = packetValues(channel.params[countsParameter], DRONE_LINK_MSG_TYPE_UINT32_T);
+        const rates = packetValues(channel.params[ratesParameter], DRONE_LINK_MSG_TYPE_FLOAT);
+        const columns = ['Sent', 'Received', 'Rejected'].map((label, index) => ({
+            label,
+            count: counts?.[index].toString(),
+            rate: rates ? `${rates[index].toFixed(1)}/s` : undefined
+        }));
+        return {
+            columns,
+            details: [
+                field(channel, countsParameter, 'Packet counts', counts && columns.map(({ label, count }) => `${label} ${count}`).join(' · ')),
+                field(channel, ratesParameter, 'Packet rates', rates && columns.map(({ label, rate }) => `${label} ${rate}`).join(' · '))
+            ],
+            note
+        };
+    }
+}
+
+export function signedRssi(magnitude: number): number | undefined {
+    if (magnitude >= 0 && magnitude <= 100) return 0 - magnitude;
+}
+
+function rfm69Signal(channel: ChannelState): ObservedSummary {
+    const raw = numericValue(channel.params[8], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const rssi = raw === undefined ? undefined : signedRssi(raw);
+    return field(channel, 8, 'RSSI', rssi === undefined ? undefined : `${Math.round(rssi)} dBm`);
+}
+
+const rfm69Packets = new PacketTelemetryRenderer({ countsParameter: 9, ratesParameter: 10 });
+
+const powerQuantities = [
+    { id: 14, label: 'Load voltage', unit: 'V' },
+    { id: 12, label: 'Current', unit: 'A' },
+    { id: 13, label: 'Power', unit: 'W' }
+];
+
+function powerQuantity(value: number | undefined, unit: string): string | undefined {
+    if (value !== undefined) return `${value.toFixed(2)} ${unit}`;
+}
+
+const cellVoltageParameter = 15;
+const deviceAlarmParameter = 16;
+
+interface PowerTelemetryDefinition {
+    inputCount: number;
+    usageParameter: number;
+}
+
+class PowerTelemetryRenderer {
+    constructor(private readonly definition: PowerTelemetryDefinition) {}
+
+    inputs(channel: ChannelState): PowerInputSummary[] {
+        return Array.from({ length: this.definition.inputCount }, (_, index) => ({
+            label: `Input ${index + 1}`,
+            voltage: this.cellVoltage(channel, index),
+            readings: this.readings(channel, index)
+        }));
+    }
+
+    private value(channel: ChannelState, id: number, type: number, index: number): number | undefined {
+        const reading = channel.params[id];
+        if (!hasReading(reading) || reading.msgType !== type ||
+            reading.numValues !== this.definition.inputCount || reading.values.length !== this.definition.inputCount) return;
+        const value = reading.values[index];
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+    }
+
+    private quantity(channel: ChannelState, id: number, index: number, label: string, unit: string): ObservedSummary {
+        const value = this.value(channel, id, DRONE_LINK_MSG_TYPE_FLOAT, index);
+        return field(channel, id, label, powerQuantity(value, unit));
+    }
+
+    cellVoltage(channel: ChannelState, index: number, thresholds?: VoltageThresholds | null): ObservedSummary {
+        const volts = this.value(channel, cellVoltageParameter, DRONE_LINK_MSG_TYPE_FLOAT, index);
+        const summary = field(channel, cellVoltageParameter, 'Cell voltage', powerQuantity(volts, 'V'));
+        if (volts === undefined) return summary;
+        const voltage = { ...summary, voltageDial: volts >= 0 ? volts : undefined };
+        if (thresholds && volts < thresholds.redBelow) {
+            return { ...voltage, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
+        }
+        if (thresholds && volts < thresholds.amberBelow) {
+            return { ...voltage, severity: 'warning', status: `Below amber threshold (${thresholds.amberBelow} V)` };
+        }
+        return voltage;
+    }
+
+    readings(channel: ChannelState, index: number): ObservedSummary[] {
+        const alarm = this.value(channel, deviceAlarmParameter, DRONE_LINK_MSG_TYPE_UINT8_T, index);
+        return [
+            ...powerQuantities.map(({ id, label, unit }) => this.quantity(channel, id, index, label, unit)),
+            this.quantity(channel, this.definition.usageParameter, index, 'Usage', 'Ah'),
+            field(channel, deviceAlarmParameter, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)
+        ];
+    }
+}
+
+const ina219 = new PowerTelemetryRenderer({ inputCount: 1, usageParameter: 19 });
+const ina3221 = new PowerTelemetryRenderer({ inputCount: 3, usageParameter: 20 });
+
+const knotsPerMetrePerSecond = 1.94384;
+
+export function windSpeedKnots(value: number): number | undefined {
+    if (value >= 0) return value;
+}
+
+function waterSensorSummary(channel: ChannelState): WaterSensorSummary {
+    const counts = (id: number) => {
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_UINT32_T]);
+        if (value !== undefined && Number.isInteger(value) && value >= 0 && value <= 0xffffffff) return value;
+    };
+    const waterLevel = counts(11);
+    const threshold = counts(12);
+    const thresholdRatio = waterLevel !== undefined && threshold !== undefined && threshold > 0 ? waterLevel / threshold : undefined;
+    const nearThreshold = thresholdRatio !== undefined && thresholdRatio > 0.5 && thresholdRatio < 1;
+    const rawReading = field(channel, 11, 'Raw level', waterLevel?.toString());
+    const reportedAlarm = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const alarm = field(channel, 13, 'Device alarm', reportedAlarm === 1 ? 'Triggered' : reportedAlarm === 0 ? 'Clear' : undefined);
+    return {
+        waterLevel,
+        threshold,
+        thresholdRatio,
+        rawReading: nearThreshold && reportedAlarm !== 1
+            ? { ...rawReading, severity: 'warning', status: 'Above half of threshold' } : rawReading,
+        thresholdReading: field(channel, 12, 'Threshold', threshold?.toString()),
+        alarm: reportedAlarm === 1 ? { ...alarm, severity: 'danger' } : alarm
+    };
+}
+
+function receiverSummary(channel: ChannelState): ReceiverSummary {
+    const outputs = Array.from({ length: 6 }, (_, index) => {
+        const id = 11 + index;
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+        return { value, reading: field(channel, id, `Output ${index + 1}`, value?.toFixed(2)) };
+    });
+    const switchValue = numericValue(channel.params[29], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const kind = switchValue === undefined ? undefined : switchValue < 0.5 ? 'passthrough' : 'active';
+    const mode = field(channel, 29, 'Mode', kind && { passthrough: 'Passthrough', active: 'Active' }[kind]);
+    const rawPwm = byteArray(channel.params[20], 6)?.map(byte => byte * 10);
+    const pwm = rawPwm?.map((value, index) => `Channel ${index + 1} ${value} µs`).join(' · ');
+    return {
+        receiverOutputs: outputs.slice(0, 4),
+        mode: { ...mode, kind },
+        rawPwm,
+        details: [mode, ...outputs.map(output => output.reading), field(channel, 20, 'Raw PWM', pwm)]
+    };
+}
+
+function motorSummary(channel: ChannelState): MotorSummary {
+    const speed = numericValue(channel.params[8], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const reading = channel.params[12];
+    let limits: MotorSummary['limits'];
+    if (hasReading(reading) && reading.msgType === DRONE_LINK_MSG_TYPE_FLOAT &&
+        reading.numValues === 2 && reading.values.length === 2) {
+        const min = reading.values[0];
+        const max = reading.values[1];
+        if (typeof min === 'number' && typeof max === 'number' && min >= -1 && max <= 1 && min < max) {
+            limits = { min, max };
+        }
+    }
+    const deadbandValue = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const deadband = deadbandValue === undefined ? undefined : Math.abs(deadbandValue);
+    // Match the firmware's clamp and remap before it applies deadband and inversion.
+    const mappedSpeed = limits && speed !== undefined
+        ? (Math.max(-1, Math.min(1, speed)) + 1) * (limits.max - limits.min) / 2 + limits.min
+        : undefined;
+    const motorSpeed = field(channel, 8, 'Speed input', speed?.toFixed(2));
+    const configuredLimits = field(channel, 12, 'Configured limits', limits && `${limits.min.toFixed(2)} to ${limits.max.toFixed(2)}`);
+    const deadbandReading = field(channel, 13, 'Deadband', deadband === undefined ? undefined : `±${deadband.toFixed(2)}`);
+    return {
+        motorSpeed,
+        configuredLimits,
+        deadbandReading,
+        mappedSpeed,
+        limits,
+        deadband,
+        details: [motorSpeed, configuredLimits, deadbandReading]
+    };
+}
+
+function servoSummary(channel: ChannelState): ServoSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const position = readFloat(8);
+    const angle = readFloat(14);
+    const centre = readFloat(13);
+    const reading = channel.params[12];
+    let map: number[] | undefined;
+    if (hasReading(reading) && reading.msgType === DRONE_LINK_MSG_TYPE_FLOAT &&
+        reading.numValues === 4 && reading.values.length === 4) {
+        const values = Array.from<number | string>(reading.values);
+        if (values.every((value): value is number => typeof value === 'number' && Number.isFinite(value))) map = values;
+    }
+    const controlPoints = map;
+    const curve = controlPoints && centre !== undefined ? Array.from({ length: 61 }, (_, index) => {
+        const [a, b, c, d] = controlPoints;
+        const t = index / 60;
+        const u = 1 - t;
+        const target = a * u ** 3 + 3 * b * u ** 2 * t + 3 * c * u * t ** 2 + d * t ** 3 + centre;
+        return Math.trunc(Math.min(180, Math.max(0, target)));
+    }) : undefined;
+    const servoPosition = field(channel, 8, 'Reported position', position?.toFixed(2));
+    const pwmAngle = field(channel, 14, 'PWM output angle', angle === undefined ? undefined : `${angle.toFixed(1)}°`);
+    return {
+        servoPosition,
+        pwmAngle,
+        position,
+        angle,
+        curve,
+        controlPoints,
+        details: [
+            servoPosition,
+            pwmAngle,
+            field(channel, 12, 'Map control points', map?.map(point => `${point.toFixed(1)}°`).join(' · ')),
+            field(channel, 13, 'Centre adjustment', centre === undefined ? undefined : `${centre.toFixed(1)}°`)
+        ]
+    };
+}
+
+function correctionText(reading: ParameterState | undefined): string | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_FLOAT ||
+        ![3, 4].includes(reading.numValues) || reading.values.length !== reading.numValues) return;
+    const [longitude, latitude, altitude] = reading.values;
+    if (typeof longitude !== 'number' || typeof latitude !== 'number' || typeof altitude !== 'number' ||
+        ![longitude, latitude, altitude].every(Number.isFinite)) return;
+    // Some firmware sends a fourth float before assigning the correction distance.
+    return `Δlat ${latitude.toFixed(6)}°, Δlon ${longitude.toFixed(6)}°, Δalt ${altitude.toFixed(2)} m`;
+}
+
+export function observedBearing(reading: ParameterState | undefined): number | undefined {
+    const angle = numericValue(reading, [DRONE_LINK_MSG_TYPE_FLOAT]);
+    if (angle !== undefined && angle >= 0 && angle <= 360) return angle;
+}
+
+function headingReading(channel: ChannelState, parameterId: number): ObservedSummary {
+    const bearing = observedBearing(channel.params[parameterId]);
+    return { ...field(channel, parameterId, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing };
+}
+
+function nmeaSummary(channel: ChannelState): InspectorSummary {
+    const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const speedLines = speed === undefined || speed < 0 ? undefined : [`${speed.toFixed(1)} kn`, `${(speed / knotsPerMetrePerSecond).toFixed(1)} m/s`];
+    const rawHdop = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_UINT8_T]);
+    // MicroNMEA uses 255 for an unknown HDOP and reports valid values in tenths.
+    const hdop = rawHdop !== undefined && Number.isInteger(rawHdop) && rawHdop >= 0 && rawHdop < 255
+        ? (rawHdop / 10).toFixed(1) : undefined;
+    return {
+        primary: [headingReading(channel, 10)],
+        supporting: [
+            field(channel, 8, 'Position', positionText(channel.params[8])),
+            satelliteCount(channel),
+            { ...field(channel, 11, 'Speed', speedLines?.join(' · ')), lines: speedLines },
+            ...(channel.params[12] ? [field(channel, 12, 'HDOP', hdop)] : [])
+        ],
+        additionalDetails: [
+            field(channel, 18, 'Secondary GPS position', positionText(channel.params[18])),
+            field(channel, 15, 'Configured reference fix', positionText(channel.params[15])),
+            field(channel, 20, 'Correction offsets', correctionText(channel.params[20]))
+        ].filter(summary => summary.reading)
+    };
+}
+
+function lsm9ds1Summary(channel: ChannelState): InspectorSummary {
+    const vector = magneticVector(channel.params[10]);
+    const xAxis = calibrationAxis(channel.params[13]);
+    const yAxis = calibrationAxis(channel.params[14]);
+    const limits = quadrantBounds(channel.params[18]);
+    const describeAxis = (axis: typeof xAxis) => axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} µT · Centre ${axis.centre.toFixed(2)} µT`;
+    return {
+        primary: [headingReading(channel, 11)],
+        supporting: [],
+        magneticCalibration: { reading: channel.params[10], vector, xAxis, yAxis, limits },
+        additionalDetails: [
+            field(channel, 10, 'Magnetic vector', vector && `X ${vector.x.toFixed(2)} µT · Y ${vector.y.toFixed(2)} µT · Z ${vector.z.toFixed(2)} µT`),
+            field(channel, 13, 'X calibration', describeAxis(xAxis)),
+            field(channel, 14, 'Y calibration', describeAxis(yAxis)),
+            field(channel, 18, 'Quadrant limits', limits && `X ${limits.minX.toFixed(2)} to ${limits.maxX.toFixed(2)} µT · Y ${limits.minY.toFixed(2)} to ${limits.maxY.toFixed(2)} µT`)
+        ]
+    };
+}
+
+interface Attitude {
+    pitch: number;
+    roll: number;
+}
+
+export function cmps12Attitude(reading: ParameterState | undefined): Attitude | undefined {
+    if (!hasReading(reading) || reading.msgType !== DRONE_LINK_MSG_TYPE_FLOAT ||
+        reading.numValues !== 2 || reading.values.length !== 2) return;
+    const [pitch, roll] = reading.values;
+    if (typeof pitch === 'number' && typeof roll === 'number' &&
+        Math.abs(pitch) <= 90 && Math.abs(roll) <= 90) return { pitch, roll };
+}
+
+function cmps12Summary(channel: ChannelState): InspectorSummary {
+    const attitudeReading = channel.params[13];
+    const attitude = cmps12Attitude(attitudeReading);
+    const trim = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    return {
+        primary: [headingReading(channel, 10)],
+        supporting: [],
+        attitudeReading,
+        attitude,
+        additionalDetails: [
+            field(channel, 13, 'Pitch and roll', attitude && `Pitch ${attitude.pitch.toFixed(1)}° · Roll ${attitude.roll.toFixed(1)}°`),
+            field(channel, 12, 'Heading trim', trim === undefined ? undefined : `${trim.toFixed(1)}°`)
+        ]
+    };
+}
+
+export function hmc5883lRawVector(reading: ParameterState | undefined): DiagnosticVector | undefined {
+    const values = observedFloatVector(reading, 4);
+    if (values) return [values[0], values[1], values[2]];
+}
+
+function horizonReadings(channel: ChannelState, pitchId: number, rollId: number): HorizonReadings {
+    const pitchDegrees = numericValue(channel.params[pitchId], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const rollDegrees = numericValue(channel.params[rollId], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const angleText = (value: number | undefined) => value === undefined ? undefined : `${value.toFixed(1)}°`;
+    return {
+        pitch: field(channel, pitchId, 'Pitch', angleText(pitchDegrees)),
+        roll: field(channel, rollId, 'Roll', angleText(rollDegrees)),
+        pitchDegrees, rollDegrees
+    };
+}
+
+function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
+    const magneticHeading = headingReading(channel, 11);
+    const attitude = horizonReadings(channel, 22, 24);
+    const { pitch, roll } = attitude;
+    const vectorText = (vector: DiagnosticVector | undefined) => vector?.map((value, index) =>
+        `${'XYZ'[index]} ${value.toFixed(2)}`).join(' · ');
+    const values = observedFloatVector(channel.params[10], 4);
+    const calibrated: DiagnosticVector | undefined = values && [values[0], values[1], values[2]];
+    const score = values?.[3];
+    const quality = field(channel, 10, 'Calibration quality', score !== undefined && score >= 0 ? score.toFixed(0) : undefined);
+    if (!quality.unavailable && score !== undefined && score <= 80) {
+        quality.severity = 'warning';
+        quality.status = 'Low calibration quality';
+    }
+    const vector = field(channel, 10, 'Calibrated vector', vectorText(calibrated));
+    const rawReading = channel.params[21];
+    const raw = hmc5883lRawVector(rawReading);
+    const [x, y, z] = [13, 14, 15].map(id => calibrationAxis(channel.params[id]));
+    const centre: DiagnosticVector | undefined = x && y && z ? [x.centre, y.centre, z.centre] : undefined;
+    const calibration = x && y && z ? {
+        centre: [(x.min + x.max) / 2, (y.min + y.max) / 2, (z.min + z.max) / 2] as DiagnosticVector,
+        radii: [(x.max - x.min) / 2, (y.max - y.min) / 2, (z.max - z.min) / 2] as DiagnosticVector
+    } : undefined;
+    const diagnosticReadings = [
+        field(channel, 21, 'Raw magnetic vector', vectorText(raw)),
+        ...[x, y, z].map((axis, index) => field(channel, 13 + index, `${'XYZ'[index]} calibration`,
+            axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} · Centre ${axis.centre.toFixed(2)}`))
+    ];
+    return {
+        ...attitude, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings,
+        scene: { extent: 1, calibration, vector: raw ? { from: centre, to: raw } : undefined },
+        details: [
+            magneticHeading, pitch, roll,
+            { ...vector, label: 'Calibrated vector and calibration quality', text: values ? `${vector.text} · Quality ${quality.text}` : vector.text,
+                status: quality.status ?? vector.status },
+            ...diagnosticReadings
+        ]
+    };
+}
+
+function mpu6050Temperature(channel: ChannelState, decimals = 0): ObservedSummary {
+    const value = numericValue(channel.params[12], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const temperature = field(channel, 12, 'Temperature', value === undefined ? undefined : `${value.toFixed(decimals)} °C`);
+    if (value !== undefined && value > 40) return { ...temperature, severity: 'danger', status: 'Critical temperature' };
+    if (value !== undefined && value > 30) return { ...temperature, severity: 'warning', status: 'High temperature' };
+    return temperature;
+}
+
+function mpu6050Summary(channel: ChannelState): Mpu6050Summary {
+    const attitude = horizonReadings(channel, 13, 14);
+    const temperature = mpu6050Temperature(channel, 1);
+    const acceleration = observedFloatVector(channel.params[10], 3);
+    const vector = acceleration && {
+        from: [0, 0, 0] as DiagnosticVector,
+        to: [acceleration[0], acceleration[1], acceleration[2]] as DiagnosticVector
+    };
+    const calibrationIds = [16, 17, 18];
+    const [x, y, z] = calibrationIds.map(id => calibrationAxis(channel.params[id]));
+    const calibration = x && y && z ? {
+        centre: [x.centre, y.centre, z.centre] as DiagnosticVector,
+        radii: [(x.max - x.min) / 2, (y.max - y.min) / 2, (z.max - z.min) / 2] as DiagnosticVector
+    } : undefined;
+    const diagnosticReadings = [
+        field(channel, 10, 'Acceleration', acceleration && `${acceleration.map((value, index) =>
+            `${'XYZ'[index]} ${value.toFixed(1)}`).join(' · ')} · Magnitude ${Math.hypot(...acceleration).toFixed(1)} m/s²`),
+        ...[x, y, z].map((axis, index) => field(channel, calibrationIds[index], `${'XYZ'[index]} calibration`,
+            axis && `Radius ${((axis.max - axis.min) / 2).toFixed(2)} · Centre ${axis.centre.toFixed(2)} m/s²`))
+    ];
+    return {
+        ...attitude, temperature, scene: { extent: 1, vector, calibration },
+        diagnosticReadings: [attitude.pitch, attitude.roll, ...diagnosticReadings],
+        details: [attitude.pitch, attitude.roll, temperature, ...diagnosticReadings]
+    };
+}
+
+export function depthText(depth: number): string {
+    if (depth === 0) return 'No echo';
+    if (depth < 0.005) return '<0.01 m';
+    return `${depth.toFixed(2)} m`;
+}
+
+export function depthLogSample(reading: ParameterState | undefined): number | undefined {
+    const depth = observedFloatVector(reading, 3)?.[2];
+    if (depth !== undefined && depth > 0) return depth;
+}
+
+function depthSummary(channel: ChannelState): DepthSummary {
+    const depth = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const measuredDepth = field(channel, 13, 'Depth', depth !== undefined && depth >= 0 ? depthText(depth) : undefined);
+    if (depth === 0) measuredDepth.unavailable = true;
+    const logReading = channel.params[14];
+    const logDepth = observedFloatVector(logReading, 3)?.[2];
+    const loggedDepth = field(channel, 14, 'Logged depth', logDepth !== undefined && logDepth >= 0 ? depthText(logDepth) : undefined);
+    return { measuredDepth, logReading, details: [measuredDepth, loggedDepth] };
+}
+
+function bearingReading(channel: ChannelState, id: number, label: string, bearing = observedBearing(channel.params[id])): ObservedSummary {
+    return { ...field(channel, id, label, bearing === undefined ? undefined : `${bearing.toFixed(0)}°`), bearing };
+}
+
+function windDirectionSummary(channel: ChannelState): WindDirectionSummary {
+    const worldWind = bearingReading(channel, 14, 'World wind');
+    const localWind = bearingReading(channel, 10, 'Local wind');
+    return { worldWind, localWind, details: [worldWind, localWind] };
+}
+
+function navDistance(channel: ChannelState): ObservedSummary {
+    const metres = numericValue(channel.params[9], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    let text: string | undefined;
+    if (metres !== undefined && metres >= 0) {
+        text = metres < 1000 ? `${metres.toFixed(metres < 10 ? 1 : 0)} m` : `${(metres / 1000).toFixed(1)} km`;
+    }
+    return field(channel, 9, 'Distance to target', text);
+}
+
+function signedBearingReading(channel: ChannelState, id: number, label: string): ObservedSummary {
+    // Nav's atan2 output can feed Sailor's target and be copied into its course.
+    const angle = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const bearing = angle !== undefined && angle >= -180 && angle < 0 ? angle + 360 : undefined;
+    return bearingReading(channel, id, label, bearing);
+}
+
+function navSummary(channel: ChannelState): NavSummary {
+    const navigationBearings = {
+        heading: bearingReading(channel, 8, 'Heading'),
+        adjusted: signedBearingReading(channel, 20, 'Adjusted heading'),
+        wind: bearingReading(channel, 21, 'Wind')
+    };
+    const reportedCrossTrack = numericValue(channel.params[17], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const crossTrack = field(channel, 17, 'Cross-track', reportedCrossTrack?.toFixed(1));
+    const distance = navDistance(channel);
+    const source = channel.params[13];
+    let following = field(channel, 13, 'Target source');
+    let followingNode: number | undefined;
+    const address = hasReading(source) && source.msgType === DRONE_LINK_MSG_TYPE_ADDR && source.numValues === 1
+        ? decodeAddressBytes(Array.from<number | string>(source.values)) : undefined;
+    if (address?.node === 0) following = field(channel, 13, 'Target source', 'Unbound');
+    else if (address && address.node < 255) {
+        followingNode = address.node;
+        following = field(channel, 13, 'Target source', `${address.node}>${address.channel}.${address.parameter}`);
+    }
+    return { navigationBearings, crossTrack, distance, following, followingNode,
+        details: [...Object.values(navigationBearings), crossTrack, distance, following] };
+}
+
+function waypointDistance(metres: number | undefined): string | undefined {
+    if (metres === undefined) return;
+    return metres < 1000 ? `${Math.round(metres)} m` : `${(metres / 1000).toFixed(1)} km`;
+}
+
+function waypointSummary(channel: ChannelState): WaypointSummary {
+    const count = byteArray(channel.params[9], 1)?.[0];
+    const index = byteArray(channel.params[10], 1)?.[0];
+    const active = index !== undefined && count !== undefined && index < count;
+    const waypoint = field(channel, 10, 'Waypoint', count === 0 ? 'No route' : active ? `${index + 1} of ${count}` : undefined);
+    const loopMode = byteArray(channel.params[14], 1)?.[0];
+    const loop = field(channel, 14, 'Route mode', loopMode === 0 ? 'Once' : loopMode === 1 ? 'Loop' : undefined);
+    const vector = observedFloatVector(channel.params[15], 3);
+    const distances = vector?.every(value => value >= 0) ? vector : undefined;
+    const [legMetres, remainingMetres, totalMetres] = distances ?? [];
+    const distance = (label: string, metres: number | undefined) =>
+        field(channel, 15, label, count === 0 ? undefined : waypointDistance(metres));
+    const leg = distance('To next waypoint', legMetres);
+    const remaining = distance('Remaining', remainingMetres);
+    const total = distance('Total', totalMetres);
+    // Remaining includes the approach to the first waypoint, which can exceed the planned route length.
+    const validLeg = distances !== undefined && legMetres <= remainingMetres;
+    const onRouteScale = active && validLeg && totalMetres > 0;
+    const completed = onRouteScale ? Math.max(0, totalMetres - remainingMetres) : undefined;
+    const covered = distance('Est. covered', completed);
+    const routeProgress = completed !== undefined ? {
+        completed: completed / totalMetres,
+        next: Math.max(0, totalMetres - remainingMetres + legMetres) / totalMetres
+    } : undefined;
+    const metresPerSecond = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const speed = field(channel, 16, 'Speed', metresPerSecond !== undefined && metresPerSecond >= 0 ?
+        `${(metresPerSecond * knotsPerMetrePerSecond).toFixed(1)} kn` : undefined);
+    const seconds = metresPerSecond !== undefined && metresPerSecond > 0 && active && validLeg ?
+        Math.round(remainingMetres / metresPerSecond) : undefined;
+    const eta = seconds !== undefined && Number.isSafeInteger(seconds) ? waypointEtaText(seconds) : undefined;
+    return {
+        waypoint, total, speed: count === 0 ? field(channel, 16, speed.label) : speed, eta, loop, covered, remaining, leg, routeProgress,
+        details: [
+            field(channel, 10, 'Active waypoint', active ? String(index + 1) : undefined),
+            field(channel, 9, 'Waypoint count', count?.toString()),
+            loop,
+            field(channel, 15, 'Route distances', distances ?
+                `To next waypoint: ${waypointDistance(legMetres)} · Remaining: ${waypointDistance(remainingMetres)} · Total: ${waypointDistance(totalMetres)}` : undefined),
+            speed
+        ]
+    };
+}
+
+function waypointEtaText(seconds: number): string {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor(seconds / 3600) % 24;
+    const minutes = Math.floor(seconds / 60) % 60;
+    const two = (value: number) => String(value).padStart(2, '0');
+    const clock = `${two(minutes)}:${two(seconds % 60)}`;
+    return days ? `${days}d ${two(hours)}:${clock}` : hours ? `${two(hours)}:${clock}` : clock;
+}
+
+function gybeState(channel: ChannelState, parameterId: number, label: string, state: number | undefined) {
+    const states = ['Normal', 'Possible gybe', 'Gybing'];
+    const reading = field(channel, parameterId, label, state === undefined ? undefined : states[state]);
+    if (state === 1) reading.severity = 'warning';
+    if (state === 2) reading.severity = 'danger';
+    return reading;
+}
+
+function sailorSummary(channel: ChannelState): SailorSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    // The firmware declares five flag bytes but only copies four in its live update.
+    const flags = byteArray(channel.params[21], 5) ?? byteArray(channel.params[21], 4);
+    const courseWind = flags && flags[3] * 360 / 255;
+    const wind = bearingReading(channel, 12, 'Wind');
+    const wing = readFloat(22);
+    const wingAngle = wind.bearing !== undefined && (wing === -1 || wing === 1)
+        ? (wind.bearing + 180 - wing * 30) % 360 : undefined;
+    const sailBearings = {
+        heading: bearingReading(channel, 10, 'Heading'),
+        target: signedBearingReading(channel, 8, 'Target'),
+        course: signedBearingReading(channel, 16, 'Course'),
+        wind,
+        courseWind: { ...field(channel, 21, 'Course wind', courseWind === undefined ? undefined : `${courseWind.toFixed(0)}°`), bearing: courseWind },
+        wing: { ...field(channel, 22, 'Estimated wing', wing === 0 ? 'Neutral' : wingAngle === undefined ? undefined : `${wingAngle.toFixed(0)}°`), bearing: wingAngle }
+    };
+    const control = (id: number) => {
+        const value = readFloat(id);
+        if (value !== undefined && Math.abs(value) <= 1) return value;
+    };
+    const sheet = field(channel, 17, 'Sheet', control(17)?.toFixed(1));
+    const rudderOutput = control(24);
+    const rudder = field(channel, 24, 'Rudder', rudderOutput?.toFixed(2));
+    const crossTrack = field(channel, 14, 'Cross-track', readFloat(14)?.toFixed(1));
+    const flag = (index: number, label: string, states: string[]) =>
+        field(channel, 21, label, flags && states[flags[index]]);
+    const manoeuvres = [
+        flag(0, 'Course state', ['Planning', 'Set', 'Underway']),
+        flag(1, 'Tack', ['Undefined', 'Starboard', 'Port']),
+        gybeState(channel, 21, 'Helm', flags?.[2])
+    ];
+    const reportedCrossingWind = flags?.[4];
+    const hasCrossingWindFlag = reportedCrossingWind === 0 || reportedCrossingWind === 1;
+    const crossingWind = field(channel, 21, 'Crossing wind');
+    crossingWind.text = hasCrossingWindFlag ? 'Unverified' : 'Unavailable';
+    const polar = byteArray(channel.params[18], 16);
+    const speeds: SailorSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
+    const curveDetails = (id: number, label: string, bytes: number[] | undefined) =>
+        field(channel, id, label, bytes?.join(', '));
+    return {
+        sailBearings, sheet, rudder, rudderOutput, gybing: flags?.[2] === 2,
+        polar, speeds, context: [crossTrack, ...manoeuvres, crossingWind],
+        details: [
+            sailBearings.heading, sailBearings.target, sailBearings.course, wind, sheet, crossTrack, rudder,
+            field(channel, 22, 'Wing output', wing === 0 || wing === -1 || wing === 1 ? String(wing) : undefined),
+            field(channel, 21, 'Course wind and manoeuvre flags', flags && [sailBearings.courseWind.text,
+                ...manoeuvres.map(reading => `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`),
+                `Crossing wind: ${hasCrossingWindFlag ? `unverified (reported byte ${reportedCrossingWind})` : 'unavailable'}`].join(' · ')),
+            curveDetails(18, 'Polar profile, starboard 0–180° (0–255)', polar),
+            curveDetails(19, 'Estimated speed 0–180° (relative scale 0–255)', speeds[0]),
+            curveDetails(20, 'Estimated speed 180–360° (relative scale 0–255)', speeds[1])
+        ]
+    };
+}
+
+function proaSummary(channel: ChannelState): ProaSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const degrees = (value: number) => `${Math.round(value)}°`;
+    const angle = (id: number, label: string, bearing?: number) =>
+        ({ ...field(channel, id, label, bearing === undefined ? undefined : degrees(bearing)), bearing });
+    const wrap = (value: number) => ((value % 360) + 360) % 360;
+    const courseValue = readFloat(16);
+    const course = angle(16, 'Course', courseValue === undefined ? undefined : wrap(courseValue));
+    const offset = readFloat(28);
+    const frame = course.bearing !== undefined && offset !== undefined
+        ? wrap(course.bearing + offset) : undefined;
+    const proaBearings = {
+        heading: bearingReading(channel, 10, 'Heading'),
+        target: signedBearingReading(channel, 8, 'Target'),
+        course, wind: bearingReading(channel, 12, 'Wind'),
+        frame: angle(28, 'Target frame', frame)
+    };
+    const servo = (id: number, label: string, range: number) => {
+        const output = readFloat(id);
+        return angle(id, label, output !== undefined && Math.abs(output) <= 1 ? output * range : undefined);
+    };
+    const cow = readFloat(24);
+    const steering = {
+        wing: servo(17, 'Wing', 90), left: servo(22, 'Left pontoon', 120), right: servo(23, 'Right pontoon', 120),
+        bow: angle(24, 'Course over water', cow !== undefined && Math.abs(cow) <= 360 ? cow : undefined)
+    };
+    const flags = byteArray(channel.params[21], 3);
+    const flag = (index: number, label: string, states: [string, string]) =>
+        field(channel, 21, label, flags && states[flags[index]]);
+    const tack = flag(0, 'Tack', ['Port', 'Starboard']);
+    const lock = flag(1, 'Tack locked', ['No', 'Yes']);
+    const lastTrack = flag(2, 'Last cross-track positive', ['No', 'Yes']);
+    const mode = byteArray(channel.params[29], 1)?.[0];
+    const operation = field(channel, 29, 'Operation', mode === 0 ? 'Passive' : mode === 1 ? 'Active' : undefined);
+    const debug = observedFloatVector(channel.params[30], 4);
+    const control = field(channel, 30, 'Control', debug && ['Normal', 'Brake', 'Run'][debug[3]]);
+    const crossTrack = field(channel, 14, 'Cross-track', readFloat(14)?.toFixed(1));
+    const polar = byteArray(channel.params[18], 16);
+    const speeds: ProaSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
+    return {
+        proaBearings, steering, polar, speeds,
+        context: [crossTrack, tack, lock, lastTrack, operation, control],
+        details: [
+            proaBearings.heading, proaBearings.target, course, proaBearings.wind,
+            field(channel, 28, 'Frame offset and target frame', offset === undefined ? undefined :
+                `${degrees(offset)} offset · Target frame ${proaBearings.frame.text} (with Course above)`),
+            ...Object.values(steering), crossTrack, operation,
+            field(channel, 21, 'Tack flags', flags && [tack, lock, lastTrack].map(reading =>
+                `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`).join(' · ')),
+            field(channel, 30, 'Control and steering errors', debug &&
+                `Control: ${control.unavailable ? 'Unavailable' : control.text} · Frame error: ${degrees(debug[1])} · Course over water error: ${degrees(debug[2])}`),
+            field(channel, 18, 'Polar profile, starboard 0–180° (0–255)', polar?.join(', ')),
+            field(channel, 19, 'Estimated speed 0–180° (0–255)', speeds[0]?.join(', ')),
+            field(channel, 20, 'Estimated speed 180–360° (0–255)', speeds[1]?.join(', '))
+        ]
+    };
+}
+
+function turnRateSummary(channel: ChannelState): TurnRateSummary {
+    const heading = bearingReading(channel, 12, 'Heading');
+    const target = signedBearingReading(channel, 10, 'Target');
+    const rate = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const output = rate !== undefined && Math.abs(rate) <= 10 ? rate : undefined;
+    let outputText = output?.toFixed(1);
+    if (output !== undefined && output !== 0 && Math.abs(output) < 0.05) {
+        outputText = output > 0 ? '+<0.1' : '−<0.1';
+    }
+    const turnOutput = field(channel, 16, 'Turn output', outputText);
+    const thresholdValue = numericValue(channel.params[17], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const thresholdDegrees = thresholdValue !== undefined && thresholdValue >= 0 ? thresholdValue : undefined;
+    const threshold = field(channel, 17, 'Gybe threshold', thresholdDegrees === undefined ? undefined : `${thresholdDegrees.toFixed(1)}°`);
+    const modeValue = byteArray(channel.params[19], 1)?.[0];
+    const mode = gybeState(channel, 19, 'Mode', modeValue);
+    return { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, gybing: modeValue === 2,
+        details: [heading, target, turnOutput, threshold, mode] };
+}
+
+function tankSteerSummary(channel: ChannelState): TankSteerSummary {
+    const drive = (id: number, label: string) => {
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+        const output = value !== undefined && Math.abs(value) <= 1 ? value : undefined;
+        let text = output?.toFixed(2);
+        if (output !== undefined && output !== 0 && Math.abs(output) < 0.005) {
+            text = output > 0 ? '+<0.01' : '−<0.01';
+        }
+        return { reading: field(channel, id, label, text), output };
+    };
+    const drives = { left: drive(8, 'Left drive'), right: drive(9, 'Right drive') };
+    const heading = bearingReading(channel, 22, 'Heading');
+    const target = signedBearingReading(channel, 20, 'Target');
+    const value = numericValue(channel.params[24], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const distanceMetres = value !== undefined && value >= 0 ? value : undefined;
+    const distance = field(channel, 24, 'Distance', distanceMetres === undefined ? undefined : `${distanceMetres.toFixed(1)} m`);
+    const modeValue = byteArray(channel.params[10], 1)?.[0];
+    const mode = field(channel, 10, 'Mode', modeValue === 0 ? 'Manual' : modeValue === 1 ? 'Automatic' : undefined);
+    return { drives, heading, target, distance, distanceMetres, mode,
+        details: [heading, target, distance, ...Object.values(drives).map(drive => drive.reading), mode] };
+}
+
+export function kiteVector(reading: ParameterState | undefined): KiteControllerSummary['kiteVector'] {
+    const values = observedFloatVector(reading, 4);
+    if (values && values[2] >= 0) {
+        const [yaw, pitch, distance, roll] = values;
+        return { yaw, pitch, distance, roll };
+    }
+}
+
+function kiteControllerSummary(channel: ChannelState): KiteControllerSummary {
+    const vectorReading = channel.params[14];
+    const vector = kiteVector(vectorReading);
+    const position = observedFloatVector(channel.params[16], 3);
+    const waypoint = position && position[2] >= 0 ? { yaw: position[0], pitch: position[1], radius: position[2] } : undefined;
+    const scalar = (id: number, label: string) =>
+        field(channel, id, label, numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT])?.toFixed(1));
+    const trim = scalar(11, 'Trim');
+    const left = scalar(8, 'Left');
+    const right = scalar(9, 'Right');
+    const payout = observedFloatVector(channel.params[13], 2);
+    const payoutTarget = field(channel, 13, 'Payout target', payout?.[0].toFixed(1));
+    const modeValue = byteArray(channel.params[10], 1)?.[0];
+    const mode = field(channel, 10, 'Mode', modeValue === 0 ? 'Manual' : modeValue === 1 ? 'Auto' : undefined);
+    const vectorReadings = [
+        { label: 'Yaw', text: vector && `${vector.yaw.toFixed(0)}°` },
+        { label: 'Pitch', text: vector && `${vector.pitch.toFixed(0)}°` },
+        { label: 'Actual payout', text: vector?.distance.toFixed(1) },
+        { label: 'Estimated roll', text: vector && `${vector.roll.toFixed(0)}°` }
+    ];
+    return { kiteVector: vector, kiteWaypoint: waypoint, vectorReading,
+        readings: [...vectorReadings.map(reading => reading.label === 'Estimated roll' ? { ...reading, label: 'Est. roll' } : reading),
+            ...[trim, payoutTarget, left, right, mode].map(reading =>
+            ({ label: reading.label, text: reading.unavailable ? undefined : reading.text }))],
+        details: [
+            field(channel, 14, 'Flight vector', vector && vectorReadings.map(reading => `${reading.label}: ${reading.text}`).join(' · ')),
+            field(channel, 16, 'Waypoint', waypoint && `Yaw ${waypoint.yaw.toFixed(0)}° · Pitch ${waypoint.pitch.toFixed(0)}° · Radius ${waypoint.radius.toFixed(0)}°`),
+            trim, field(channel, 13, 'Payout setting', payout && `Target ${payoutTarget.text} · Rate limit ${payout[1].toFixed(1)} units/s`),
+            left, right, mode
+        ]
+    };
+}
+
+function polarSummary(channel: ChannelState): PolarSummary {
+    const polarResponse = byteArray(channel.params[11], 16);
+    const sampleCounts = byteArray(channel.params[12], 16);
+    const heading = signedBearingReading(channel, 14, 'Adjusted heading');
+    const wind = bearingReading(channel, 34, 'Wind');
+    const relativeHeading = heading.bearing !== undefined && wind.bearing !== undefined
+        ? (heading.bearing - wind.bearing + 360) % 360 : undefined;
+    const modeValue = byteArray(channel.params[9], 1)?.[0];
+    const mode = field(channel, 9, 'Mode', modeValue === undefined ? undefined : ['Passive', 'Active', 'Reset'][modeValue]);
+    return {
+        polarResponse, sampleCounts, relativeHeading, heading, wind, mode,
+        details: [heading, wind, mode,
+            field(channel, 11, 'Reported relative speed (0–255)', polarResponse?.join(', ')),
+            field(channel, 12, 'Reported samples per sector', sampleCounts?.join(', '))]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
-    ['NMEA', {
-        overlay: satelliteCount,
+    ['Polar', { inspector: polarSummary }],
+    ['KiteController', { inspector: kiteControllerSummary }],
+    ['TankSteer', { inspector: tankSteerSummary }],
+    ['TurnRate', { inspector: turnRateSummary }],
+    ['Proa', { inspector: proaSummary }],
+    ['Sailor', { inspector: sailorSummary }],
+    ['Waypoint', { inspector: waypointSummary }],
+    ['Nav', { inspector: navSummary, overlay: navDistance }],
+    ['Wind', { inspector: windDirectionSummary }],
+    ['WindFromWing', {
+        inspector(channel): WindDirectionSummary {
+            const worldWind = bearingReading(channel, 15, 'Wing-derived world wind');
+            return { worldWind, estimateLabel: 'Wing estimate', details: [worldWind] };
+        }
+    }],
+    ['Depth', { inspector: depthSummary }],
+    ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
+    ['HMC5883L', { inspector: hmc5883lSummary }],
+    ['CMPS12', { inspector: cmps12Summary }],
+    ['LSM9DS1', { inspector: lsm9ds1Summary }],
+    ['Servo', { inspector: servoSummary }],
+    ['Motor', { inspector: motorSummary }],
+    ['Receiver', { inspector: receiverSummary }],
+    ['Joystick', {
         inspector(channel) {
-            const heading = numericValue(channel.params[10], [DRONE_LINK_MSG_TYPE_FLOAT]);
-            const bearing = heading !== undefined && heading >= 0 && heading <= 360 ? heading : undefined;
-            const speed = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const axis = (id: number) => {
+                const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+                if (value !== undefined && Math.abs(value) <= 1) return value;
+            };
+            const x = axis(10);
+            const y = axis(11);
+            const z = axis(12);
+            const button = axis(13);
+            const pressed = button === undefined ? undefined : button > 0;
             return {
-                primary: [{ ...field(channel, 10, 'Heading', bearing === undefined ? undefined : `${bearing.toFixed(1)}°`), bearing }],
-                supporting: [field(channel, 8, 'Position', positionText(channel.params[8])), satelliteCount(channel),
-                    field(channel, 11, 'Speed', speed !== undefined && speed >= 0 ? `${speed.toFixed(1)} kn` : undefined)]
+                joystick: { x, y, z, pressed },
+                details: [
+                    field(channel, 10, 'X', x?.toFixed(2)),
+                    field(channel, 11, 'Y', y?.toFixed(2)),
+                    field(channel, 12, 'Z', z?.toFixed(2)),
+                    field(channel, 13, 'Button', pressed === undefined ? undefined : pressed ? 'Pressed' : 'Released')
+                ]
             };
         }
     }],
+    ['Neopixel', {
+        inspector(channel) {
+            const sceneParameter = 8;
+            const headerBytes = 4;
+            const segmentCount = 4;
+            const bytesPerSegment = 3;
+            const bytes = byteArray(channel.params[sceneParameter], headerBytes + segmentCount * bytesPerSegment);
+            const sceneColours = Array.from({ length: segmentCount }, (_, index) => {
+                const offset = headerBytes + index * bytesPerSegment;
+                return bytes && `#${bytes.slice(offset, offset + bytesPerSegment)
+                    .map(component => component.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+            });
+            return {
+                sceneColours,
+                details: [field(channel, sceneParameter, 'Scene colours', bytes ? sceneColours.join(' · ') : undefined)]
+            };
+        }
+    }],
+    ['WaterSensor', {
+        inspector: waterSensorSummary,
+        overlay(channel) {
+            const { thresholdRatio, rawReading, thresholdReading, alarm } = waterSensorSummary(channel);
+            const label = alarm.severity === 'danger' ? 'Water alarm' : 'Water';
+            const value = thresholdRatio === undefined ? rawReading.text : `${(thresholdRatio * 100).toFixed(0)}%`;
+            return {
+                ...rawReading,
+                label: thresholdRatio === undefined ? 'Water sensor raw level' : 'Water sensor percentage of threshold',
+                text: `${label} ${value}`,
+                severity: alarm.severity ?? rawReading.severity,
+                sources: thresholdRatio === undefined ? [rawReading, alarm] : [rawReading, thresholdReading, alarm],
+                status: [
+                    alarm.unavailable ? 'Device alarm unavailable' : `Device alarm ${alarm.text.toLowerCase()}`,
+                    rawReading.status
+                ].filter(Boolean).join(' · ')
+            };
+        }
+    }],
+    ['Anemometer', {
+        inspector(channel) {
+            const parameter = 10;
+            const value = numericValue(channel.params[parameter], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const knots = value === undefined ? undefined : windSpeedKnots(value);
+            const windSpeed = field(channel, parameter, 'Wind speed', knots === undefined ? undefined : `${knots.toFixed(1)} kn`);
+            return {
+                windSpeed,
+                knots,
+                metresPerSecond: knots === undefined ? undefined : `${(knots / knotsPerMetrePerSecond).toFixed(1)} m/s`
+            };
+        }
+    }],
+    ['INA3221', { inspector: channel => ({ inputs: ina3221.inputs(channel) }) }],
+    ['RFM69Telemetry', {
+        overlay: rfm69Signal,
+        inspector(channel) {
+            const packets = rfm69Packets.inspector(channel);
+            const signal = rfm69Signal(channel);
+            return { ...packets, signal, details: [...packets.details, signal] };
+        }
+    }],
+    ['SerialTelemetry', new PacketTelemetryRenderer({
+        countsParameter: 9,
+        ratesParameter: 10,
+        note: 'Received means complete serial RX handoffs before DroneLink CRC validation. Rejected means serial framing rejects.'
+    })],
+    ['UDPTelemetry', new PacketTelemetryRenderer({ countsParameter: 10, ratesParameter: 11 })],
+    ['NMEA', { overlay: satelliteCount, inspector: nmeaSummary }],
     ['INA219', {
         settings: {
             moduleType: 'INA219',
@@ -120,14 +1174,14 @@ const visualizations = new Map<string, ModuleVisualization>([
             }
         },
         overlay(channel, thresholds) {
-            const cell = cellVoltage(channel, thresholds);
+            const { voltageDial, ...cell } = ina219.cellVoltage(channel, 0, thresholds);
             return { ...cell, text: `Cell ${cell.text}` };
         },
         inspector(channel, thresholds) {
             return {
-                primary: [cellVoltage(channel, thresholds)],
-                supporting: [quantity(channel, 14, 'Load voltage', 'V', 2), quantity(channel, 12, 'Current', 'A', 2),
-                    quantity(channel, 13, 'Power', 'W', 2)]
+                layout: 'compact',
+                primary: [ina219.cellVoltage(channel, 0, thresholds)],
+                supporting: ina219.readings(channel, 0)
             };
         }
     }],
@@ -136,10 +1190,16 @@ const visualizations = new Map<string, ModuleVisualization>([
             const reset = byteArray(channel.params[10], 3);
             const reasons = reset?.slice(1).map((code, core) => `Core ${core}: ${resetReasons[code] ?? `Code ${code}`}`);
             const ip = byteArray(channel.params[12], 4);
+            const noAddress = ip?.every(byte => byte === 0);
+            const address = field(channel, 12, 'IP address', noAddress ? undefined : ip?.join('.'));
+            const build = field(channel, 9, 'Firmware build', firmwareBuild(channel.params[9]));
+            const resetSummary = { ...field(channel, 10, 'Reset reasons', reasons?.join(' · ')), lines: reasons };
             return {
+                layout: build.unavailable ? undefined : 'paired',
                 primary: [field(channel, 13, 'Last reported uptime', uptimeText(numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_UINT32_T]))),
-                    field(channel, 12, 'IP address', ip?.join('.'))],
-                supporting: [{ ...field(channel, 10, 'Reset reasons', reasons?.join(' · ')), lines: reasons }]
+                    noAddress ? { ...address, text: 'No IP assigned' } : address],
+                supporting: build.unavailable ? [resetSummary] : [build, resetSummary],
+                additionalDetails: build.unavailable && build.reading ? [build] : undefined
             };
         }
     }]

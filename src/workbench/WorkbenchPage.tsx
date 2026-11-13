@@ -88,7 +88,7 @@ export default function WorkbenchPage() {
                     {!node && <p>{connected && path?.reachable ? 'Waiting for publications.' : 'Local route unavailable.'}</p>}
                     {node && active && <InspectorSessionProvider key={active} nodes={observations[active]} inventoryComplete={false}>
                         <ObservationNamesContext.Provider value={observations[active]}>
-                            <ChannelList key={node.id} node={node} />
+                            <ChannelList key={node.id} node={node} sampleLive={connected && !!path?.reachable} />
                         </ObservationNamesContext.Provider>
                     </InspectorSessionProvider>}
                 </>}

@@ -1,0 +1,51 @@
+.dw-servo {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.dw-servo-readings {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 var(--dw-space-3);
+    margin: 0;
+}
+
+.dw-servo-readings > div { display: flex; align-items: baseline; gap: var(--dw-space-1); }
+.dw-servo-readings dt { font-weight: 400; }
+.dw-servo-readings dd { margin: 0; color: var(--dw-color-instrument-reading); }
+.dw-servo-readings [data-unavailable] { color: var(--dw-color-muted); }
+.dw-servo-figure { max-width: 26rem; margin-inline: auto; }
+.dw-servo-figure figcaption { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 var(--dw-space-2); }
+.dw-servo-point-key {
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.45rem;
+    border: 1px solid var(--dw-color-instrument-trace);
+    border-radius: 50%;
+    margin-inline-end: var(--dw-space-1);
+}
+.dw-servo-key { display: inline-block; width: 1rem; border-top: 2px solid var(--dw-color-danger); margin-inline-end: var(--dw-space-1); vertical-align: middle; }
+
+.dw-servo-chart {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 var(--dw-space-1);
+}
+
+.dw-servo-input { display: flex; align-items: center; gap: var(--dw-space-1); }
+.dw-servo-input > span { writing-mode: vertical-rl; transform: rotate(180deg); }
+.dw-servo-input > div { display: flex; flex-direction: column; align-self: stretch; justify-content: space-between; text-align: end; }
+.dw-servo-output { grid-column: 2; }
+.dw-servo-output > div { display: flex; justify-content: space-between; }
+.dw-servo-chart svg { display: block; overflow: visible; width: 100%; height: 6.5rem; border: 1px solid var(--dw-color-muted); }
+.dw-servo-chart svg :is(path, polyline, line) { fill: none; vector-effect: non-scaling-stroke; }
+.dw-servo-grid { stroke: var(--dw-color-border); }
+.dw-servo-curve { stroke: var(--dw-color-danger); stroke-width: 2; }
+.dw-servo-guide { stroke: var(--dw-color-instrument-reading); stroke-width: 2; stroke-dasharray: 4 2; }
+.dw-servo-tangent { stroke: var(--dw-color-instrument-trace); }
+.dw-servo-point { fill: var(--dw-color-instrument-face); stroke: var(--dw-color-instrument-trace); vector-effect: non-scaling-stroke; }
+.dw-servo-observed { fill: var(--dw-color-instrument-reading); }

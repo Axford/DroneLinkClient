@@ -1,0 +1,5 @@
+.dw-attitude-dial dt { font-weight: 400; }
+.dw-channel-summary .dw-attitude-dial dd { display: grid; justify-items: center; }
+.dw-attitude-dial svg { display: block; width: min(100%, 5rem); }
+.dw-attitude-bin { fill: var(--dw-color-instrument-blue); }
+.dw-attitude-needle { stroke: var(--dw-color-instrument-reading); stroke-width: 3; }

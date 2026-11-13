@@ -1,0 +1,39 @@
+.dw-neopixel-scene {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+    text-align: center;
+}
+
+.dw-neopixel-segments {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--dw-space-1);
+    margin: 0;
+}
+
+@container (min-width: 272px) {
+    .dw-neopixel-segments { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.dw-neopixel-segments dd {
+    margin: 0;
+    color: var(--dw-color-instrument-reading);
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.dw-neopixel-swatch {
+    display: block;
+    height: 2rem;
+    margin: 2px 0;
+    border: 1px solid var(--dw-color-muted);
+    border-radius: var(--dw-radius-small);
+}
+
+.dw-neopixel-swatch[data-unavailable] {
+    border-style: dashed;
+    background: repeating-linear-gradient(135deg, transparent 0 5px, var(--dw-color-border) 5px 6px);
+}
+
+.dw-neopixel-swatch[data-unavailable] + span { color: var(--dw-color-muted); }

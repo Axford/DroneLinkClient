@@ -1,0 +1,22 @@
+.dw-channel-summary.dw-nav-summary { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.dw-nav-dial { display: grid; align-items: center; }
+.dw-channel-summary .dw-nav-dial dd { justify-content: center; position: relative; }
+.dw-nav-dial svg { display: block; width: min(100%, 10rem); }
+.dw-nav-north { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+.dw-nav-readings { display: grid; align-content: center; gap: var(--dw-space-1); }
+.dw-nav-reading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, max-content); align-items: baseline; gap: var(--dw-space-1); }
+.dw-nav-reading dt { font-weight: 400; }
+.dw-nav-reading dd { display: block; max-width: 9rem; text-align: end; }
+.dw-nav-key { display: inline-block; width: 0.75em; border-top: 2px solid var(--dw-hand-color); margin-right: var(--dw-space-1); vertical-align: middle; }
+.dw-nav-hand { stroke: var(--dw-hand-color); stroke-width: 3; }
+.dw-nav-summary [data-hand="heading"] { --dw-hand-color: var(--dw-color-instrument-reading); }
+.dw-nav-summary [data-hand="adjusted"] { --dw-hand-color: var(--dw-color-instrument-trace); }
+.dw-nav-summary [data-hand="wind"] { --dw-hand-color: var(--dw-color-instrument-blue); }
+.dw-nav-hand[data-hand="adjusted"] { stroke-dasharray: 5 3; }
+.dw-nav-key[data-hand="adjusted"] { border-top-style: dashed; }
+.dw-nav-hand[data-hand="wind"] { stroke-dasharray: 1 3; stroke-linecap: round; }
+.dw-nav-key[data-hand="wind"] { border-top-style: dotted; }
+@container (max-width: 340px) {
+    .dw-channel-summary.dw-nav-summary { grid-template-columns: minmax(0, 1fr); }
+    .dw-nav-dial svg { width: min(100%, 7rem); }
+}

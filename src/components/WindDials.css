@@ -1,0 +1,19 @@
+.dw-channel-summary.dw-wind-dials { grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 280px) {
+    .dw-channel-summary.dw-wind-dials:not([data-single]) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.dw-wind-dials .dw-wind-dial { text-align: center; }
+.dw-wind-dial dt, .dw-wind-scale dt { font-weight: 400; }
+.dw-wind-dials .dw-wind-dial dd { display: grid; justify-items: center; }
+.dw-wind-face { position: relative; width: min(100%, 8rem); }
+.dw-wind-face svg { display: block; width: 100%; }
+.dw-wind-face strong {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+}
+.dw-wind-scale { grid-column: 1 / -1; text-align: center; }
+.dw-wind-dials .dw-wind-scale dd { justify-content: center; }

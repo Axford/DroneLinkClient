@@ -31,10 +31,12 @@
   --dw-color-instrument-reading: #88ff88;
   --dw-color-instrument-trace: #ffff55;
   --dw-color-instrument-blue: #8181ff;
+  --dw-color-instrument-course: #55ffff;
+  --dw-color-instrument-wing: #ff7878;
   --dw-color-navigation-heading: var(--dw-color-instrument-reading);
   --dw-color-navigation-wind: var(--dw-color-instrument-blue);
   --dw-color-navigation-target: var(--dw-color-instrument-trace);
-  --dw-color-navigation-course: #55ffff;
+  --dw-color-navigation-course: var(--dw-color-instrument-course);
   --dw-color-node-identity: var(--dw-color-accent);
   --dw-color-node-selected: var(--dw-color-primary);
   --dw-font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

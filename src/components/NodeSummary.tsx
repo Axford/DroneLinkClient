@@ -10,7 +10,7 @@ interface SummaryProps {
     now: number;
 }
 
-function observationDetails(nodeId: number, summary: ObservedSummary, now: number) {
+function observationDetails(nodeId: number, summary: Pick<ObservedSummary, 'channelId' | 'parameterId' | 'reading' | 'status'>, now: number) {
     const { channelId, parameterId, reading, status } = summary;
     const receipt = reading?.source === 'Local' ? 'Gateway receipt' : 'Server receipt';
     return [`${nodeId}>${channelId}.${parameterId}`, reading?.source || 'Unknown source',
@@ -22,7 +22,9 @@ export function SummaryChips({ nodeId, summaries, now }: SummaryProps) {
     return <div className="dw-summary-chips">
         {summaries.map(summary => <span key={`${summary.channelId}:${summary.parameterId}`} className="dw-summary-chip"
             role="group" aria-label={[summary.label, summary.text, summary.status].filter(Boolean).join(' · ')}
-            data-severity={summary.severity ?? 'neutral'} title={`${summary.label} · ${observationDetails(nodeId, summary, now)}`}>
+            data-severity={summary.severity ?? 'neutral'} title={summary.sources
+                ? [summary.label, ...summary.sources.map(source => `${source.label} · ${observationDetails(nodeId, source, now)}`), summary.status].filter(Boolean).join('\n')
+                : `${summary.label} · ${observationDetails(nodeId, summary, now)}`}>
             {summary.severity === 'warning' && <ExclamationTriangle aria-hidden="true" />}
             {summary.severity === 'danger' && <ExclamationOctagon aria-hidden="true" />}
             <span aria-hidden="true">{summary.text}</span>
@@ -35,7 +37,7 @@ export function SummaryDetails({ nodeId, summaries, now }: SummaryProps) {
     return <dl className="mb-0" aria-label="Observed readings">
         {summaries.map(summary => <React.Fragment key={`${summary.channelId}:${summary.parameterId}`}>
             <dt>{summary.label}</dt>
-            <dd>{summary.text}<div className="dw-meta">
+            <dd><span data-unavailable={summary.unavailable || undefined}>{summary.text}</span><div className="dw-meta">
                 <div>{observationDetails(nodeId, summary, now)}</div>
                 {summary.binding && <div>Map binding: {summary.binding.path} · Priority {summary.binding.priority}</div>}
                 {summary.reading?.timestamp ? <div>Value last changed {new Date(summary.reading.timestamp).toLocaleString()}</div> : null}

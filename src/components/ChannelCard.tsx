@@ -15,6 +15,7 @@ interface ChannelCardProps {
     channelId: number;
     channel: ChannelState;
     generation?: number;
+    sampleLive?: boolean;
     expanded: boolean;
     onToggleExpand: () => void;
     systemOpen: boolean;
@@ -28,7 +29,7 @@ function observedByte(reading: ParameterState | undefined): number | undefined {
     const value = reading.values[0];
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255 ? value : undefined;
 }
-export default function ChannelCard({ nodeId, channelId, channel, generation = 0, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
+export default function ChannelCard({ nodeId, channelId, channel, generation = 0, sampleLive = false, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
     const bodyId = useId();
     const plugin = channelVisualization(channel);
     const settings = useVisualizationSettings();
@@ -36,6 +37,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
     const target = definition && { nodeAddress: nodeId, channel: channelId, moduleType: definition.moduleType };
     const thresholds = target && settings?.get(target)?.thresholds;
     const summary = showParameters ? undefined : plugin?.inspector?.(channel, thresholds);
+    const sampleScope = sampleLive && expanded ? `${nodeId}/${channelId}/${generation}` : undefined;
     const parameterCount = Object.keys(channel.params).length;
     const status = observedByte(channel.params[DRONE_MODULE_PARAM_STATUS]);
     const resets = observedByte(channel.params[DRONE_MODULE_PARAM_RESETCOUNT]);
@@ -60,9 +62,9 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                     <button type="button" aria-pressed={!showParameters} data-inspector-focus={`summary-${channelId}`} onClick={() => onShowParameters(false)}>Summary</button>
                     <button type="button" aria-pressed={showParameters} data-inspector-focus={`parameters-${channelId}`} onClick={() => onShowParameters(true)}>Parameters</button>
                 </div>
-                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} onShowParameters={() => onShowParameters(true)} />}
+                {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />}
             </div>}
-            {summary ? <ChannelSummary channelId={channelId} summary={summary} /> :
+            {summary ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
                     <p className="dw-meta mb-0">No parameters discovered</p>}
         </Card.Body></div></Collapse>

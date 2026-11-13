@@ -1,0 +1,57 @@
+.dw-sailor {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+.dw-sailor-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--dw-space-1);
+}
+.dw-sailor dl { display: grid; gap: var(--dw-space-1); margin: 0; }
+.dw-sailor dt { font-weight: 400; }
+.dw-sailor dd, .dw-sailor-sheet strong { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; }
+.dw-sailor [data-unavailable] { color: var(--dw-color-muted); }
+.dw-sailor-context { grid-column: 1; grid-row: 1; }
+.dw-sailor-dial { grid-column: 2; grid-row: 1; position: relative; width: min(100%, 15rem); justify-self: center; }
+.dw-sailor-dial svg { display: block; width: 100%; }
+.dw-sailor-north, .dw-sailor-sheet { position: absolute; left: 50%; translate: -50% -50%; }
+.dw-sailor-north { top: 9%; }
+.dw-sailor-sheet { top: 50%; display: grid; justify-items: center; line-height: 1; gap: 2px; }
+.dw-sailor-bearings { grid-column: 3; grid-row: 1; }
+.dw-sailor-bearings > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--dw-space-1); }
+.dw-sailor-hand { stroke-width: 2.5; }
+.dw-sailor-heading, .dw-sailor [data-series="heading"] { --dw-sail-series: var(--dw-color-instrument-reading); }
+.dw-sailor-target, .dw-sailor [data-series="target"] { --dw-sail-series: var(--dw-color-instrument-trace); }
+.dw-sailor-course, .dw-sailor [data-series="course"] { --dw-sail-series: var(--dw-color-instrument-course); }
+.dw-sailor-wind, .dw-sailor [data-series="wind"] { --dw-sail-series: var(--dw-color-instrument-blue); }
+.dw-sailor-courseWind, .dw-sailor [data-series="courseWind"] { --dw-sail-series: var(--dw-color-instrument-blue); }
+.dw-sailor-wing, .dw-sailor [data-series="wing"] { --dw-sail-series: var(--dw-color-instrument-wing); }
+.dw-sailor-hand { stroke: var(--dw-sail-series); }
+.dw-sailor-target, .dw-sailor-courseWind { stroke-dasharray: 5 3; }
+.dw-sailor-course { stroke-dasharray: 8 2 2 2; }
+.dw-sailor-wing { stroke-dasharray: 1 3; stroke-linecap: round; }
+.dw-sailor [data-series="polar"] { --dw-sail-series: var(--dw-color-instrument-blue); }
+.dw-sailor [data-series="speed"] { --dw-sail-series: var(--dw-color-instrument-trace); }
+.dw-sailor svg [data-series] { fill: none; stroke: var(--dw-sail-series); stroke-width: 1.3; }
+.dw-sailor svg [data-series="speed"] { stroke-dasharray: 3 2; }
+.dw-sailor-rudder { fill: var(--dw-color-instrument-reading); fill-opacity: 0.42; }
+.dw-sailor-rudder[data-gybing] { fill: var(--dw-color-instrument-wing); }
+.dw-sailor i[data-series] { display: inline-block; width: 0.65em; border-top: 2px solid var(--dw-sail-series); margin-right: var(--dw-space-1); vertical-align: middle; }
+.dw-sailor i:is([data-series="speed"], [data-series="target"], [data-series="courseWind"]) { border-top-style: dashed; }
+.dw-sailor i:is([data-series="course"], [data-series="wing"]) { border-top-style: dotted; }
+.dw-sailor-profiles { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 var(--dw-space-2); margin-top: var(--dw-space-1); }
+@container (max-width: 415px) {
+    .dw-sailor-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dw-sailor-dial { grid-area: 1 / 1; width: min(100%, 12rem); }
+    .dw-sailor-context { grid-area: 1 / 2; }
+    .dw-sailor-bearings { grid-area: 2 / 1 / 3 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--dw-space-2); }
+}
+
+@container (max-width: 259px) {
+    .dw-sailor-dial { grid-area: 1 / 1 / 2 / -1; }
+    .dw-sailor-context { grid-area: 2 / 1; }
+    .dw-sailor-bearings { grid-area: 2 / 2; grid-template-columns: minmax(0, 1fr); }
+    .dw-sailor-main { align-items: start; }
+}

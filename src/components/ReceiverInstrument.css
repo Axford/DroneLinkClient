@@ -1,0 +1,48 @@
+.dw-receiver {
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+    color: var(--dw-color-instrument-reading);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.dw-receiver-mode { font-weight: 600; }
+.dw-receiver [data-unavailable] { color: var(--dw-color-muted); }
+.dw-receiver-outputs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--dw-space-1);
+    margin: 0 0 var(--dw-space-1);
+}
+
+.dw-receiver-outputs dt { font-weight: 400; }
+.dw-receiver-outputs dd { margin: 0; overflow-wrap: anywhere; }
+.dw-receiver-track {
+    position: relative;
+    height: 3.5rem;
+    border: 1px solid var(--dw-color-muted);
+    border-radius: var(--dw-radius-small);
+}
+
+.dw-receiver-track::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto;
+    border-top: 1px solid var(--dw-color-muted);
+}
+
+.dw-receiver-track[data-unavailable] { border-style: dashed; }
+.dw-receiver-bar {
+    position: absolute;
+    inset: auto 1px 50%;
+    background: var(--dw-color-instrument-reading);
+}
+
+.dw-receiver-bar[data-direction="negative"] { inset: 50% 1px auto; }
+.dw-receiver[data-mode="passthrough"] .dw-receiver-bar { background: var(--dw-color-instrument-blue); }
+.dw-receiver:not([data-mode]) .dw-receiver-bar { background: var(--dw-color-muted); }
+.dw-receiver-bar[data-zero] { min-height: 2px; inset-inline: 35%; }
+.dw-receiver-range { display: block; }
+.dw-receiver-pwm { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 var(--dw-space-2); }
+.dw-receiver-pwm ol { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 var(--dw-space-2); list-style: none; padding: 0; margin: 0; }

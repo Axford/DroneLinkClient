@@ -113,6 +113,142 @@ Registry entries can contribute an Inspector summary independently of their over
 
 The Inspector session remembers the Parameters choice by node, observation generation, channel and observed module type. Supported channels default to Summary. Channels without a specialist view open directly to Parameters. A completed inventory that removes the channel or replaces its module type discards its choice. Breakpoint remounts keep the selected view and restore focus to matching controls.
 
+### Legacy instrument palette
+
+The shared channel Summary uses the instrument face and reading tokens in `public/design-tokens.css` in both the Domain workspace and standalone Workbench. Available readings and the compass needle use legacy readout green. Unavailable readings are muted, and severity uses the product warning and danger tints with separate cues. The NMEA compass and bearing are centred in their tile. Its term remains available to assistive technology and becomes visible when no bearing can be drawn. The Inspector controls and node chips use the product palette. See the [DroneWright renderer guidelines](../../DroneLinkDatastore/docs/design-guidelines.md#shared-style-and-colour-for-module-renderers).
+
+### Packet telemetry summaries
+
+SerialTelemetry groups Sent, Received and Rejected into three equal columns when space allows. Counts and rates retain their own availability, source and receipt time. The reading-details dialog identifies complete RX handoffs before DroneLink CRC validation and serial framing rejects. The same read-only summary is available through the Domain workspace and standalone Workbench. The packet telemetry renderer owns the shared projection for these columns. Each module supplies its counter and rate parameter IDs and any transport-specific note. UDPTelemetry uses the same layout with counts at parameter 10 and rates at parameter 11. Each channel supplies its own readings and provenance, including when both transports appear on one node.
+
+### Sampled graphics
+
+`sampledObservations.ts` prepares bounded, in-memory windows for specialist graphics from the latest scalar FLOAT observation. A future renderer supplies its value interpretation and a host scope that identifies the Domain, node, channel, module, parameter and stream generation. The host clears the scope on disconnect and changes it on reset, source-path changes and resync. The sampler also separates reported sources and rejects receipts older than the last accepted one in the current scope.
+
+Windows keep at most 100 receipts from the last five minutes. A new receipt with the same value is still a sample. Reading the same snapshot again adds nothing. Invalid values with a known receipt mark a gap. Without a usable receipt the series clears. A snapshot can contribute its latest receipt once. The sampler preserves Server timestamps when the browser clock is behind. It can age on redraw and neither polls nor reconstructs packet history. Trace rendering may split at a caller-specified gap between receipts. Histogram bins and trace styling belong to their respective renderers.
+
+### RFM69 signal summary
+
+The firmware and legacy dispatcher identify the module as `RFM69Telemetry`. The specialist view combines packet counts and rates at parameters 9 and 10 with an independent RSSI reading at parameter 8. The firmware sends a magnitude from 0 to 100. The summary and node chip display its negative dBm value, with zero retained. Reading Details includes the RSSI source and receipt. Radio settings remain in the generic Parameters view.
+
+The signal trace uses the sampled window while the expanded Summary is visible on an active Domain with ready observations or a connected Workbench path. It plots receipt time and breaks across unavailable samples or gaps over 15 seconds. The marker highlights the plotted point that matches the current valid receipt. Switching node or path, leaving the Summary, losing the connection or resetting its observations clears the trace. Archived snapshots can display the last observed RSSI.
+
+### Shared power telemetry
+
+The INA219 and INA3221 registry entries use the same power telemetry renderer for electrical readings. Each configures the firmware input count and usage parameter. The renderer checks observation availability, message type, declared and received width, and the numeric value of each input. It owns measurement labels, units, precision, device alarm interpretation and the cell-voltage projection. Both summaries use the same reading tiles and fixed-scale dial. INA219 alone supplies saved voltage thresholds and projects the node chip.
+
+### Anemometer speed distribution
+
+The Anemometer Summary leads with the observed FLOAT parameter 10 in knots and shows metres per second derived using the firmware conversion factor. Reading Details links to the single source observation. The histogram counts recent receipts in 1 kn bins centred on 0 through 30 kn, with a green pointer for the current bin. Speeds that round above 30 kn stay numeric and are counted outside the plotted bins. Invalid observations contribute no count. The chart and RFM69 trace share the sampled window hook and its scope lifecycle. Archived snapshots can display the latest speed.
+
+### WaterSensor level and alarm
+
+WaterSensor compares the observed raw ADC level and threshold (UINT32 parameters 11 and 12) on the legacy 0–4096 scale. The dashed line marks a positive threshold. A zero threshold remains visible as a reading. Out-of-scale readings retain their numeric values. The node chip uses the raw-to-threshold percentage with a positive threshold and shows the raw level otherwise. A ratio strictly between 50% and 100% gives a warning. The independently observed FLOAT alarm at parameter 13 supplies the triggered state and takes precedence over the ratio warning. Reading Details lists the three source observations separately.
+
+### Neopixel scene preview
+
+Neopixel shows four segment colours in firmware order from the observed scene at parameter 8. The UINT8 payload contains 16 bytes. Brightness, effect and two effect arguments occupy the first four bytes, followed by four RGB triples. The preview shows the scene colours directly. Brightness and effect settings remain available through Parameters. A missing or invalid payload leaves all four swatches unavailable, while an observed zero RGB triple is shown as black. Reading Details links to the single source observation.
+
+### Joystick position
+
+Joystick plots observed scalar FLOAT X and Y (parameters 10 and 11) on equal, centred axes from −1 to +1. Positive X points right and positive Y points up. The ring around the marker shows signed Z (parameter 12), clockwise for positive and counterclockwise for negative. A positive button value (parameter 13) fills the marker and shows Pressed alongside the plot. The four observations retain independent source and receipt details. An invalid or unavailable X or Y leaves the crosshair without a position marker.
+
+### Receiver output and raw PWM
+
+Receiver plots the first four observed FLOAT outputs (parameters 11–14) on a shared scale from −1 to +1. Each slot shows its signed value. Zero sits on the centre line. Values outside the scale retain their numeric reading and show an above-range or below-range cue. The observed FLOAT switch at parameter 29 selects Passthrough below 0.5 and Active otherwise. The raw PWM row preserves the order of all six parameter 20 bytes, multiplying each by 10 for microseconds. Reading Details keeps separate provenance for the mode, all six published outputs and the raw vector.
+
+### Motor speed input
+
+Motor reads the observed signed speed input from FLOAT parameter 8. The bar shows the derived speed after applying the firmware clamp and remap to the configured FLOAT limit pair at parameter 12. The scale includes zero for asymmetric and one-sided limits. The shaded band uses the absolute magnitude of FLOAT parameter 13. The mapped value represents the stage before deadband and inversion. Reading Details keeps each observation's source and receipt. A missing or invalid limit pair leaves the numeric input available and the scale unavailable.
+
+### Servo mapping and PWM output angle
+
+Servo plots normalized input from −1 to +1 against output angle from 0 to 180°. The configured curve uses the four observed FLOAT control points at parameter 12 and the centre adjustment at parameter 13. It samples the firmware's cubic mapping, truncation and bounds. The independently observed position input at parameter 8 and PWM controller angle at parameter 14 provide separate guides and readouts. The reported output can lag the configured mapping while the firmware applies its movement rate limit. Each observation has its own source and receipt in Reading Details.
+
+### NMEA fix and correction details
+
+The NMEA Summary keeps heading and satellite status alongside primary position, speed in knots and metres per second, and observed HDOP. The firmware sends HDOP as a UINT8 in tenths with 255 reserved for unknown. Reading Details lists the secondary GPS position, configured reference fix and differential correction offsets when their parameters are present. Coordinates arrive longitude first and display latitude first. Correction shows the signed latitude, longitude and altitude offsets. Some firmware transmits a fourth correction float before assigning its distance, so the Summary relies on the three verified components.
+
+### LSM9DS1 heading and magnetic calibration
+
+LSM9DS1 leads with the reported heading at FLOAT parameter 11. The independent map binding retains priority 3. Reading Details shows the latest magnetic X/Y sample, recent samples from parameter 10, the X/Y calibration bounds and centre from parameters 13 and 14, and the quadrant limits ellipse from parameter 18. Axes have equal scale in microteslas. Invalid bounds and limits leave their geometry unavailable. The scatter shares the bounded observation window with the scalar instruments and collects receipts while the live Summary is expanded.
+
+### Expanded 3D diagnostics
+
+The shared diagnostic dialog projects signed X/Y/Z data into a rotatable SVG scene. Consumers provide the latest vector, optional samples and calibration centre and radii in their own units, plus a text equivalent. The XY view and keyboard-accessible rotation controls use the same data. Closing the dialog unmounts the scene and resets its camera. Rendering follows React updates. The component uses browser SVG and owns no animation loop or graphics context. HMC5883L and MPU6050 supply their own observation mappings. The shared dialog uses green observed values, muted labels and neutral unavailable values.
+
+### Shared heading and attitude displays
+
+NMEA, LSM9DS1 and CMPS12 use the same heading projection and compass face. Each registry entry supplies its own heading parameter and supporting observations. Map role selection still uses the independent bindings registry. The signed attitude dial shares geometry between pitch and roll. The caller supplies the zero direction, positive rotation and common scale for the bins. CMPS12 owns the signed vector decoding and receipt distribution.
+
+### CMPS12 heading and attitude
+
+CMPS12 shows the reported heading at FLOAT parameter 10. Firmware already applies declination and the trim at parameter 12 to that heading. The pitch and roll dials use the signed degrees from FLOAT parameter 13 in vector order. Positive pitch rises from the rightward horizontal reference and positive roll moves clockwise from the upright reference. The polar distributions count observed vector receipts in 15-degree bins using the shared five-minute window and the same radial count scale for both dials. Reading Details keeps the heading, trim and attitude vector provenance.
+
+### HMC5883L heading and magnetic calibration
+
+HMC5883L uses the reported heading at parameter 11, signed pitch and roll at 22 and 24, and the calibrated vector and quality score at 10. The calibration dialog projects the raw magnetic observations at 21. Its ellipsoid uses observed min/max bounds at 13–15. The line to the latest raw point starts at the reported calibration centre when available. Recent points use the shared five-minute observation window, and Reading Details retains the provenance of each input.
+
+### MPU6050 attitude and acceleration
+
+MPU6050 shares the artificial horizon with HMC5883L and displays signed pitch and roll from parameters 13 and 14. Temperature at parameter 12 drives both the Summary and node chip. The legacy chip thresholds are above 30 °C for warning and above 40 °C for danger. The diagnostic projects the calibrated acceleration at parameter 10 from the origin. Its calibration ellipsoid uses the reported centres and half-spans from parameters 16–18. Invalid calibration hides the ellipsoid while independently observed acceleration remains visible. Calibration mode stays in the generic parameter workflow.
+
+### INA219 voltage and usage
+
+The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.
+
+### INA3221 input summaries
+
+The INA3221 Summary presents the firmware's three ordered input slots, each with the INA219 0–5 V dial and its own load voltage, current, power, signed usage and observed alarm. Wide cards align the input rows. Input numbers and unit-redundant labels are available to assistive technology and in Reading Details. The Summary shows a label where a missing value would otherwise be ambiguous, and for the unitless alarm. Narrow cards stack the inputs and place supporting values beside their dial where space allows. Each reading retains provenance from its source parameter vector. Invalid vector shapes show unavailable for that parameter, while other vectors and valid individual entries remain visible. INA219 display thresholds remain specific to INA219.
+
+### Shared navigation geometry
+
+Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
+
+### Polar response and sample coverage
+
+Polar mirrors 16 firmware sectors into a wind-relative dial. The outer trace uses relative speed at 11 on a 0–255 scale, with gaps where the sample count at 12 is zero or unavailable. The inner trace uses counts scaled to the largest observed sector count. The adjusted heading at 14 is drawn relative to wind at 34. Mode at 9 reports Passive, Active or Reset. Reading Details preserves independent receipts and reported sector values. Map rings, historical plots and controls retain their separate scope.
+
+### KiteController flight plot
+
+KiteController projects the reported yaw, pitch, payout distance and estimated roll at parameter 14 into a 2D plot. Positive yaw points left and positive pitch points up. The waypoint's angular radius comes from 16. The recent trail uses the shared receipt window, with gaps at invalid samples. The payout target and rate limit at 13 describe configuration, while distance in the flight vector is actual payout. Reading Details preserves the independent vector, waypoint and control receipts. The legacy disabled 3D scene stays in separate scope.
+
+### TankSteer drive comparison
+
+TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale. Heading at 22 and signed target at 20 share a north-referenced dial. Distance at 24 sets the length of the observed target vector up to the 20 m ring, while the readout keeps the full distance. Mode at 10 reports Manual or Automatic. Reading Details preserves independent receipts. Stop and target writes retain their separate action scope.
+
+### TurnRate dial
+
+TurnRate compares the heading at 12 and signed target at 10 on the shared circular dial. Parameter 16 is a signed controller output, not an angular velocity. Firmware clamps it to ±10, while the arc preserves the legacy visual cap at ±6. Positive output draws clockwise from heading. Parameter 17 supplies the angular threshold band around target, and 19 supplies the observed Normal, Possible gybe or Gybing mode. Sailor and TurnRate share the amber and red cues for possible and active gybes. Each reading retains its own receipt. The heading map binding remains independent of the renderer.
+
+### Proa steering and wind profiles
+
+Proa rotates its shared polar and speed profiles by live wind. Heading rotates the vessel drawing and its observed steering. The wing output maps to ±90° and the two pontoon outputs to ±120°. Course over water is already vessel-relative. The target frame adds the observed offset to course. Parameter 29 reports passive/active operation, while the fourth debug value at 30 reports Normal, Brake or Run. Missing inputs omit their marks and retain independent receipt provenance in Reading Details.
+
+### Sailor marine dial
+
+Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the Summary marks a supplied crossing-wind flag as unverified. Reading Details retains the reported byte and observation receipt.
+
+### Waypoint route progress
+
+Waypoint displays a one-based index from parameter 10 and count from 9, loop mode from 14, and estimated route speed from 16. Parameter 15 supplies the distance to the next waypoint, remaining distance and planned route length in metres. The track shows estimated distance covered and the next waypoint on the same scale. Before the route starts, the approach distance can exceed the planned length. A zero-length route has no proportional track but can still have an ETA with positive speed and a valid active waypoint. An empty route suppresses stale distance and speed readouts while Reading Details retains their observations. Route actions retain their separate scope.
+
+### Nav bearing comparison
+
+The Nav Summary shares the circular guides used by the wind dials. It compares north-referenced heading (8), adjusted heading (20) and wind (21) with distinct hands. It shows the signed cross-track value (17) as reported because firmware may normalize it against the target corridor. Distance to target (9) also drives the node chip. Following reflects the observed target subscription (13) and resolves names only in the current Inspector scope. The map context actions still use their existing command path. Reading Details uses the observed address and independent receipts.
+
+### Wind direction and distribution
+
+Wind reads the independent FLOAT bearings at parameter 14 (World, north-referenced) and 10 (Local, vessel-relative). The clockwise dials use the shared circular geometry. Only World contributes to the 24-sector distribution, which counts actual receipts in the shared five-minute window. The distribution and needle can differ when the latest reading is unavailable. WindFromWing uses the same World dial for its estimated FLOAT bearing at parameter 15 and labels it as a wing estimate. Its samples stay scoped to that channel and parameter. Map bindings select World wind independently of the Inspector and prefer WindFromWing over Wind.
+
+### Depth readout and log trace
+
+Depth reports current measured metres at parameter 13 and logs location and depth in parameter 14. The Summary uses the third log value for its downward trace, ordered by received sample. The firmware logs by movement, so sample spacing conveys neither elapsed time nor a fixed distance. Zero means no echo. Zero and invalid log readings break the trace. The shared observation window retains up to 100 samples over five minutes and resets with the Inspector source scope. Reading Details keeps the two receipts separate.
+
+### Management summary
+
+Management leads with last reported uptime (parameter 13, seconds) and IP address (12). An all-zero IP observation means no address is assigned and retains its receipt in Reading Details. Reset reasons use bytes 1 and 2 of parameter 10 in core order. The optional firmware build reads the abbreviated Git commit published as CHAR at parameter 9 of the same Management channel. It has its own observation provenance. The summary displays the device-reported identifier without a release comparison. Device operations belong to the Workbench workflows.
+
 ## Shared module visualization settings
 
 The authorized Domain workspace owns the settings snapshot, shared by the node overlay and Inspector. The Client refreshes it on entry and window focus and applies the committed response after saving. The INA219 registry entry defines the voltage fields and uses one interpretation for both surfaces. The Server validates writes and returns the next revision. Settings live outside observation and Inspector session state and survive observation reset. An older hosted API leaves settings controls unavailable and voltage displays neutral.
