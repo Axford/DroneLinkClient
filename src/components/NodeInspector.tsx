@@ -1,5 +1,7 @@
 import React, { useId, useState } from 'react';
 import { Tab, Tabs } from 'react-bootstrap';
+import { ArrowsAngleExpand, DashLg } from 'react-bootstrap-icons';
+import IconButton from './ui/IconButton';
 import './InspectorPanel.css';
 
 type InspectorView = 'modules' | 'files';
@@ -15,10 +17,16 @@ export default function NodeInspector({ selected, actions, context, modules, fil
 }) {
     const id = useId();
     const [view, setView] = useState<InspectorView>('modules');
+    const [minimized, setMinimized] = useState(false);
     const active = files && filesAvailable ? view : 'modules';
-    return <section aria-label="Node Inspector" className="inspector-panel text-white" {...focusTracking}>
-        <header className="inspector-header"><h2>Inspector</h2>{actions}</header>
-        {context && <div className="dw-inspector-context">{context}</div>}
+    return <section aria-label="Node Inspector" className="inspector-panel text-white" data-minimized={minimized} {...focusTracking}>
+        <header className="inspector-header">
+            {context && <div className="dw-inspector-context" hidden={minimized}>{context}</div>}
+            {actions && <div hidden={minimized}>{actions}</div>}
+            <IconButton className="dw-inspector-toggle" type="button" label={minimized ? 'Restore inspector' : 'Minimize inspector'}
+                icon={minimized ? <ArrowsAngleExpand /> : <DashLg />} aria-expanded={!minimized}
+                onClick={() => setMinimized(value => !value)} />
+        </header>
         {selected ? <Tabs id={id} activeKey={active} onSelect={key => setView(key === 'files' ? 'files' : 'modules')}
             transition={false} className="dw-inspector-tabs" aria-label="Node views">
             <Tab eventKey="modules" title="Modules">{modules}</Tab>

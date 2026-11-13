@@ -15,7 +15,6 @@
 .dw-node-select[aria-pressed="true"]:hover { background: var(--dw-color-primary-hover); }
 .dw-node-select:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: 2px; }
 .dw-node-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.dw-node-select::before { content: ""; flex: 0 0 var(--dw-space-2); height: var(--dw-space-2); border: 2px solid var(--dw-color-node-identity); border-radius: 50%; }
 .dw-node-list-header .dw-meta { color: var(--dw-color-node-identity); }
 .dw-node-age { flex-shrink: 0; margin-left: auto; padding-inline: var(--dw-space-1); border-radius: var(--dw-radius-small); background: var(--dw-color-control); color: var(--dw-color-text); font-size: var(--dw-font-size-meta); font-weight: normal; }
 .dw-node-list-empty { padding: var(--dw-space-2); }

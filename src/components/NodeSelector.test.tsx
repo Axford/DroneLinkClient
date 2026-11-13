@@ -12,7 +12,7 @@ test('narrow node list keeps selection context and opens a scrollable dialog for
     const select = jest.fn();
     render(<NodeSelector nodes={[{ id: 7, name: 'Survey', lastHeard: 0, channels: {} }]} selectedNodeId={7}
       onNodeSelect={select} onLocate={jest.fn()} canLocate={() => false} now={1000} />);
-    expect(screen.getByText('7 · Survey', { selector: '.dw-meta' })).toBeVisible();
+    expect(screen.getByText('7 Survey', { selector: '.dw-meta' })).toBeVisible();
     expect(screen.queryByRole('button', { name: /^Inspect/ })).not.toBeInTheDocument();
     const expand = screen.getByRole('button', { name: 'Expand node list' });
     expect(expand).toHaveAttribute('aria-expanded', 'false');
@@ -37,7 +37,7 @@ test('desktop cards show compact ages and expose exact receipts and long names w
   expect(screen.getByText('4s')).toBeVisible(); expect(screen.getByText('3m')).toBeVisible(); expect(screen.getByText('2h')).toBeVisible(); expect(screen.getByText('—')).toBeVisible();
   const node = screen.getByRole('button', { name: `Inspect node 7: ${name}` });
   expect(node).toHaveAttribute('aria-pressed', 'true'); expect(node).toHaveAccessibleDescription(expect.stringContaining('Server receipt:'));
-  expect(screen.getByTitle(`7 · ${name}`)).toBeVisible();
+  expect(screen.getByTitle(`7 ${name}`)).toBeVisible();
   expect(screen.getByRole('button', { name: 'Locate node 7' })).toBeEnabled();
   expect(screen.getByRole('button', { name: 'Locate node 37' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Inspect node 37: Node 37' })).toHaveAccessibleDescription('No saved receipt');

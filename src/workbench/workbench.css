@@ -23,10 +23,13 @@
 }
 
 .dw-workbench-transport {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: var(--dw-space-2);
     max-width: 240px;
-    margin: var(--dw-space-2) 0;
 }
+
+.dw-workbench-transport select { min-width: 0; }
 
 .dw-workbench-log {
     max-height: 300px;

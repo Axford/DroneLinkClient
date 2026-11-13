@@ -125,12 +125,13 @@ export default function WorkbenchPage() {
             <tbody>{nodes.flatMap(id => configured.map(transport => {
                 const route = paths[transport][id];
                 if (!route) return null;
+                const name = observations[transport][id]?.name || transports.map(source => observations[source][id]?.name).find(Boolean);
                 const preferredRoute = routes[id]?.transport === transport && routes[id].reachable;
                 const focused = id === selectedNode;
                 const selectable = !files.busy || focused;
                 return <tr key={`${id}:${transport}`} data-focused={focused} data-selectable={selectable}
-                    onClick={selectable ? () => select(id) : undefined}><th scope="row"><button type="button" className="btn btn-link p-0" aria-label={`Inspect node ${id} from ${transportLabel[transport]} route`}
-                    aria-pressed={focused} disabled={!selectable} onClick={event => { event.stopPropagation(); select(id); }}>{id}</button></th><td>{transportLabel[transport]}</td><td>{route.nextHop}</td>
+                    onClick={selectable ? () => select(id) : undefined}><th scope="row"><button type="button" className="btn btn-link p-0 text-start text-decoration-none" aria-label={`Inspect node ${id} from ${transportLabel[transport]} route${name ? `: ${name}` : ''}`}
+                    aria-pressed={focused} disabled={!selectable} onClick={event => { event.stopPropagation(); select(id); }}>{id}{name ? ` ${name}` : ''}</button></th><td>{transportLabel[transport]}</td><td>{route.nextHop}</td>
                     <td>{route.metric ?? '—'}</td><td>{localTime(route.lastHeardAtMs)}</td><td>{!connected ? 'Last seen' : !route.reachable ? 'Expired' : preferredRoute ? 'Selected route' : 'Reachable'}</td></tr>;
             }))}</tbody>
         </table></div>}

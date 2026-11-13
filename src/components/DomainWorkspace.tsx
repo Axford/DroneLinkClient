@@ -34,11 +34,11 @@ export function DomainLensPanels({ lens, inspector, overMap = false }: {
 }) {
     const narrow = useNarrowLayout();
     if (!inspector) return <div className="dw-lens-only">{lens}</div>;
-    return <PanelGroup className={overMap ? 'dw-map-panels' : undefined} direction={narrow ? 'vertical' : 'horizontal'}>
+    return <PanelGroup className={`dw-lens-panels ${overMap ? 'dw-map-panels' : ''}`} direction={narrow ? 'vertical' : 'horizontal'}>
         <Panel style={overMap ? { overflow: 'visible' } : undefined} defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>{lens}</Panel>
         <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
         <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}
-            className={overMap ? 'dw-map-inspector-slot' : undefined}>
+            className={`dw-inspector-slot ${overMap ? 'dw-map-inspector-slot' : ''}`}>
             <div className="dw-inspector-frame">{inspector}</div>
         </Panel>
     </PanelGroup>;

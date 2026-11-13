@@ -22,6 +22,10 @@ interface NodeSelectorProps {
     now: number;
 }
 
+function nodeLabel(node: NodeState) {
+    return node.name ? `${node.id} ${node.name}` : `Node ${node.id}`;
+}
+
 /** Node selection remains available independently of basemap/position availability. */
 export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLocate, canLocate, now, inline, status, selectionDisabled }: NodeSelectorProps) {
     const listId = useId();
@@ -30,7 +34,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
     const [expanded, setExpanded] = useState(!narrow);
     useEffect(() => setExpanded(!narrow), [narrow]);
     const selected = nodes.find(node => node.id === selectedNodeId);
-    const selectedLabel = selected ? `${selected.id} · ${selected.name || `Node ${selected.id}`}` : 'Choose a node';
+    const selectedLabel = selected ? nodeLabel(selected) : 'Choose a node';
 
     const label = inline ? "Local nodes" : "Observed nodes";
     const items = <ul id={listId} className="dw-node-items">
@@ -41,7 +45,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
                 <button type="button" className="dw-node-select" aria-pressed={node.id === selectedNodeId}
                     aria-label={routeStatus ? `${node.name || `Node ${node.id}`} · ${routeStatus}` : `Inspect node ${node.id}: ${node.name || `Node ${node.id}`}`} disabled={selectionDisabled && node.id !== selectedNodeId} aria-describedby={`${listId}-receipt-${node.id}`}
                     onClick={() => { if (onNodeSelect(node.id) !== false && narrow) setExpanded(false); }}>
-                    <strong className="dw-node-name" title={node.name ? `${node.id} · ${node.name}` : `Node ${node.id}`}>{node.name ? `${node.id} · ${node.name}` : `Node ${node.id}`}</strong>
+                    <strong className="dw-node-name" title={nodeLabel(node)}>{nodeLabel(node)}</strong>
                     {routeStatus && <span className="dw-meta dw-node-route-status"> · {routeStatus}</span>}
                     <span className="dw-node-age" aria-hidden="true" title={node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}>{compactReceiptAge(node.lastHeard, now)}</span>
                     <span id={`${listId}-receipt-${node.id}`} className="visually-hidden">{node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}</span>
