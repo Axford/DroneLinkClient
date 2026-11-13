@@ -1,6 +1,9 @@
 import React, { useId, useState } from 'react';
 import SettingsDialog from '../components/ui/SettingsDialog';
 import type { ConfigurationOverview } from './nodeConfiguration';
+import { i2cStarters } from './nodeConfiguration';
+import type { Starter } from './nodeConfiguration';
+import { hex } from './i2cDiscovery';
 import { connectGpsLocation, gpsPort, setGpsPort } from './nodeConfiguration';
 
 interface Parameter { name: string; address: number; type: string; count: number }
@@ -21,19 +24,23 @@ export interface Catalogue {
     metadataStatus: 'marker-match' | 'different-build' | 'unverified' | 'unavailable';
     entries: Entry[];
 }
-export type Starter = 'NMEA' | 'Nav' | 'Probe';
+const labels: Record<Starter, string> = { NMEA: 'GPS', Nav: 'Pilot', Probe: 'Probe',
+    INA219: 'INA219', INA3221: 'INA3221', BME280: 'BME280', QMC5883L: 'QMC5883L' };
 
-const labels: Record<Starter, string> = { NMEA: 'GPS', Nav: 'Pilot', Probe: 'Probe' };
-const isStarter = (type: string): type is Starter => type === 'NMEA' || type === 'Nav' || type === 'Probe';
+function isStarter(type: string, i2cCandidates?: string[]): type is Starter {
+    return type === 'NMEA' || type === 'Nav' || type === 'Probe' ||
+        (i2cStarters.some(candidate => candidate === type) && !!i2cCandidates?.includes(type));
+}
 const supported = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.entries.find(entry => entry.type === type && entry.support === 'supported');
 const matched = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.metadataStatus === 'marker-match' ? supported(catalogue, type) : undefined;
 
-export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
+export function ModuleCatalogue({ initialSearch, gpsConnector, i2c, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
     catalogue?: Catalogue;
     initialSearch?: string;
     gpsConnector?: 1 | 2;
+    i2c?: { channel: number; address: number; candidates: string[] };
     loading: boolean;
     canAdd: boolean;
     onRetry: () => void;
@@ -44,7 +51,8 @@ export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loadin
     const [search, setSearch] = useState(initialSearch ?? '');
     const words = search.toLowerCase().trim().split(/\s+/);
     const entries = catalogue?.entries.filter(entry => {
-        const terms = `${entry.type} ${entry.category} ${entry.description} ${isStarter(entry.type) ? labels[entry.type] : ''}`.toLowerCase();
+        if (i2c && !i2c.candidates.includes(entry.type)) return false;
+        const terms = `${entry.type} ${entry.category} ${entry.description} ${isStarter(entry.type, i2c?.candidates) ? labels[entry.type] : ''}`.toLowerCase();
         return words.every(word => terms.includes(word));
     });
     return <SettingsDialog title="Add module" show onHide={onClose}>
@@ -61,14 +69,15 @@ export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loadin
             </p>
             <button type="button" className="btn btn-outline-secondary mb-2" onClick={onRetry}>Refresh catalogue</button>
             {gpsConnector && <p className="dw-meta">A GPS added from this connector will use Serial {gpsConnector}.</p>}
+            {i2c && <p className="dw-meta">Proposed assignment: I²C channel {i2c.channel} · {hex(i2c.address)}.</p>}
             {!canAdd && <p className="dw-meta">A free channel and a structurally valid draft are required to add a module.</p>}
             {!entries?.length && <p>{catalogue?.entries.length ? 'No modules match your search.' : 'No catalogue entries available.'}</p>}
             <ul className="list-unstyled">
                 {entries?.map(entry => {
                     const type = entry.type;
-                    const starter = isStarter(type);
+                    const starter = isStarter(type, i2c?.candidates);
                     return <li key={type} className="dw-config-module">
-                        <div><strong>{starter ? type === 'Probe' ? type : `${labels[type]} · ${type}` : type}</strong>{entry.category && ` · ${entry.category}`}</div>
+                        <div><strong>{starter ? labels[type] === type ? type : `${labels[type]} · ${type}` : type}</strong>{entry.category && ` · ${entry.category}`}</div>
                         <div className="dw-meta">{entry.description}</div>
                         <div className="dw-toolbar">
                             <span className="dw-meta">{entry.support === 'supported' ? 'Supported by this node' :

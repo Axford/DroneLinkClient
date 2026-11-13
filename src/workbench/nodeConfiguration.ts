@@ -233,7 +233,14 @@ function patchModuleLine(text: string, module: DraftModule, key: string, value: 
     return { text: lines.join(newline), changes: [{ after }] };
 }
 
-export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav' | 'Probe', gpsConnector?: 1 | 2) {
+export type Starter = 'NMEA' | 'Nav' | 'Probe' | 'INA219' | 'INA3221' | 'BME280' | 'QMC5883L';
+export const i2cStarters = ['INA219', 'INA3221', 'BME280', 'QMC5883L'] as const;
+
+export function appendStarter(text: string, node: number, type: Starter, gpsConnector?: 1 | 2,
+    i2c?: { channel: number; address: number }) {
+    if (i2cStarters.some(candidate => candidate === type) &&
+        (!i2c || !Number.isInteger(i2c.channel) || i2c.channel < 0 || i2c.channel > 7 ||
+            !Number.isInteger(i2c.address) || i2c.address < 8 || i2c.address > 119)) return;
     const overview = inspectNodeConfiguration(text, node);
     if (overview.diagnostics.some(item => item.severity === 'error')) return;
     const occupied = new Set(overview.modules.map(module => module.channel));
@@ -241,12 +248,13 @@ export function appendStarter(text: string, node: number, type: 'NMEA' | 'Nav' |
     if (channel === undefined) return;
     const newline = ending(text);
     const prefix = text + (text.endsWith(newline) ? newline : newline + newline);
-    const base = type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : 'Probe';
+    const base = type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : type;
     const names = new Set(overview.modules.map(module => moduleLookupName(module.name)));
     let name = base;
     for (let index = 2; names.has(name); index++) name = `${base}${index}`;
     const lines = [`[${type} = ${channel}]`, `  name = ${name}`];
     if (type === 'NMEA' && gpsConnector !== undefined) lines.push(`  port = ${gpsConnector}`);
+    if (i2c && i2cStarters.some(candidate => candidate === type)) lines.push(`  bus = ${i2c.channel}`, `  addr = ${i2c.address}`);
     const draft = prefix + [...lines, ''].join(newline);
     if (bytes(draft) <= maxNodeFileBytes) return { text: draft, line: prefix.split(newline).length, channel };
 }

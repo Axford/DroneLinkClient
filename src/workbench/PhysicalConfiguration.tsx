@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Background, Controls, Handle, Position, ReactFlow } from '@xyflow/react';
-import type { Node, NodeProps } from '@xyflow/react';
+import type { Edge, Node, NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { NodeState } from '../dronelink/DroneLinkState';
 import { DRONE_MODULE_PARAM_STATUS, DRONE_LINK_MSG_TYPE_UINT8_T } from '../dronelink/DroneLinkMsg';
@@ -10,6 +10,8 @@ import { boardEndpoints, boardHeight, boardWidth, physicalDevices, springPositio
 import type { PhysicalDevice } from './physicalDevices';
 import { gpsPort, inspectNodeConfiguration, probePinSettings, setGpsPort, setPhysicalSetting } from './nodeConfiguration';
 import type { ConfigurationOverview } from './nodeConfiguration';
+import { candidates, canIdentify, hex, responseKey } from './i2cDiscovery';
+import type { ResponseAddress, useI2cDiscovery } from './i2cDiscovery';
 import './physicalWiring.css';
 import boardImage from './DroneLinkV4PinOutSimple.png';
 
@@ -41,7 +43,17 @@ function DeviceCard({ data }: NodeProps<DeviceNode>) {
     </button>;
 }
 
-const nodeTypes = { board: BoardCard, device: DeviceCard };
+type GhostNode = Node<{ label: string; detail: string; select: () => void }, 'ghost'>;
+
+function GhostCard({ data }: NodeProps<GhostNode>) {
+    return <button type="button" className="dw-physical-device dw-i2c-ghost nodrag nopan" onClick={data.select}>
+        <strong>{data.label}</strong>
+        <span>{data.detail}</span>
+        <Handle type="target" position={Position.Left} id="left" />
+    </button>;
+}
+
+const nodeTypes = { board: BoardCard, device: DeviceCard, ghost: GhostCard };
 const modeLabel = (mode?: string) => mode === 'digital' ? 'Digital' : mode === 'analog' ? 'Analog' :
     mode === 'analog,voltage' ? 'Analog with voltage estimate' : mode?.startsWith('serial,') ? `Serial · ${mode.split(',')[1]} baud` : 'Check mode in Code';
 
@@ -100,8 +112,11 @@ function ProbeSettings({ gpio, value, onApply, editable }: {
 }
 
 export default function PhysicalConfiguration({ board, onBoard, overview, text, node, observed, available, editable,
-    selectedChannel, onSelect, onChange, goToLine, since, storedText, onCatalogue, selectedPin, setSelectedPin }: {
+    selectedChannel, onSelect, onChange, goToLine, since, storedText, onCatalogue, selectedPin, setSelectedPin, diagnosticsAvailable, discovery, onI2cCatalogue }: {
     board: boolean;
+    diagnosticsAvailable: boolean;
+    onI2cCatalogue?: (target: ResponseAddress & { candidates: string[] }) => void;
+    discovery: ReturnType<typeof useI2cDiscovery>;
     selectedPin?: string;
     setSelectedPin: (pin: string | undefined) => void;
     onBoard: (selected: boolean) => void;
@@ -119,6 +134,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
     storedText?: string;
     onCatalogue?: (search: string, gpsConnector?: 1 | 2) => void;
 }) {
+    const [selectedGhost, setSelectedGhost] = useState<string>();
     const [selectedDevice, setSelectedDevice] = useState<string>();
     const [probeChannel, setProbeChannel] = useState<number>();
     const [failed, setFailed] = useState(false);
@@ -128,8 +144,16 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         return () => clearInterval(timer);
     }, []);
     const devices = useMemo(() => physicalDevices(text, overview.modules), [text, overview]);
-    const positions = useMemo(() => springPositions(devices), [devices]);
-    const selected = devices.find(device => device.id === selectedDevice) ??
+    const scan = discovery.scan;
+    const responses = useMemo(() => scan?.channels.flatMap(({ channel, addresses }) =>
+        addresses.map(address => ({ channel, address }))) ?? [], [scan]);
+    const ghosts = useMemo(() => responses.filter(response => !devices.some(device => device.i2cAddress &&
+        responseKey(device.i2cAddress) === responseKey(response))).map(response => ({
+        ...response, id: `i2c:${responseKey(response)}`, connections: [`i${response.channel}`],
+    })), [responses, devices]);
+    const positions = useMemo(() => springPositions([...devices, ...ghosts]), [devices, ghosts]);
+    const ghost = ghosts.find(item => item.id === selectedGhost);
+    const selected = ghost ? undefined : devices.find(device => device.id === selectedDevice) ??
         (!selectedPin ? devices.find(device => device.module.channel === selectedChannel) : undefined);
     const point = boardEndpoints.find(endpoint => endpoint.id === selectedPin);
     const storedPins = useMemo(() => new Map(storedText ? physicalDevices(storedText, inspectNodeConfiguration(storedText, node).modules)
@@ -146,7 +170,20 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         gpio !== undefined && probeModes(gpio).length ? 'Probe' : undefined;
     const occupants = point ? devices.filter(device => device.gpio === undefined && device.connections.includes(point.id)) : [];
 
+    const selectedAddress = ghost ?? selected?.i2cAddress;
+    const target = selectedAddress && responses.find(response => responseKey(response) === responseKey(selectedAddress));
+    const identification = target && discovery.results[responseKey(target)];
+    const selectedBus = point?.id.startsWith('i') ? Number(point.id.slice(1)) : undefined;
+
+    function chooseGhost(id: string) {
+        setSelectedGhost(id);
+        setSelectedDevice(undefined);
+        setSelectedPin(undefined);
+        onSelect(undefined);
+    }
+
     function chooseDevice(device: PhysicalDevice) {
+        setSelectedGhost(undefined);
         setSelectedDevice(device.id);
         setSelectedPin(undefined);
         setFailed(false);
@@ -160,20 +197,46 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         return true;
     }
 
-    const nodes: (BoardNode | DeviceNode)[] = [{ id: 'board', type: 'board', position: { x: 0, y: 0 }, data: {
-        selected: selectedPin, select: id => { setSelectedPin(id); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
+    const nodes: (BoardNode | DeviceNode | GhostNode)[] = [{ id: 'board', type: 'board', position: { x: 0, y: 0 }, data: {
+        selected: selectedPin, select: id => { setSelectedPin(id); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
     } }];
-    const edges = devices.flatMap(device => {
+    function deviceEvidence(device: PhysicalDevice) {
+        const address = device.i2cAddress;
+        if (!address || !scan) return;
+        const key = responseKey(address);
+        const result = discovery.results[key];
+        if (result) return result.match ? `Signature matches ${result.match}` : 'Address responded · Identification inconclusive';
+        if (responses.some(response => responseKey(response) === key)) return 'Address responded';
+        if (scan.channels[address.channel]?.status === 'complete' && address.address !== scan.multiplexer) {
+            return 'No response on configured channel';
+        }
+        return 'Address not checked';
+    }
+
+    const edges: Edge[] = devices.flatMap(device => {
         const position = positions.get(device.id)!;
         const right = position.x > 0;
         nodes.push({ id: device.id, type: 'device', position, selected: selected?.id === device.id, data: {
-            device, reading: readings.get(device.id), select: () => chooseDevice(device),
+            device, reading: readings.get(device.id) ?? deviceEvidence(device), select: () => chooseDevice(device),
         } });
         return Array.from(new Set(device.connections)).filter(id => boardEndpoints.some(endpoint => endpoint.id === id))
             .map(id => ({ id: `${id}-${device.id}`, source: 'board', sourceHandle: id, target: device.id,
                 targetHandle: right ? 'left' : 'right', ariaLabel: `${boardEndpoints.find(endpoint => endpoint.id === id)!.label} to ${device.label}`,
                 style: { stroke: device.gpio === undefined ? 'var(--dw-color-primary)' : 'var(--dw-color-text)', strokeWidth: 2 } }));
     });
+
+    for (const item of ghosts) {
+        const match = discovery.results[responseKey(item)]?.match;
+        const names = candidates(item.address);
+        const label = `Detected ${hex(item.address)}`;
+        nodes.push({ id: item.id, type: 'ghost', position: positions.get(item.id)!, selected: ghost?.id === item.id, data: {
+            label, detail: match ? `Signature matches ${match}` : names.length ? `Possible: ${names.join(', ')}` : 'Unknown device',
+            select: () => chooseGhost(item.id),
+        } });
+        edges.push({ id: item.id, source: 'board', sourceHandle: item.connections[0], target: item.id, targetHandle: 'left',
+            ariaLabel: `I²C channel ${item.channel} to detected ${hex(item.address)}`,
+            style: { stroke: 'var(--dw-color-text)', strokeWidth: 2, strokeDasharray: '5 4' } });
+    }
 
     const serial = selected?.module.type === 'NMEA' ? gpsPort(text, selected.module) : undefined;
     const i2c = selected?.bus === true;
@@ -187,6 +250,20 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         </label>
         {board && <>
             <p className="dw-meta">V4 selected manually. Wires show draft assignments. Probe readings come from the running node.</p>
+            <div className="dw-toolbar mb-2">
+                <button type="button" className="btn btn-outline-secondary" disabled={!diagnosticsAvailable || !!discovery.busy}
+                    onClick={discovery.scanAll}>Scan I²C</button>
+                {!diagnosticsAvailable && <span className="dw-meta">I²C diagnostics require an available local Wi-Fi route.</span>}
+                {discovery.busy && <span role="status">{discovery.busy}</span>}
+            </div>
+            {discovery.error && <p role="alert">{discovery.error}</p>}
+            {scan && <details className="mb-2">
+                <summary>{scan.channels.filter(channel => channel.status === 'complete').length}/8 channels complete · {new Date(scan.receivedAt).toLocaleTimeString()}</summary>
+                {scan.multiplexer > 0 && <p className="dw-meta">Scanned 0x08–0x77, excluding the multiplexer at {hex(scan.multiplexer)}.</p>}
+                <ul>{scan.channels.map(({ channel, status, addresses }) => <li key={channel}>
+                    Channel {channel} · {status.replace(/-/g, ' ')} · {addresses.length ? addresses.map(hex).join(', ') : status === 'complete' ? 'No responses' : 'No confirmed responses'}
+                </li>)}</ul>
+            </details>}
             <div className="dw-config-graph" role="region" aria-label="Physical wiring graph">
                 <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="dark" fitView minZoom={0.08}
                     nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}>
@@ -196,7 +273,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
             <div className="dw-toolbar mb-2">
                 <label>Find connector
                     <select className="form-select" value={selectedPin ?? ''} onChange={event => {
-                        setSelectedPin(event.target.value || undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false);
+                        setSelectedPin(event.target.value || undefined); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false);
                     }}>
                         <option value="">Select connector</option>
                         {boardEndpoints.map(endpoint => <option key={endpoint.id} value={endpoint.id}>{endpoint.label}</option>)}
@@ -212,11 +289,43 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
                         {devices.map(device => <option key={device.id} value={device.id}>{device.label} · Channel {device.module.channel}</option>)}
                     </select>
                 </label>
+                {ghosts.length > 0 && <label>Find detected device
+                    <select className="form-select" value={ghost?.id ?? ''} onChange={event => chooseGhost(event.target.value)}>
+                        <option value="">Select detected device</option>
+                        {ghosts.map(item => <option key={item.id} value={item.id}>I²C channel {item.channel} · {hex(item.address)}</option>)}
+                    </select>
+                </label>}
             </div>
             {point && <p className="dw-meta">{point.label}{occupants.length > 0 &&
                 ` · Assigned in draft to ${occupants.map(device => `${device.label} (channel ${device.module.channel})`).join(', ')}`}</p>}
             {point && suggestedModule && onCatalogue && <button type="button" className="btn btn-outline-secondary mb-2"
                 onClick={() => onCatalogue(suggestedModule, point.id === '13' ? 1 : point.id === '16' ? 2 : undefined)}>Find {suggestedModule} in catalogue</button>}
+            {selectedBus !== undefined && scan && <p className="dw-meta">
+                Last scan: {scan.channels[selectedBus]?.status.replace(/-/g, ' ')}
+            </p>}
+            {target && <div className="dw-config-module" aria-label="I²C device evidence">
+                <strong>I²C channel {target.channel} · {hex(target.address)}</strong>
+                <p className="dw-meta">Address responded · {new Date(scan!.receivedAt).toLocaleTimeString()}</p>
+                {candidates(target.address).length > 0 && <p>Possible: {candidates(target.address).join(', ')}</p>}
+                <button type="button" className="btn btn-outline-secondary"
+                    disabled={!diagnosticsAvailable || !!discovery.busy || !canIdentify(target.address)}
+                    onClick={() => discovery.identify(target)}>Identify device</button>
+                {ghost && onI2cCatalogue && candidates(target.address).length > 0 &&
+                    <button type="button" className="btn btn-outline-secondary ms-2" onClick={() =>
+                        onI2cCatalogue({ ...target, candidates: identification?.match ? [identification.match] : candidates(target.address) })}>
+                        Review module assignment
+                    </button>}
+                {!canIdentify(target.address) && <p className="dw-meta">No reviewed register signature for this address.</p>}
+                {identification && <>
+                    <p>{identification.match ? `Signature matches ${identification.match}` : 'Identification inconclusive'}
+                        {' · '}{new Date(identification.receivedAt).toLocaleTimeString()}</p>
+                    {identification.error && <p role="alert">{identification.error}</p>}
+                    <ul>{identification.reads.map(read => <li key={read.register}>
+                        Register {hex(read.register)} · {read.status.replace(/-/g, ' ')}{read.bytes.length ? ` · ${read.bytes.map(hex).join(' ')}` : ''}
+                    </li>)}</ul>
+                    <a href={identification.source} target="_blank" rel="noreferrer">Signature datasheet</a>
+                </>}
+            </div>}
             {otherProbe && <p className="dw-meta">GPIO {gpio} also has a Probe declaration on channel {otherProbe.module.channel}.</p>}
             {selected && <div className="dw-config-module">
                 <strong>{selected.label} · Channel {selected.module.channel}</strong>

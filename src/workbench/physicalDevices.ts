@@ -1,3 +1,5 @@
+import { hex, i2cDefaults } from './i2cDiscovery';
+import type { ResponseAddress } from './i2cDiscovery';
 import type { ConfigurationOverview } from './nodeConfiguration';
 import { moduleSettings, probePinSettings } from './nodeConfiguration';
 
@@ -27,8 +29,6 @@ export const boardEndpoints = [
         .map(([x, y], bus) => endpoint(`i${bus}`, `I²C channel ${bus}`, x, y)),
 ];
 
-const i2cTypes = new Set(['ADS1015', 'BME280', 'CMPS12', 'HT16K33', 'INA219', 'INA3221', 'LSM9DS1', 'MPU6050',
-    'Rotary', 'VL53L0X', 'Wind', 'Controller', 'Joystick', 'Diagnostic', 'QMC5883L', 'HMC5883L']);
 const portPins: Record<string, string[]> = { '1': ['13', '12'], '2': ['16', '17'] };
 const gpioAliases: Record<string, string> = {
     OUT0_0: '32', OUT0_1: '33', OUT1_0: '14', OUT1_1: '15', OUT2_0: '2', OUT2_1: '4',
@@ -44,6 +44,7 @@ export interface PhysicalDevice {
     detail: string;
     gpio?: number;
     bus?: boolean;
+    i2cAddress?: ResponseAddress;
     mode?: string;
 }
 
@@ -66,12 +67,17 @@ export function physicalDevices(text: string, modules: Module[]): PhysicalDevice
                 mode: values.length === 1 ? values[0] : undefined,
             }));
         }
-        if (i2cTypes.has(type)) {
+        if (Object.prototype.hasOwnProperty.call(i2cDefaults, type)) {
             const values = settings.get('bus') ?? ['0'];
             const bus = values.length === 1 && /^ *[0-7] *$/.test(values[0]) ? String(Number(values[0])) : undefined;
-            const address = settings.get('addr')?.[0];
+            const addresses = settings.get('addr');
+            const raw = addresses?.length === 1 ? addresses[0] : undefined;
+            const numeric = raw && /^\d+$/.test(raw.trim()) ? Number(raw) : undefined;
+            const address = addresses ? numeric : i2cDefaults[type];
+            const target = bus !== undefined && address !== undefined && address >= 8 && address <= 119 ?
+                { channel: Number(bus), address } : undefined;
             return [{ ...device(bus === undefined ? [] : [`i${bus}`], bus === undefined ? 'Check bus in Code' :
-                `I²C channel ${bus}${address ? ` · address ${address}` : ''}`), bus: true }];
+                `I²C channel ${bus}${target ? ` · ${hex(target.address)}` : ' · Check address in Code'}`), bus: true, i2cAddress: target }];
         }
         if (pinTypes.has(type)) {
             const values = settings.get('pin') ?? settings.get('pins');
@@ -82,7 +88,7 @@ export function physicalDevices(text: string, modules: Module[]): PhysicalDevice
     });
 }
 
-export function springPositions(devices: PhysicalDevice[]) {
+export function springPositions(devices: Pick<PhysicalDevice, 'id' | 'connections'>[]) {
     // Work in columns outside the board. Each card is pulled toward its
     // connector height and pushed away from neighboring cards.
     const columns: { id: string; anchor: number; y: number }[][] = [[], []];

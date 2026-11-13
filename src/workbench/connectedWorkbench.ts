@@ -178,7 +178,7 @@ export function useConnectedWorkbench(domainId?: string) {
     async function fileRequest<T>(node: number, endpoint: string, options?: RequestInit, path?: string): Promise<T> {
         const selected = transport(node);
         if (!activePair?.fileBackups || !access || !usesLocal(node) || !selected) throw new Error('The selected local route is unavailable.');
-        const signal = AbortSignal.timeout(135000);
+        const signal = options?.signal ?? AbortSignal.timeout(135000);
         const grant = await access.token(signal);
         if (livePair.current !== activePair || currentPath.current?.(node) !== selected) throw new Error('The selected local route changed.');
         const params = new URLSearchParams({ transport: selected });

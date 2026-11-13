@@ -240,6 +240,8 @@ Use **Physical** and select **DroneLink V4** to open the legacy board diagram wi
 
 To configure a pin, add **Probe** from the catalogue if needed, choose a GPIO and set its mode in the draft. Select a baud for Serial. Upload and Restart separately to run the changed configuration. The diagram shows recent results from the selected local node and transport when the stored pin declaration agrees with the draft mode. A draft assignment and a running Probe's report are different sources of evidence. See the [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
 
+In **Physical**, choose **Scan I²C** to check all multiplexer channels on the selected local Wi-Fi node. An acknowledgement annotates a matching draft device or creates a dashed detected device on that channel. Select a responding address and use **Identify device** when a reviewed register signature is available. The result shows the raw register data, time and any match or failure.
+
 ### Connected Workbench
 
 Open the active hosted Domain and select **Connect local gateway**. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)

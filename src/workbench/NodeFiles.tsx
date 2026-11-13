@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
+import { useI2cDiscovery } from './i2cDiscovery';
 import type { NodeState } from '../dronelink/DroneLinkState';
 import type { Ace } from 'ace-builds';
 import { Folder2Open, ThreeDots } from 'react-bootstrap-icons';
@@ -10,9 +11,10 @@ import useNarrowLayout from '../components/ui/useNarrowLayout';
 import { CloudFile, CloudFileEntry, cloudNodeFiles } from './cloudNodeFiles';
 import { authenticatedFetchJson } from '../utils/api';
 import ConfigurationOverview from './ConfigurationOverview';
+import type { Starter } from './nodeConfiguration';
 import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
 import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
-import type { Catalogue, Starter } from './ModuleCatalogue';
+import type { Catalogue } from './ModuleCatalogue';
 import { Transport, transportLabel } from './useWorkbenchFeed';
 
 const PhysicalConfiguration = React.lazy(() => import('./PhysicalConfiguration'));
@@ -58,6 +60,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
     const [picker, setPicker] = useState(false);
     const [view, setView] = useState<'logical' | 'physical' | 'code'>('logical');
     const [gpsConnector, setGpsConnector] = useState<1 | 2>();
+    const [i2cStarter, setI2cStarter] = useState<{ channel: number; address: number; candidates: string[] }>();
     const [catalogueSearch, setCatalogueSearch] = useState('');
     const [catalogueOpen, setCatalogueOpen] = useState(false);
     const [catalogueLoading, setCatalogueLoading] = useState(false);
@@ -208,14 +211,22 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         return body as T;
     }
 
+    const diagnosticScope = JSON.stringify([node, transport, available, domainId, showingCloud, probeSince]);
+    const diagnosticRequest = available && !busy && !readOnly && !showingCloud && transport === 'wifi' && (!domainId || !!remote)
+        ? <T,>(endpoint: string, body: object, signal: AbortSignal) => request<T>(endpoint, { method: 'POST', body: JSON.stringify(body), signal })
+        : undefined;
+
+    const i2cDiscovery = useI2cDiscovery(diagnosticScope, diagnosticRequest);
+
     function clearCatalogue() {
         catalogueRequest.current++;
         setCatalogueLoading(false);
         setCatalogueResult(undefined);
     }
 
-    function openCatalogue(search = '', connector?: 1 | 2) {
+    function openCatalogue(search = '', connector?: 1 | 2, i2c?: typeof i2cStarter) {
         setGpsConnector(connector);
+        setI2cStarter(i2c);
         setCatalogueSearch(search);
         setCatalogueOpen(true);
         void loadCatalogue();
@@ -240,7 +251,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
 
     function addModule(type: Starter) {
         if (!canAddModule || !catalogue?.entries.some(entry => entry.type === type && entry.support === 'supported')) return;
-        const edit = appendStarter(draftText, node, type, gpsConnector);
+        const edit = appendStarter(draftText, node, type, gpsConnector, i2cStarter);
         if (!edit) {
             setCatalogueOpen(false);
             setFeedback({ text: 'The starter could not fit in the node’s 8 KiB configuration file.', error: true });
@@ -497,7 +508,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                     {editable && <button type="button" className="btn btn-sm" disabled={busy}
                         onClick={() => openCatalogue()}>Add module</button>}
                 </div>}
-                {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} catalogue={catalogue} loading={catalogueLoading}
+                {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} i2c={i2cStarter} catalogue={catalogue} loading={catalogueLoading}
                     canAdd={canAddModule} onRetry={() => void loadCatalogue()} onClose={() => setCatalogueOpen(false)} onAdd={addModule} />}
                 <div hidden={!!overview && view !== 'code'}>
                 {highlighted ? <Suspense fallback={plainEditor}><ConfigurationEditor key={`${source}:${current.path}`}
@@ -513,11 +524,12 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                     </li>)}</ul>
                 </details>}
                 {overview && view === 'physical' && <Suspense fallback={<p role="status">Loading motherboard view…</p>}>
-                    <PhysicalConfiguration key={`${node}:${source}`} board={boardNode === node} onBoard={selected => setBoardNode(selected ? node : undefined)}
+                    <PhysicalConfiguration key={diagnosticScope} diagnosticsAvailable={!!diagnosticRequest} discovery={i2cDiscovery} board={boardNode === node} onBoard={selected => setBoardNode(selected ? node : undefined)}
                         overview={overview} text={draftText} node={node} observed={showingCloud ? undefined : observed}
                         available={available && !showingCloud} editable={canGuide}
                         selectedChannel={selectedModule} onSelect={setSelectedModule} onChange={text => setCurrentDraft(editorText(text))}
-                        selectedPin={selectedPin} setSelectedPin={setSelectedPin} goToLine={openCodeAtLine} onCatalogue={editable && !busy ? openCatalogue : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
+                        selectedPin={selectedPin} setSelectedPin={setSelectedPin} goToLine={openCodeAtLine} onCatalogue={editable && !busy ? openCatalogue : undefined}
+                        onI2cCatalogue={canGuide ? target => openCatalogue('', undefined, target) : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
                 </Suspense>}
                 {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
