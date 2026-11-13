@@ -1,4 +1,4 @@
-import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
+import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
 import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
 import { channelVisualization, moduleSummaries, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
@@ -78,3 +78,17 @@ test.each([[72, '-72 dBm'], [0, '0 dBm'], [101, '—'], [-1, '—'], [NaN, '—'
         expect(summary && 'columns' in summary && summary.signal).toEqual(signal);
     }
 );
+
+test.each([[0, 'Clear'], [1, 'Triggered'], [2, '—']])('INA219 keeps the device alarm %s independent of display thresholds', (alarm, text) => {
+    const observed = channel(6, 0);
+    observed.params[16] = { ...observed.params[15], param: 16, msgType: DRONE_LINK_MSG_TYPE_UINT8_T, bytesPerValue: 1, values: [alarm], source: 'Local' };
+    observed.params[19] = { ...observed.params[15], param: 19, values: [0] };
+    const summary = channelVisualization(observed)?.inspector?.(observed, thresholds);
+    expect(summary).toMatchObject({
+        primary: [{ voltageDial: 0, severity: 'danger' }],
+        supporting: expect.arrayContaining([
+            expect.objectContaining({ label: 'Device alarm', text, reading: observed.params[16] }),
+            expect.objectContaining({ label: 'Usage', text: '0.00 Ah' })
+        ])
+    });
+});

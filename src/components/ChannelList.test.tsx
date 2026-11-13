@@ -132,7 +132,9 @@ test('supported channels open to their own observed readings and expose the save
             12: reading(12, DRONE_LINK_MSG_TYPE_FLOAT, [-0.25]),
             13: reading(13, DRONE_LINK_MSG_TYPE_FLOAT, [2]),
             14: reading(14, DRONE_LINK_MSG_TYPE_FLOAT, [7.5]),
-            15: reading(15, DRONE_LINK_MSG_TYPE_FLOAT, [3.75])
+            15: reading(15, DRONE_LINK_MSG_TYPE_FLOAT, [3.75]),
+            16: reading(16, DRONE_LINK_MSG_TYPE_UINT8_T, [1]),
+            19: reading(19, DRONE_LINK_MSG_TYPE_FLOAT, [-0.5])
         })
     })));
     const summary = (id: number) => within(screen.getByLabelText(`Observed readings for channel ${id}`));
@@ -145,10 +147,11 @@ test('supported channels open to their own observed readings and expose the save
     const heading = summary(4).getAllByRole('term')[0];
     expect(heading).toHaveTextContent('Heading');
     expect(heading).toHaveClass('visually-hidden');
-    for (const value of ['3.75 V', '7.50 V', '-0.25 A', '2.00 W']) expect(summary(6).getByText(value)).toBeVisible();
+    for (const value of ['3.75 V', '7.50 V', '-0.25 A', '2.00 W', 'Triggered', '-0.50 Ah']) expect(summary(6).getByText(value)).toBeVisible();
     const voltage = summary(6).getAllByRole('term')[0];
     expect(voltage).toHaveTextContent('Cell voltage');
     expect(voltage).not.toHaveClass('visually-hidden');
+    expect(summary(6).getByText(/Voltage scale from 0 to 5 volts/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Channel 4 reading details' }));
     const details = within(screen.getByRole('dialog', { name: 'Channel 4 reading details' }));
     expect(details.getByText(/^7>4\.10 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
@@ -168,7 +171,7 @@ test('invalid readings stay unavailable and view choice follows the channel only
     const nodes = { 7: a, 11: b };
     const view = render(session(a, nodes));
     const controls = () => within(screen.getByRole('group', { name: 'View for channel 4' }));
-    for (const [id, count] of [[4, 4], [6, 4], [7, 3]]) {
+    for (const [id, count] of [[4, 4], [6, 6], [7, 3]]) {
         const fields = screen.getByLabelText(`Observed readings for channel ${id}`);
         expect(within(fields).getAllByText(/Unavailable$/)).toHaveLength(count);
     }

@@ -5,13 +5,15 @@ import { SummaryDetails } from './NodeSummary';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
+import CellVoltageDial from './CellVoltageDial';
 
 function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boolean }) {
     const bearing = summary.bearing;
     const hasCompass = bearing !== undefined;
+    const volts = summary.voltageDial;
     return <div className={primary ? 'dw-summary-primary' : 'dw-summary-supporting'}
         data-severity={summary.severity ?? 'neutral'} data-unavailable={summary.unavailable || undefined}
-        data-graphic={hasCompass || undefined}>
+        data-graphic={volts !== undefined ? 'voltage' : hasCompass ? 'compass' : undefined}>
         <dt className={hasCompass ? 'visually-hidden' : 'dw-meta'}>{summary.label}</dt>
         <dd>
             {hasCompass && <span className="dw-heading-compass" aria-hidden="true">
@@ -20,7 +22,7 @@ function Reading({ summary, primary }: { summary: ObservedSummary; primary?: boo
             </span>}
             {summary.severity === 'warning' && <ExclamationTriangle aria-hidden="true" />}
             {summary.severity === 'danger' && <ExclamationOctagon aria-hidden="true" />}
-            {summary.lines ? <span className="dw-summary-lines">
+            {volts !== undefined ? <CellVoltageDial volts={volts} text={summary.text} /> : summary.lines ? <span className="dw-summary-lines">
                 {summary.lines.map(line => <span key={line}>{line}</span>)}
             </span> : <span>{summary.text}</span>}
             {summary.status && <span className="visually-hidden"> · {summary.status}</span>}
@@ -52,7 +54,8 @@ export default function ChannelSummary({ channelId, summary, sampleScope }: { ch
         </>;
     }
     const layout = summary.primary.length === 1 ? 'lead' : 'rows';
-    return <dl className="dw-channel-summary" data-layout={layout} aria-label={label}>
+    const leadRows = { '--dw-summary-rows': Math.max(1, summary.supporting.length) } as React.CSSProperties;
+    return <dl className="dw-channel-summary" data-layout={layout} style={leadRows} aria-label={label}>
         {summary.primary.map(reading => <Reading key={reading.parameterId} summary={reading} primary />)}
         {summary.supporting.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
     </dl>;

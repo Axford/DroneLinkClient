@@ -116,12 +116,13 @@
 @container (min-width: 320px) {
     .dw-channel-summary[data-layout="lead"] > .dw-summary-primary {
         grid-column: 1;
-        grid-row: 1 / span 3;
+        grid-row: 1 / span var(--dw-summary-rows, 3);
         align-content: center;
         padding: var(--dw-space-3);
     }
     .dw-channel-summary[data-layout="lead"] > .dw-summary-supporting { grid-column: 2; }
 }
+.dw-channel-summary > [data-graphic="voltage"] { text-align: center; }
 .dw-channel-summary > [data-graphic] { display: grid; align-content: center; }
 .dw-channel-summary > [data-graphic] dd {
     display: grid;

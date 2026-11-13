@@ -14,6 +14,7 @@ export interface ObservedSummary {
     unavailable?: boolean;
     binding?: MapBinding;
     bearing?: number;
+    voltageDial?: number;
     lines?: string[];
 }
 
@@ -71,8 +72,7 @@ function quantity(channel: ChannelState, parameterId: number, label: string, uni
     return field(channel, parameterId, label, value === undefined ? undefined : `${value.toFixed(decimals)} ${unit}`);
 }
 
-function cellVoltage(channel: ChannelState, thresholds?: VoltageThresholds | null): ObservedSummary {
-    const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
+function cellVoltage(channel: ChannelState, volts: number | undefined, thresholds?: VoltageThresholds | null): ObservedSummary {
     const summary = field(channel, 15, 'Cell voltage', volts === undefined ? undefined : `${volts.toFixed(2)} V`);
     if (volts === undefined || !thresholds) return summary;
     if (volts < thresholds.redBelow) return { ...summary, severity: 'danger', status: `Below red threshold (${thresholds.redBelow} V)` };
@@ -193,14 +193,21 @@ const visualizations = new Map<string, ModuleVisualization>([
             }
         },
         overlay(channel, thresholds) {
-            const cell = cellVoltage(channel, thresholds);
+            const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const cell = cellVoltage(channel, volts, thresholds);
             return { ...cell, text: `Cell ${cell.text}` };
         },
         inspector(channel, thresholds) {
+            const volts = numericValue(channel.params[15], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const alarm = numericValue(channel.params[16], [DRONE_LINK_MSG_TYPE_UINT8_T]);
             return {
-                primary: [cellVoltage(channel, thresholds)],
+                primary: [{
+                    ...cellVoltage(channel, volts, thresholds),
+                    voltageDial: volts !== undefined && volts >= 0 ? volts : undefined
+                }],
                 supporting: [quantity(channel, 14, 'Load voltage', 'V', 2), quantity(channel, 12, 'Current', 'A', 2),
-                    quantity(channel, 13, 'Power', 'W', 2)]
+                    quantity(channel, 13, 'Power', 'W', 2), quantity(channel, 19, 'Usage', 'Ah', 2),
+                    field(channel, 16, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)]
             };
         }
     }],

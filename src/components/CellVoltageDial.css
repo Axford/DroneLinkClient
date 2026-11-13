@@ -1,0 +1,19 @@
+.dw-voltage-dial {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    inline-size: min(100%, 128px);
+}
+
+.dw-voltage-dial svg,
+.dw-voltage-dial-value { grid-area: 1 / 1; }
+
+.dw-voltage-dial svg { width: 100%; }
+.dw-voltage-dial path { fill: none; stroke-width: 4; }
+.dw-voltage-dial-track { stroke: var(--dw-color-muted); }
+.dw-voltage-dial-reading { stroke: var(--dw-color-instrument-reading); }
+.dw-voltage-dial-value { font-size: var(--dw-font-size-heading); }
+.dw-voltage-dial-note { text-align: center; }
+.dw-voltage-dial-scale { display: flex; justify-content: space-between; }
+.dw-channel-summary > :is([data-severity="warning"], [data-severity="danger"]) :is(.dw-voltage-dial-scale, .dw-voltage-dial-note) { color: var(--dw-color-text); }
