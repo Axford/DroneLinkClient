@@ -9,6 +9,7 @@ import MapContextMenu from './MapContextMenu';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
+import { windLines } from '../dronelink/windLines';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './ObservedMap.css';
@@ -26,22 +27,17 @@ function positionDescription(position: ObservedPosition, label: string, now: num
   return `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · ${label}`;
 }
 
-const bearingOverlays = {
-  heading: { className: 'dw-map-heading', label: 'Last-known heading' },
-  wind: { className: 'dw-map-wind', label: 'Last-known wind bearing' }
-} as const;
-type BearingRole = keyof typeof bearingOverlays;
-const bearingRoles: BearingRole[] = ['heading', 'wind'];
+const windLayerId = 'dw-wind-lines';
 
-function updateBearingMarker(marker: mapboxgl.Marker | undefined, bearing: ObservedBearing | undefined,
-  role: BearingRole, coordinates: ObservedPosition['coordinates'], map: mapboxgl.Map) {
+function updateHeadingMarker(marker: mapboxgl.Marker | undefined, bearing: ObservedBearing | undefined,
+  coordinates: ObservedPosition['coordinates'], map: mapboxgl.Map) {
   if (!bearing) {
     marker?.remove();
     return;
   }
   if (!marker) {
     const element = document.createElement('span');
-    element.className = bearingOverlays[role].className;
+    element.className = 'dw-map-heading';
     element.setAttribute('aria-hidden', 'true');
     marker = new mapboxgl.Marker({ element, rotationAlignment: 'map' }).setLngLat(coordinates).addTo(map);
   }
@@ -49,14 +45,20 @@ function updateBearingMarker(marker: mapboxgl.Marker | undefined, bearing: Obser
   return marker;
 }
 
+function bearingDescription(nodeId: number, label: string, { degrees, binding }: ObservedBearing, now: number) {
+  return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
+}
+
 export default function ObservedMap({ token, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const [windSource, setWindSource] = useState<mapboxgl.GeoJSONSource>();
   const markers = useRef(new Map<number, {
     marker: mapboxgl.Marker;
     button: HTMLButtonElement;
-    bearings: Partial<Record<BearingRole, mapboxgl.Marker>>;
+    label: HTMLSpanElement;
+    heading?: mapboxgl.Marker;
   }>());
   const secondaryMarkers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
@@ -74,7 +76,8 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   }, []);
 
   useEffect(() => {
-    if (!token || !user || !container.current) return;
+    const mapContainer = container.current;
+    if (!token || !user || !mapContainer) return;
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
     let current: mapboxgl.Map | undefined;
     let resizeObserver: ResizeObserver | undefined;
@@ -85,13 +88,22 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     try {
       mapboxgl.accessToken = token;
       const saved = viewState?.current || user.mapState || { lng: -1.804, lat: 51.575, zoom: 17.5 };
-      current = new mapboxgl.Map({ container: container.current,
+      current = new mapboxgl.Map({ container: mapContainer,
         style: 'mapbox://styles/axford/cm0bi93ot00qj01ph7m580lku', center: [saved.lng, saved.lat], zoom: saved.zoom });
       map.current = current; setMapReady(true);
+      const activeMap = current;
+      activeMap.on('style.load', () => {
+        activeMap.addSource(windLayerId, { type: 'geojson', data: windLines([]) });
+        activeMap.addLayer({
+          id: windLayerId, source: windLayerId, type: 'line',
+          paint: { 'line-color': getComputedStyle(mapContainer).getPropertyValue('--dw-color-accent').trim() || '#82b7ff', 'line-width': 3 }
+        });
+        setWindSource(activeMap.getSource<mapboxgl.GeoJSONSource>(windLayerId));
+      });
       current.addControl(new mapboxgl.NavigationControl(), 'top-right');
       if (typeof ResizeObserver !== 'undefined') {
         resizeObserver = new ResizeObserver(() => current?.resize());
-        resizeObserver.observe(container.current);
+        resizeObserver.observe(mapContainer);
       }
       current.on('error', event => { console.error('Map rendering failed:', event.error); setMapError(true); });
       current.on('movestart', () => setCameraRevision(revision => revision + 1));
@@ -109,16 +121,20 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     } catch (error) { console.error('Map initialization failed:', error); setMapError(true); }
     return () => {
       clearTimeout(saveTimer); controller.abort(); resizeObserver?.disconnect();
-      ownedMarkers.forEach(({ marker, bearings }) => {
+      ownedMarkers.forEach(({ marker, heading }) => {
         marker.remove();
-        Object.values(bearings).forEach(overlay => overlay?.remove());
+        heading?.remove();
       });
       ownedMarkers.clear();
       ownedSecondaryMarkers.forEach(({ marker }) => marker.remove()); ownedSecondaryMarkers.clear();
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
-      current?.remove(); map.current = null; setMapReady(false);
+      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined);
     };
   }, [token, user, viewState]);
+
+  useEffect(() => {
+    windSource?.setData(windLines(mapError ? [] : positions));
+  }, [windSource, positions, mapError]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -126,7 +142,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     for (const [id, entry] of Array.from(markers.current)) {
       if (!visible.has(id)) {
         entry.marker.remove();
-        Object.values(entry.bearings).forEach(overlay => overlay?.remove());
+        entry.heading?.remove();
         markers.current.delete(id);
       }
     }
@@ -135,22 +151,22 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       if (!entry) {
         const button = document.createElement('button');
         button.dataset.mapNode = String(position.nodeId);
-        button.type = 'button'; button.setAttribute('role', 'button'); button.className = 'btn btn-primary btn-sm dw-map-marker';
+        button.type = 'button'; button.setAttribute('role', 'button'); button.className = 'dw-map-marker';
+        const label = document.createElement('span');
+        label.className = 'dw-map-node-label';
+        button.append(label);
         button.addEventListener('click', () => select.current(position.nodeId));
-        entry = { button, bearings: {}, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(map.current) };
+        entry = { button, label, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(map.current) };
         markers.current.set(position.nodeId, entry);
       }
       entry.marker.setLngLat(position.coordinates);
-      entry.button.textContent = position.name;
+      entry.label.textContent = position.name;
       entry.button.setAttribute('aria-pressed', String(position.nodeId === selectedNodeId));
       let description = positionDescription(position, 'Last-known position', now);
-      for (const role of bearingRoles) {
-        const bearing = mapError ? undefined : position[role];
-        entry.bearings[role] = updateBearingMarker(entry.bearings[role], bearing, role, position.coordinates, map.current);
-        if (!bearing) continue;
-        const { degrees, binding } = bearing;
-        description += ` · ${bearingOverlays[role].label} ${degrees}° · Binding ${position.nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
-      }
+      const heading = mapError ? undefined : position.heading;
+      entry.heading = updateHeadingMarker(entry.heading, heading, position.coordinates, map.current);
+      if (heading) description += bearingDescription(position.nodeId, 'Last-known heading', heading, now);
+      if (position.wind && !mapError) description += bearingDescription(position.nodeId, 'Last-known wind bearing', position.wind, now);
       entry.button.title = description; entry.button.setAttribute('aria-label', description);
     }
   }, [positions, now, token, user, selectedNodeId, mapReady, mapError]);
@@ -217,8 +233,8 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       cameraRevision={cameraRevision} unproject={point => map.current?.isMoving() ? undefined : map.current?.unproject(point)} now={now} />
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
-      <p>The arrow shows the last-known heading when available. Heading and position can come from different sources and have different receipt times.</p>
-      <p>The blue chevron below the marker shows the last-known wind bearing from a wing sensor when available.</p>
+      <p>The chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
+      <p>A blue line extends 10 metres from the node in the last-known wind bearing from its wing sensor.</p>
       <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
       <p>Observations remain available in the inspector when the map is unavailable.</p>
     </SurfacePanel></SettingsDialog>

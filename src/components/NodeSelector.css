@@ -17,5 +17,4 @@
 .dw-node-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .dw-node-age { flex-shrink: 0; margin-left: auto; padding-inline: var(--dw-space-1); border-radius: var(--dw-radius-small); background: var(--dw-color-control); color: var(--dw-color-text); font-size: var(--dw-font-size-meta); font-weight: normal; }
 .dw-node-list-empty { padding: var(--dw-space-2); }
-.dw-map-marker[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--dw-color-text); }
 @media (max-width: 767px) { .dw-node-list { width: min(224px, calc(100% - var(--dw-space-8) - var(--dw-space-6))); max-height: calc(100% - 112px); } .dw-node-list-header .dw-meta { max-height: 40px; overflow: auto; } }
