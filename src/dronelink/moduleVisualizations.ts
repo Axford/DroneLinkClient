@@ -22,7 +22,13 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary;
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] };
+
+interface PowerInputSummary {
+    label: string;
+    voltage: ObservedSummary;
+    readings: ObservedSummary[];
+}
 
 interface PacketTelemetrySummary {
     columns: { label: string; count?: string; rate?: string }[];
@@ -154,7 +160,39 @@ function rfm69Signal(channel: ChannelState): ObservedSummary {
 
 const rfm69Packets = new PacketTelemetryRenderer({ countsParameter: 9, ratesParameter: 10 });
 
+function powerInputValue(reading: ParameterState | undefined, type: number, index: number): number | undefined {
+    if (!hasReading(reading) || reading.msgType !== type || reading.numValues !== 3 || reading.values.length !== 3) return;
+    const value = reading.values[index];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+}
+
+function ina3221Inputs(channel: ChannelState): PowerInputSummary[] {
+    const quantities = [
+        { id: 14, label: 'Load voltage', unit: 'V' },
+        { id: 12, label: 'Current', unit: 'A' },
+        { id: 13, label: 'Power', unit: 'W' },
+        { id: 20, label: 'Usage', unit: 'Ah' }
+    ];
+    return [0, 1, 2].map(index => {
+        const volts = powerInputValue(channel.params[15], DRONE_LINK_MSG_TYPE_FLOAT, index);
+        const alarm = powerInputValue(channel.params[16], DRONE_LINK_MSG_TYPE_UINT8_T, index);
+        const readings = quantities.map(({ id, label, unit }) => {
+            const value = powerInputValue(channel.params[id], DRONE_LINK_MSG_TYPE_FLOAT, index);
+            return field(channel, id, label, value === undefined ? undefined : `${value.toFixed(2)} ${unit}`);
+        });
+        return {
+            label: `Input ${index + 1}`,
+            voltage: {
+                ...cellVoltage(channel, volts),
+                voltageDial: volts !== undefined && volts >= 0 ? volts : undefined
+            },
+            readings: [...readings, field(channel, 16, 'Device alarm', alarm === 1 ? 'Triggered' : alarm === 0 ? 'Clear' : undefined)]
+        };
+    });
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['INA3221', { inspector: channel => ({ inputs: ina3221Inputs(channel) }) }],
     ['RFM69Telemetry', {
         overlay: rfm69Signal,
         inspector(channel) {

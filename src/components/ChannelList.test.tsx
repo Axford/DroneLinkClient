@@ -269,3 +269,35 @@ test('UDPTelemetry shares the packet layout while keeping transport mappings and
     fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 4' })).getByRole('button', { name: 'Parameters' }));
     expect(screen.getByRole('article', { name: 'Parameter 11>4.10' })).toBeVisible();
 });
+
+test('INA3221 aligns the readings of each input and keeps provenance on the source vectors', () => {
+    const power = specialist(6, 'INA3221', {
+        12: reading(12, DRONE_LINK_MSG_TYPE_FLOAT, [1.25, 0, -0.92]),
+        13: reading(13, DRONE_LINK_MSG_TYPE_FLOAT, [14.6, 5.7]),
+        14: reading(14, DRONE_LINK_MSG_TYPE_FLOAT, [11.7, 11.9, 11.3]),
+        15: reading(15, DRONE_LINK_MSG_TYPE_FLOAT, [3.9, 0, 5.25]),
+        16: reading(16, DRONE_LINK_MSG_TYPE_UINT8_T, [0, 1, 2]),
+        20: { ...reading(20, DRONE_LINK_MSG_TYPE_FLOAT, [214, 79, -132]), lastHeard: 2000, source: 'HTTP' }
+    });
+    render(session(node(7, { 6: power })));
+    const summary = within(screen.getByLabelText('Observed readings for channel 6'));
+    const input = (number: number) => within(summary.getByRole('group', { name: `Input ${number}` }));
+    expect(summary.getAllByRole('group').map(group => group.getAttribute('aria-label'))).toEqual(['Input 1', 'Input 2', 'Input 3']);
+    for (const [number, values] of [
+        [1, ['3.90 V', '11.70 V', '1.25 A', '214.00 Ah', 'Clear']],
+        [2, ['0.00 V', '11.90 V', '0.00 A', '79.00 Ah', 'Triggered']],
+        [3, ['5.25 V', '11.30 V', '-0.92 A', '-132.00 Ah', 'Above scale']]
+    ] as const) {
+        for (const value of values) expect(input(number).getByText(value, { exact: true })).toBeVisible();
+        expect(input(number).getByText('Power').nextElementSibling).toHaveTextContent('Unavailable');
+    }
+    expect(input(3).getByText('Device alarm').nextElementSibling).toHaveTextContent('Unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'Channel 6 reading details' }));
+    const details = within(screen.getByRole('dialog', { name: 'Channel 6 reading details' }));
+    const second = within(details.getByRole('group', { name: 'Input 2' }));
+    expect(second.getByText(/^7>6\.15 · Gateway 254/)).toHaveTextContent(new Date(1000).toLocaleString());
+    expect(second.getByText(/^7>6\.20 · HTTP/)).toHaveTextContent(new Date(2000).toLocaleString());
+    fireEvent.click(details.getByRole('button', { name: 'Close Channel 6 reading details' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'View for channel 6' })).getByRole('button', { name: 'Parameters' }));
+    expect(screen.getByRole('article', { name: 'Parameter 7>6.15' })).toBeVisible();
+});

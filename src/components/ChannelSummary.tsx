@@ -42,6 +42,17 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('inputs' in summary) {
+        return <section className="dw-power-inputs" aria-label={label}>
+            {summary.inputs.map(input => <section className="dw-power-input" key={input.label} role="group" aria-label={input.label}>
+                <h3 className="dw-meta">{input.label}</h3>
+                <dl className="dw-channel-summary dw-power-input-readings">
+                    <Reading summary={input.voltage} primary />
+                    {input.readings.map(reading => <Reading key={reading.parameterId} summary={reading} />)}
+                </dl>
+            </section>)}
+        </section>;
+    }
     if ('columns' in summary) {
         return <>
             <dl className="dw-channel-summary" data-layout="columns" aria-label={label}>
@@ -70,7 +81,11 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary }: { nodeId: 
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
             {'columns' in summary && summary.note && <p className="dw-meta">{summary.note}</p>}
-            <SummaryDetails nodeId={nodeId} summaries={'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />
+            {'inputs' in summary ? summary.inputs.map(input => <section key={input.label} role="group" aria-label={input.label}>
+                <h3 className="dw-meta mt-2">{input.label}</h3>
+                <SummaryDetails nodeId={nodeId} summaries={[input.voltage, ...input.readings]} now={Date.now()} />
+            </section>) : <SummaryDetails nodeId={nodeId}
+                summaries={'details' in summary ? summary.details : [...summary.primary, ...summary.supporting]} now={Date.now()} />}
         </SettingsDialog>
     </>;
 }
