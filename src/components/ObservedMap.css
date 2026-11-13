@@ -1,6 +1,6 @@
 .dw-map-heading {
-  width: var(--dw-space-5);
-  height: var(--dw-space-5);
+  width: var(--dw-icon-size);
+  height: var(--dw-icon-size);
   margin-top: calc(-1 * var(--dw-space-6));
   pointer-events: none;
 }
