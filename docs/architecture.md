@@ -195,6 +195,10 @@ The INA3221 Summary presents the firmware's three ordered input slots, each with
 
 Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
 
+### Proa steering and wind profiles
+
+Proa rotates its shared polar and speed profiles by live wind. Heading rotates the vessel drawing and its observed steering. The wing output maps to ±90° and the two pontoon outputs to ±120°. Course over water is already vessel-relative. The target frame adds the observed offset to course. Parameter 29 reports passive/active operation, while the fourth debug value at 30 reports Normal, Brake or Run. Missing inputs omit their marks and retain independent receipt provenance in Reading Details.
+
 ### Sailor marine dial
 
 Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the fifth byte may not reflect the current manoeuvre. Reading Details retains each observation receipt.

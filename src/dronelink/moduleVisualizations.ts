@@ -30,13 +30,22 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface ProaSummary {
+    proaBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'frame', ObservedSummary>;
+    steering: Record<'wing' | 'left' | 'right' | 'bow', ObservedSummary>;
+    polar?: number[];
+    speeds: [number[] | undefined, number[] | undefined];
+    context: ObservedSummary[];
+    details: ObservedSummary[];
+}
 
 export interface SailorSummary {
     sailBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'courseWind' | 'wing', ObservedSummary>;
@@ -832,7 +841,66 @@ function sailorSummary(channel: ChannelState): SailorSummary {
     };
 }
 
+function proaSummary(channel: ChannelState): ProaSummary {
+    const readFloat = (id: number) => numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const degrees = (value: number) => `${Math.round(value)}°`;
+    const angle = (id: number, label: string, bearing?: number) =>
+        ({ ...field(channel, id, label, bearing === undefined ? undefined : degrees(bearing)), bearing });
+    const wrap = (value: number) => ((value % 360) + 360) % 360;
+    const courseValue = readFloat(16);
+    const course = angle(16, 'Course', courseValue === undefined ? undefined : wrap(courseValue));
+    const offset = readFloat(28);
+    const frame = course.bearing !== undefined && offset !== undefined
+        ? wrap(course.bearing + offset) : undefined;
+    const proaBearings = {
+        heading: bearingReading(channel, 10, 'Heading'),
+        target: signedBearingReading(channel, 8, 'Target'),
+        course, wind: bearingReading(channel, 12, 'Wind'),
+        frame: angle(28, 'Target frame', frame)
+    };
+    const servo = (id: number, label: string, range: number) => {
+        const output = readFloat(id);
+        return angle(id, label, output !== undefined && Math.abs(output) <= 1 ? output * range : undefined);
+    };
+    const cow = readFloat(24);
+    const steering = {
+        wing: servo(17, 'Wing', 90), left: servo(22, 'Left pontoon', 120), right: servo(23, 'Right pontoon', 120),
+        bow: angle(24, 'Course over water', cow !== undefined && Math.abs(cow) <= 360 ? cow : undefined)
+    };
+    const flags = byteArray(channel.params[21], 3);
+    const flag = (index: number, label: string, states: [string, string]) =>
+        field(channel, 21, label, flags && states[flags[index]]);
+    const tack = flag(0, 'Tack', ['Port', 'Starboard']);
+    const lock = flag(1, 'Tack locked', ['No', 'Yes']);
+    const lastTrack = flag(2, 'Last cross-track positive', ['No', 'Yes']);
+    const mode = byteArray(channel.params[29], 1)?.[0];
+    const operation = field(channel, 29, 'Operation', mode === 0 ? 'Passive' : mode === 1 ? 'Active' : undefined);
+    const debug = observedFloatVector(channel.params[30], 4);
+    const control = field(channel, 30, 'Control', debug && ['Normal', 'Brake', 'Run'][debug[3]]);
+    const crossTrack = field(channel, 14, 'Cross-track', readFloat(14)?.toFixed(1));
+    const polar = byteArray(channel.params[18], 16);
+    const speeds: ProaSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
+    return {
+        proaBearings, steering, polar, speeds,
+        context: [crossTrack, tack, lock, lastTrack, operation, control],
+        details: [
+            proaBearings.heading, proaBearings.target, course, proaBearings.wind,
+            field(channel, 28, 'Frame offset and target frame', offset === undefined ? undefined :
+                `${degrees(offset)} offset · Target frame ${proaBearings.frame.text} (with Course above)`),
+            ...Object.values(steering), crossTrack, operation,
+            field(channel, 21, 'Tack flags', flags && [tack, lock, lastTrack].map(reading =>
+                `${reading.label}: ${reading.unavailable ? 'Unavailable' : reading.text}`).join(' · ')),
+            field(channel, 30, 'Control and steering errors', debug &&
+                `Control: ${control.unavailable ? 'Unavailable' : control.text} · Frame error: ${degrees(debug[1])} · Course over water error: ${degrees(debug[2])}`),
+            field(channel, 18, 'Polar profile, starboard 0–180° (0–255)', polar?.join(', ')),
+            field(channel, 19, 'Estimated speed 0–180° (0–255)', speeds[0]?.join(', ')),
+            field(channel, 20, 'Estimated speed 180–360° (0–255)', speeds[1]?.join(', '))
+        ]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Proa', { inspector: proaSummary }],
     ['Sailor', { inspector: sailorSummary }],
     ['Waypoint', { inspector: waypointSummary }],
     ['Nav', { inspector: navSummary, overlay: navDistance }],

@@ -19,13 +19,13 @@ export function DialHand({ bearing, inner, outer, className, role }: {
         y1={dialCentre - inner} y2={dialCentre - outer} transform={`rotate(${bearing} ${dialCentre} ${dialCentre})`} />;
 }
 
-export function CircularDialGuides({ zeroAngle = 0, ticks }: { zeroAngle?: number; ticks?: boolean }) {
+export function CircularDialGuides({ zeroAngle = 0, ticks, innerRadius = 19 }: { zeroAngle?: number; ticks?: boolean; innerRadius?: number }) {
     return <>
         <circle className="dw-circular-dial-ring" cx={dialCentre} cy={dialCentre} r="44" />
         <line className="dw-circular-dial-reference" x1={dialCentre} y1="6" x2={dialCentre} y2="16"
             transform={`rotate(${zeroAngle} ${dialCentre} ${dialCentre})`} />
         {ticks && <>
-            <circle className="dw-circular-dial-ring" cx={dialCentre} cy={dialCentre} r="19" />
+            <circle className="dw-circular-dial-ring" cx={dialCentre} cy={dialCentre} r={innerRadius} />
             {Array.from({ length: 12 }, (_, index) => <line key={index} className="dw-circular-dial-ring"
                 x1={dialCentre} y1="2" x2={dialCentre} y2="6" transform={`rotate(${index * 30} ${dialCentre} ${dialCentre})`} />)}
         </>}

@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import ProaInstrument from './ProaInstrument';
 import SailorInstrument from './SailorInstrument';
 import WaypointInstrument from './WaypointInstrument';
 import NavInstrument from './NavInstrument';
@@ -56,6 +57,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('proaBearings' in summary) {
+        return <ProaInstrument label={label} summary={summary} />;
+    }
     if ('sailBearings' in summary) {
         return <SailorInstrument label={label} summary={summary} />;
     }
@@ -163,6 +167,11 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary, sampleScope 
     return <>
         <IconButton label={title} icon={<InfoCircle />} data-inspector-focus={`summary-details-${channelId}`} onClick={() => setDetails(true)} />
         <SettingsDialog title={title} show={details} onHide={() => setDetails(false)}>
+            {'proaBearings' in summary && <p className="dw-meta">
+                Profile values run clockwise in 11.25° sectors from live wind on a relative scale from 0 to 255.
+                The polar mirrors its first half. Steering angles are relative to the vessel.
+                The target frame adds the observed frame offset to the course.
+            </p>}
             {'sailBearings' in summary && <p className="dw-meta">
                 Profile values run clockwise in 11.25° sectors from course wind. The polar profile mirrors the first 16 sectors.
                 Speed uses the two reported halves in order. The relative scale is 0 to 255.

@@ -534,3 +534,20 @@ test('Sailor keeps live and course wind separate and handles four-byte flags', (
         ])
     });
 });
+
+
+test('Proa wraps the reported course and scales steering commands in the vessel frame', () => {
+    const observed = channel(6, 0, 'Proa');
+    const scalar = observed.params[15];
+    const read = (param: number, value: number, msgType: number = DRONE_LINK_MSG_TYPE_FLOAT) =>
+        ({ ...scalar, param, values: [value], msgType });
+    Object.assign(observed.params, {
+        16: read(16, 524), 17: read(17, -0.5), 22: read(22, 0.5), 23: read(23, -1),
+        24: read(24, 125), 28: read(28, -20), 29: read(29, 0, DRONE_LINK_MSG_TYPE_UINT8_T)
+    });
+    expect(channelVisualization(observed)?.inspector?.(observed)).toMatchObject({
+        proaBearings: { course: { bearing: 164, reading: observed.params[16] }, frame: { bearing: 144 } },
+        steering: { wing: { bearing: -45 }, left: { bearing: 60 }, right: { bearing: -120 }, bow: { bearing: 125 } },
+        context: expect.arrayContaining([expect.objectContaining({ label: 'Operation', text: 'Passive' })])
+    });
+});
