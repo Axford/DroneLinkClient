@@ -1,6 +1,6 @@
-.dw-node-list { position: absolute; top: var(--dw-space-3); left: var(--dw-space-3); width: min(224px, calc(100% - var(--dw-space-12) - var(--dw-space-12))); max-height: calc(100% - 160px); display: flex; flex-direction: column; }
+.dw-node-list { position: absolute; top: var(--dw-space-3); right: var(--dw-space-3); width: min(224px, calc(100% - var(--dw-space-12) - var(--dw-space-12))); max-height: calc(100% - 160px); display: flex; flex-direction: column; }
 .dw-node-list.collapsed { width: var(--dw-control-size); }
-.dw-node-list-toggle { position: absolute; top: 0; left: calc(100% + var(--dw-space-1)); }
+.dw-node-list-toggle { position: absolute; top: 0; right: calc(100% + var(--dw-space-1)); }
 .dw-node-list.collapsed .dw-node-list-toggle { position: static; }
 .dw-node-list-toggle > button { background: var(--dw-color-surface); }
 .dw-node-list-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dw-space-2); padding: var(--dw-space-2); flex-shrink: 0; background: var(--dw-color-surface); border-radius: var(--dw-radius); }
@@ -25,3 +25,13 @@
 .dw-node-list-inline .dw-node-select { grid-column: 1 / -1; flex-wrap: wrap; }
 .dw-node-list-inline .dw-node-list-header { margin-bottom: var(--dw-space-2); }
 .dw-node-route-status { overflow-wrap: anywhere; }
+
+.dw-map .dw-node-items li,
+.dw-map .dw-node-list-header,
+.dw-map .dw-node-list-toggle > button {
+    background: rgba(var(--dw-color-surface-rgb), 0.7);
+    backdrop-filter: blur(var(--dw-backdrop-blur));
+}
+.dw-map .dw-node-items li[data-selected="true"] {
+    background: color-mix(in srgb, var(--dw-color-node-selected) 82%, transparent);
+}

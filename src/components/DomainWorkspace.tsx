@@ -27,12 +27,19 @@ export function DomainWorkspace({ name, status, notices, lenses, activeLens, onL
     </div>;
 }
 
-export function DomainLensPanels({ lens, inspector }: { lens: React.ReactNode; inspector?: React.ReactNode }) {
+export function DomainLensPanels({ lens, inspector, overMap = false }: {
+    lens: React.ReactNode;
+    inspector?: React.ReactNode;
+    overMap?: boolean;
+}) {
     const narrow = useNarrowLayout();
     if (!inspector) return <div className="dw-lens-only">{lens}</div>;
-    return <PanelGroup direction={narrow ? 'vertical' : 'horizontal'}>
-        <Panel defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>{lens}</Panel>
+    return <PanelGroup className={overMap ? 'dw-map-panels' : undefined} direction={narrow ? 'vertical' : 'horizontal'}>
+        <Panel style={overMap ? { overflow: 'visible' } : undefined} defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>{lens}</Panel>
         <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
-        <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}>{inspector}</Panel>
+        <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}
+            className={overMap ? 'dw-map-inspector-slot' : undefined}>
+            <div className="dw-inspector-frame">{inspector}</div>
+        </Panel>
     </PanelGroup>;
 }

@@ -119,16 +119,19 @@ export default function WorkbenchPage() {
                 </section>;
             })}
         </div>
-        {nodes.length > 0 && <div className="table-responsive"><table className="table table-sm">
+        {nodes.length > 0 && <div className="table-responsive"><table className="table table-sm dw-workbench-routes">
             <caption>Local routes</caption>
             <thead><tr><th>Node</th><th>Transport</th><th>Next hop</th><th>Cost</th><th>Last heard</th><th>Status</th></tr></thead>
             <tbody>{nodes.flatMap(id => configured.map(transport => {
                 const route = paths[transport][id];
                 if (!route) return null;
-                const selected = routes[id]?.transport === transport && routes[id].reachable;
-                return <tr key={`${id}:${transport}`}><th scope="row"><button type="button" className="btn btn-link p-0" aria-label={`Inspect node ${id} from ${transportLabel[transport]} route`}
-                    aria-pressed={id === selectedNode} disabled={files.busy && id !== selectedNode} onClick={() => select(id)}>{id}</button></th><td>{transportLabel[transport]}</td><td>{route.nextHop}</td>
-                    <td>{route.metric ?? '—'}</td><td>{localTime(route.lastHeardAtMs)}</td><td>{!connected ? 'Last seen' : !route.reachable ? 'Expired' : selected ? 'Selected route' : 'Reachable'}</td></tr>;
+                const preferredRoute = routes[id]?.transport === transport && routes[id].reachable;
+                const focused = id === selectedNode;
+                const selectable = !files.busy || focused;
+                return <tr key={`${id}:${transport}`} data-focused={focused} data-selectable={selectable}
+                    onClick={selectable ? () => select(id) : undefined}><th scope="row"><button type="button" className="btn btn-link p-0" aria-label={`Inspect node ${id} from ${transportLabel[transport]} route`}
+                    aria-pressed={focused} disabled={!selectable} onClick={event => { event.stopPropagation(); select(id); }}>{id}</button></th><td>{transportLabel[transport]}</td><td>{route.nextHop}</td>
+                    <td>{route.metric ?? '—'}</td><td>{localTime(route.lastHeardAtMs)}</td><td>{!connected ? 'Last seen' : !route.reachable ? 'Expired' : preferredRoute ? 'Selected route' : 'Reachable'}</td></tr>;
             }))}</tbody>
         </table></div>}
         {interfaces.serial && <section aria-labelledby="workbench-serial-log">
@@ -145,10 +148,9 @@ export default function WorkbenchPage() {
         <DomainWorkspace name="Workbench" lenses={lenses} activeLens={lens} onLensChange={setLens}
             status={<span className="dw-status" role="status">{connected ? 'Local gateway connected' : status === 'connecting' ?
                 'Connecting to local gateway…' : 'Local gateway disconnected. Reconnecting…'}</span>}>
-            <DomainLensPanels lens={lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
+            <DomainLensPanels overMap={lens === 'map'} lens={lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {selector}
-                {lens === 'network' && network}
+                {lens === 'network' ? network : selector}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}

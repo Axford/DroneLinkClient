@@ -158,10 +158,10 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
       const camera = { container: mapContainer, center: [saved.lng, saved.lat] as [number, number], zoom: saved.zoom };
       if (useLocalBasemap) {
         current = new maplibregl.Map({ ...camera, style: localMapStyle, attributionControl: { compact: false } });
-        current.addControl(new maplibregl.NavigationControl(), 'top-right');
+        current.addControl(new maplibregl.NavigationControl(), 'top-left');
       } else {
         current = new mapboxgl.Map({ ...camera, style: cloudMapStyle, accessToken: token ?? undefined });
-        current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        current.addControl(new mapboxgl.NavigationControl(), 'top-left');
       }
       map.current = current; setMapReady(true);
       const activeMap = current;
@@ -414,18 +414,28 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     }
   }, [secondaryPositions, now, token, user, selectedNodeId, mapReady, mapError]);
 
+  // The canvas extends beneath the floating Inspector, but camera actions target the unobstructed lens.
+  const coveredMapArea = () => ({
+    right: Math.max(0, (container.current?.clientWidth ?? 0) - (pane.current?.clientWidth ?? 0)),
+    bottom: Math.max(0, (container.current?.clientHeight ?? 0) - (pane.current?.clientHeight ?? 0)),
+  });
   const canLocate = (nodeId: number) => mapReady && !mapError && positions.some(position => position.nodeId === nodeId);
   const locateNode = (nodeId: number) => {
     const position = positions.find(position => position.nodeId === nodeId);
     if (!position || !canLocate(nodeId)) return;
     if (onNodeSelect(nodeId) === false) return;
-    map.current?.easeTo({ center: position.coordinates, duration: 0 });
+    const { right, bottom } = coveredMapArea();
+    map.current?.easeTo({
+      center: position.coordinates, duration: 0,
+      ...(right || bottom ? { offset: [-right / 2, -bottom / 2] as [number, number] } : {}),
+    });
   };
 
   const fitPositions = () => {
     if (!map.current || !positionCount) return;
     const coordinates = [...positions, ...secondaryPositions].map(position => position.coordinates);
-    const options = { padding: 50, maxZoom: 16, duration: 0 };
+    const { right, bottom } = coveredMapArea();
+    const options = { padding: { top: 50, left: 50, right: 50 + right, bottom: 50 + bottom }, maxZoom: 16, duration: 0 };
     if (map.current instanceof maplibregl.Map) {
       const bounds = new maplibregl.LngLatBounds();
       coordinates.forEach(position => bounds.extend(position));

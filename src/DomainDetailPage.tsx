@@ -37,9 +37,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const fileActivity = useRef({ busy: false, dirty: false });
     const recordFileActivity = useCallback((busy: boolean, dirty: boolean) => { fileActivity.current = { busy, dirty }; }, []);
     function selectNode(node: number | null) {
-        if (node === selectedNodeId || fileActivity.current.busy) return;
-        if (fileActivity.current.dirty && !window.confirm('Discard the unsaved node file draft?')) return;
+        if (node === selectedNodeId) return true;
+        if (fileActivity.current.busy || (fileActivity.current.dirty && !window.confirm('Discard the unsaved node file draft?'))) return false;
         setSelectedNodeId(node);
+        return true;
     }
     const workbench = useConnectedWorkbench(domain?.status === 'active' && domain._id === domainId && user ? domainId : undefined);
     const currentLocal = useRef(workbench.usesLocal);
@@ -178,7 +179,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             </>}>
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
-                        <DomainLensPanels lens={<ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
+                        <DomainLensPanels overMap lens={<ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
                             user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} />}
                             inspector={<InspectorPanel key={`${domain._id}:${selectedNodeId}`} selectedNodeId={selectedNodeId}
                                 droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}

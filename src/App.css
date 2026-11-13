@@ -32,7 +32,7 @@
 .dw-home-toolbar > .dw-icon-button { align-self: center; }
 
 .dw-map :is(.mapboxgl-ctrl-group, .maplibregl-ctrl-group) button { width: var(--dw-control-size); height: var(--dw-control-size); }
-.dw-map :is(.mapboxgl-ctrl-top-right, .maplibregl-ctrl-top-right) .mapboxgl-ctrl { margin: var(--dw-space-3) var(--dw-space-3) 0 0; }
+.dw-map :is(.mapboxgl-ctrl-top-left, .maplibregl-ctrl-top-left) :is(.mapboxgl-ctrl, .maplibregl-ctrl) { margin: var(--dw-space-3) 0 0 var(--dw-space-3); }
 
 .dw-domain-card .card-body { display: flex; flex-direction: column; }
 .dw-domain-card-actions { margin-top: auto; }
@@ -55,3 +55,45 @@
 .dw-lens-nav button:hover { background: var(--dw-color-hover); color: var(--dw-color-text); }
 .dw-lens-nav button[aria-current="page"] { border-color: var(--dw-color-accent); color: var(--dw-color-text); }
 .dw-lens-only { height: 100%; overflow: auto; }
+
+.dw-inspector-frame { height: 100%; }
+.dw-map-panels { position: relative; container-type: size; isolation: isolate; }
+.dw-map-panels .dw-map { background: transparent; }
+.dw-map-panels .dw-map-canvas {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100cqw;
+  height: 100cqh;
+}
+.dw-map-panels .dw-map-toolbar,
+.dw-map-panels .dw-node-list { z-index: 1; }
+.dw-map-panels .dw-panel-resize {
+  z-index: 3;
+  flex-basis: var(--dw-space-2);
+  background: transparent;
+}
+.dw-map-panels .dw-panel-resize:is(:hover, :focus-visible, [data-resize-handle-active]) {
+  background: var(--dw-color-accent);
+}
+.dw-map-inspector-slot { position: relative; z-index: 2; pointer-events: none; }
+.dw-map-inspector-slot .dw-inspector-frame {
+  padding: var(--dw-space-3);
+  display: flex;
+  align-items: flex-start;
+}
+.dw-map-inspector-slot .inspector-panel {
+  pointer-events: auto;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  padding: var(--dw-space-2);
+  border-radius: calc(var(--dw-radius) * 1.5);
+  background: rgba(var(--dw-color-surface-rgb), 0.76);
+  backdrop-filter: blur(var(--dw-backdrop-blur));
+  box-shadow: var(--dw-shadow);
+}
+.dw-map-inspector-slot :is(.inspector-header, .dw-inspector-context, .dw-inspector-tabs) {
+  background: transparent;
+  flex-shrink: 0;
+}
+.dw-map-inspector-slot :is(.inspector-content, .tab-content) { overscroll-behavior: contain; }
