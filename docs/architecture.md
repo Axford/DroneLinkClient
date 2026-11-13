@@ -127,3 +127,7 @@ The menus use M2's existing scope, write metadata, submission journal and Domain
 ### Dragging an observed Nav target
 
 The map enables dragging when the selected Nav reports a valid guarded move capability for the displayed coordinates. A drag sends the observed guard and requested coordinates through the Domain command journal. Firmware determines whether Nav or its local Waypoint subscription owns the move. The displayed target follows Nav telemetry. See the [shared packet contract](../../DroneLinkDatastore/docs/contracts/packet.md#guarded-nav-target-move).
+
+### Verified route preview
+
+The Domain map requests geometry for the selected node's reported Waypoint digest. It removes the preview when that digest changes or the node selection changes. The cloud must have received the digest and hold a matching backup. The preview reports the digest receipt and backup capture times. The existing Nav overlay continues to display the observed leg and target. See the [route preview contract](../../DroneLinkDatastore/docs/contracts/workbench.md#verified-route-preview).
