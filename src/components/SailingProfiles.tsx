@@ -10,14 +10,21 @@ interface ProfileInput {
 }
 
 const sectorsPerHalf = 16;
-const sectorDegrees = 360 / (2 * sectorsPerHalf);
+
+export function mirrorSailingSectors(values: readonly number[]) {
+    return [...values, ...values.slice().reverse()];
+}
+
+export function sailingSectorAngle(index: number) {
+    return (index + 0.5) * 360 / (2 * sectorsPerHalf);
+}
 
 export function projectSailingProfiles({ bearing, polar, speeds, inner, outer }: ProfileInput) {
     const points = (samples: readonly number[], offset = 0) => samples.map((value, index) =>
-        dialPoint((bearing ?? 0) + (offset + index + 0.5) * sectorDegrees, inner + (outer - inner) * value / 255));
+        dialPoint((bearing ?? 0) + sailingSectorAngle(offset + index), inner + (outer - inner) * value / 255));
 
     const polarPoints = polar && bearing !== undefined
-        ? points([...polar, ...polar.slice().reverse()]).join(' ') : undefined;
+        ? points(mirrorSailingSectors(polar)).join(' ') : undefined;
     const halves = bearing === undefined ? [] : speeds.flatMap((half, index) =>
         half ? [points(half, index * sectorsPerHalf)] : []);
     // Only a full profile may connect its two halves and close the loop.

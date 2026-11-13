@@ -1,0 +1,29 @@
+.dw-polar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--dw-space-2);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+.dw-polar-dial { position: relative; justify-self: center; width: min(100%, 12rem); padding-top: var(--dw-space-2); }
+.dw-polar-dial svg { display: block; width: 100%; }
+.dw-polar-wind { position: absolute; top: 0; left: 50%; translate: -50% 0; white-space: nowrap; }
+.dw-polar dl { margin: 0; display: grid; gap: var(--dw-space-1); }
+.dw-polar dt { font-weight: 400; }
+.dw-polar dd { margin: 0; color: var(--dw-color-instrument-reading); font-variant-numeric: tabular-nums; }
+.dw-polar dd[data-unavailable] { color: var(--dw-color-muted); }
+.dw-polar-readings > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--dw-space-1); }
+.dw-polar-scales { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); text-align: center; }
+.dw-polar-scales dt::before { content: ''; display: inline-block; width: 0.7em; border-top: 2px solid var(--dw-color-instrument-blue); margin-right: var(--dw-space-1); vertical-align: middle; }
+.dw-polar-scales div + div dt::before { border-color: var(--dw-color-instrument-reading); }
+.dw-polar-coverage { fill: var(--dw-color-instrument-reading); fill-opacity: 0.16; stroke: var(--dw-color-instrument-reading); stroke-width: 1.4; }
+.dw-polar-response { fill: none; stroke: var(--dw-color-instrument-blue); stroke-width: 2; stroke-linecap: round; }
+.dw-polar-response-point { fill: var(--dw-color-instrument-blue); }
+.dw-polar-heading { stroke: var(--dw-color-instrument-trace); stroke-width: 2.6; stroke-dasharray: 5 2; }
+@container (max-width: 310px) {
+    .dw-polar { grid-template-columns: minmax(0, 1fr); }
+    .dw-polar-dial { width: min(100%, 9rem); }
+}
+.dw-polar dd[data-reset] { background: rgb(var(--dw-color-danger-bg-rgb)); border-radius: var(--dw-radius-small); padding-inline: var(--dw-space-1); }

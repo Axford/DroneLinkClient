@@ -30,13 +30,23 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | KiteControllerSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | WindDirectionSummary | NavSummary | WaypointSummary | SailorSummary | ProaSummary | TurnRateSummary | TankSteerSummary | KiteControllerSummary | PolarSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface PolarSummary {
+    polarResponse: number[] | undefined;
+    sampleCounts?: number[];
+    relativeHeading?: number;
+    heading: ObservedSummary;
+    wind: ObservedSummary;
+    mode: ObservedSummary;
+    details: ObservedSummary[];
+}
 
 export interface KiteControllerSummary {
     kiteVector: { yaw: number; pitch: number; distance: number; roll: number } | undefined;
@@ -1012,7 +1022,25 @@ function kiteControllerSummary(channel: ChannelState): KiteControllerSummary {
     };
 }
 
+function polarSummary(channel: ChannelState): PolarSummary {
+    const polarResponse = byteArray(channel.params[11], 16);
+    const sampleCounts = byteArray(channel.params[12], 16);
+    const heading = signedBearingReading(channel, 14, 'Adjusted heading');
+    const wind = bearingReading(channel, 34, 'Wind');
+    const relativeHeading = heading.bearing !== undefined && wind.bearing !== undefined
+        ? (heading.bearing - wind.bearing + 360) % 360 : undefined;
+    const modeValue = byteArray(channel.params[9], 1)?.[0];
+    const mode = field(channel, 9, 'Mode', modeValue === undefined ? undefined : ['Passive', 'Active', 'Reset'][modeValue]);
+    return {
+        polarResponse, sampleCounts, relativeHeading, heading, wind, mode,
+        details: [heading, wind, mode,
+            field(channel, 11, 'Reported relative speed (0–255)', polarResponse?.join(', ')),
+            field(channel, 12, 'Reported samples per sector', sampleCounts?.join(', '))]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Polar', { inspector: polarSummary }],
     ['KiteController', { inspector: kiteControllerSummary }],
     ['TankSteer', { inspector: tankSteerSummary }],
     ['TurnRate', { inspector: turnRateSummary }],

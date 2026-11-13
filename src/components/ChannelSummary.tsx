@@ -17,6 +17,7 @@ import MagneticScatter, { useMagneticSamples } from './MagneticScatter';
 import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
+import PolarInstrument from './PolarInstrument';
 import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
 import TurnRateInstrument from './TurnRateInstrument';
@@ -60,6 +61,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('polarResponse' in summary) {
+        return <PolarInstrument label={label} summary={summary} />;
+    }
     if ('kiteVector' in summary) {
         return <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />;
     }
@@ -183,6 +187,11 @@ export function ChannelSummaryDetails({ nodeId, channelId, summary, sampleScope 
                 Profile values run clockwise in 11.25° sectors from live wind on a relative scale from 0 to 255.
                 The polar mirrors its first half. Steering angles are relative to the vessel.
                 The target frame adds the observed frame offset to the course.
+            </p>}
+            {'polarResponse' in summary && <p className="dw-meta">
+                The 16 reported sectors run clockwise from wind in 11.25° steps and mirror onto the other tack.
+                The inner trace shows sample counts. The outer trace uses the average speed-over-ground to wind-speed ratio per sampled sector, scaled so the peak sector is 255.
+                The adjusted heading marker subtracts the reported wind bearing from the reported heading.
             </p>}
             {'sailBearings' in summary && <p className="dw-meta">
                 Profile values run clockwise in 11.25° sectors from course wind. The polar profile mirrors the first 16 sectors.

@@ -619,3 +619,24 @@ test('KiteController distinguishes actual payout in the flight vector from the c
     observed.params[14] = read(14, [32, 25, 74]);
     expect(inspect()).toMatchObject({ kiteVector: undefined, kiteWaypoint: { radius: 8 } });
 });
+
+
+test('Polar uses independent heading, wind, mode and 16-sector observations', () => {
+    const observed = channel(6, 0, 'Polar');
+    const scalar = observed.params[15];
+    const read = (param: number, values: number[], msgType: number = DRONE_LINK_MSG_TYPE_FLOAT) =>
+        ({ ...scalar, param, values, numValues: values.length, msgType });
+    const counts = read(12, Array(16).fill(0), DRONE_LINK_MSG_TYPE_UINT8_T);
+    Object.assign(observed.params, {
+        9: read(9, [2], DRONE_LINK_MSG_TYPE_UINT8_T), 11: read(11, Array(16).fill(255), DRONE_LINK_MSG_TYPE_UINT8_T),
+        12: counts, 14: read(14, [-5]), 34: read(34, [38])
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        relativeHeading: 317, mode: { text: 'Reset' }, sampleCounts: Array(16).fill(0),
+        details: expect.arrayContaining([expect.objectContaining({ parameterId: 12, reading: counts })])
+    });
+    observed.params[12] = read(12, [1, 2], DRONE_LINK_MSG_TYPE_UINT8_T);
+    observed.params[34] = read(34, [361]);
+    expect(inspect()).toMatchObject({ sampleCounts: undefined, relativeHeading: undefined, heading: { bearing: 355 } });
+});

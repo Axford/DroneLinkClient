@@ -195,6 +195,10 @@ The INA3221 Summary presents the firmware's three ordered input slots, each with
 
 Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their callers supply the angle frame and presentation. The sailing profile projection places 32 relative-speed sectors at their centres, mirrors the configured polar half, and leaves partial speed profiles open. Callers supply the wind reference and radial range so each sailing renderer can keep space for its own steering graphics.
 
+### Polar response and sample coverage
+
+Polar mirrors 16 firmware sectors into a wind-relative dial. The outer trace uses relative speed at 11 on a 0–255 scale, with gaps where the sample count at 12 is zero or unavailable. The inner trace uses counts scaled to the largest observed sector count. The adjusted heading at 14 is drawn relative to wind at 34. Mode at 9 reports Passive, Active or Reset. Reading Details preserves independent receipts and reported sector values. Map rings, historical plots and controls retain their separate scope.
+
 ### KiteController flight plot
 
 KiteController projects the reported yaw, pitch, payout distance and estimated roll at parameter 14 into a 2D plot. Positive yaw points left and positive pitch points up. The waypoint's angular radius comes from 16. The recent trail uses the shared receipt window, with gaps at invalid samples. The payout target and rate limit at 13 describe configuration, while distance in the flight vector is actual payout. Reading Details preserves the independent vector, waypoint and control receipts. The legacy disabled 3D scene stays in separate scope.
