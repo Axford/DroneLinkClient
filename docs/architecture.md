@@ -143,6 +143,10 @@ Neopixel shows four segment colours in firmware order from the observed scene at
 
 Joystick plots observed scalar FLOAT X and Y (parameters 10 and 11) on equal, centred axes from −1 to +1. Positive X points right and positive Y points up. The ring around the marker shows signed Z (parameter 12), clockwise for positive and counterclockwise for negative. A positive button value (parameter 13) fills the marker and shows Pressed alongside the plot. The four observations retain independent source and receipt details. An invalid or unavailable X or Y leaves the crosshair without a position marker.
 
+### Receiver output and raw PWM
+
+Receiver plots the first four observed FLOAT outputs (parameters 11–14) on a shared scale from −1 to +1. Each slot shows its signed value. Zero sits on the centre line. Values outside the scale retain their numeric reading and show an above-range or below-range cue. The observed FLOAT switch at parameter 29 selects Passthrough below 0.5 and Active otherwise. The raw PWM row preserves the order of all six parameter 20 bytes, multiplying each by 10 for microseconds. Reading Details keeps separate provenance for the mode, all six published outputs and the raw vector.
+
 ### INA219 voltage and usage
 
 The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The compact layout places two columns of supporting readings beside the dial when there is room and flows them below it on narrower cards. Above-scale values keep their numeric reading and receive an explicit scale cue. Negative readings remain numeric and unavailable values have no dial. Saved display thresholds colour the voltage tile and node chip. The separately observed device load-voltage alarm and signed cumulative usage are read-only supporting values with independent provenance.

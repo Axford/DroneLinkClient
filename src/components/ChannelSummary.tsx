@@ -10,6 +10,7 @@ import AnemometerInstrument from './AnemometerInstrument';
 import WaterLevelGauge from './WaterLevelGauge';
 import NeopixelScene from './NeopixelScene';
 import JoystickPlot from './JoystickPlot';
+import ReceiverInstrument from './ReceiverInstrument';
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -46,6 +47,9 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 
 export default function ChannelSummary({ channelId, summary, sampleScope }: { channelId: number; summary: InspectorSummary; sampleScope?: string }) {
     const label = `Observed readings for channel ${channelId}`;
+    if ('receiverOutputs' in summary) {
+        return <ReceiverInstrument label={label} summary={summary} />;
+    }
     if ('joystick' in summary) {
         return <dl className="dw-channel-summary dw-joystick-summary" aria-label={label}>
             <div className="dw-joystick-plot">

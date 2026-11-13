@@ -23,13 +23,20 @@ export type InspectorSummary = {
     layout?: 'compact';
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface ReceiverSummary {
+    receiverOutputs: { value?: number; reading: ObservedSummary }[];
+    mode: ObservedSummary & { kind?: 'active' | 'passthrough' };
+    rawPwm?: number[];
+    details: ObservedSummary[];
+}
 
 export interface AnemometerSummary {
     windSpeed: ObservedSummary;
@@ -265,7 +272,27 @@ function waterSensorSummary(channel: ChannelState): WaterSensorSummary {
     };
 }
 
+function receiverSummary(channel: ChannelState): ReceiverSummary {
+    const outputs = Array.from({ length: 6 }, (_, index) => {
+        const id = 11 + index;
+        const value = numericValue(channel.params[id], [DRONE_LINK_MSG_TYPE_FLOAT]);
+        return { value, reading: field(channel, id, `Output ${index + 1}`, value?.toFixed(2)) };
+    });
+    const switchValue = numericValue(channel.params[29], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const kind = switchValue === undefined ? undefined : switchValue < 0.5 ? 'passthrough' : 'active';
+    const mode = field(channel, 29, 'Mode', kind && { passthrough: 'Passthrough', active: 'Active' }[kind]);
+    const rawPwm = byteArray(channel.params[20], 6)?.map(byte => byte * 10);
+    const pwm = rawPwm?.map((value, index) => `Channel ${index + 1} ${value} µs`).join(' · ');
+    return {
+        receiverOutputs: outputs.slice(0, 4),
+        mode: { ...mode, kind },
+        rawPwm,
+        details: [mode, ...outputs.map(output => output.reading), field(channel, 20, 'Raw PWM', pwm)]
+    };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Receiver', { inspector: receiverSummary }],
     ['Joystick', {
         inspector(channel) {
             const axis = (id: number) => {

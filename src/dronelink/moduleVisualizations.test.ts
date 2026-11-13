@@ -201,3 +201,30 @@ test('Joystick preserves signed axes, button state and per-parameter availabilit
         ]
     });
 });
+
+test('Receiver preserves signed output order, raw PWM units and the observed mode boundary', () => {
+    const observed = channel(6, 0, 'Receiver');
+    const scalar = observed.params[15];
+    const output = (id: number, value: number) => ({ ...scalar, param: id, values: [value] });
+    const raw = { ...scalar, param: 20, msgType: DRONE_LINK_MSG_TYPE_UINT8_T, bytesPerValue: 1, numValues: 6,
+        values: [150, 170, 120, 0, 140, 160], source: 'Local' };
+    Object.assign(observed.params, {
+        11: output(11, 0.2), 12: output(12, -0.4), 13: output(13, 0), 14: output(14, 1.2),
+        15: output(15, -0.25), 16: output(16, 0.7), 20: raw, 29: output(29, 0.5)
+    });
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        receiverOutputs: [{ value: 0.2 }, { value: -0.4 }, { value: 0 }, { value: 1.2 }],
+        mode: { text: 'Active', reading: observed.params[29] },
+        rawPwm: [1500, 1700, 1200, 0, 1400, 1600],
+        details: expect.arrayContaining([
+            expect.objectContaining({ parameterId: 16, text: '0.70' }),
+            expect.objectContaining({ parameterId: 20, reading: raw })
+        ])
+    });
+    observed.params[29] = output(29, 0.49);
+    expect(inspect()).toMatchObject({ mode: { text: 'Passthrough' } });
+    delete observed.params[29];
+    observed.params[20] = { ...raw, values: raw.values.slice(1) };
+    expect(inspect()).toMatchObject({ mode: { unavailable: true }, rawPwm: undefined });
+});
