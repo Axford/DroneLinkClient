@@ -30,7 +30,7 @@ export default function PrimaryNavBar({ user, domains, activeDomainId, standalon
     {!standalone && <Destination as={Link} to="/private/" className="primary-nav-link" title="Home" aria-label="Home" aria-current={!activeDomainId ? 'page' : undefined}>
       <HouseDoor aria-hidden="true" /><span className="primary-nav-label">Home</span>
     </Destination>}
-    <Destination href={standalone ? "/workbench/" : "http://127.0.0.1:8002/workbench/"} aria-current={standalone ? "page" : undefined} className="primary-nav-link primary-nav-workbench" title="Open local Workbench" aria-label="Workbench">
+    <Destination href={standalone ? "/workbench/" : "http://localhost:8002/workbench/"} aria-current={standalone ? "page" : undefined} className="primary-nav-link primary-nav-workbench" title="Open local Workbench" aria-label="Workbench">
       <Tools aria-hidden="true" /><span className="primary-nav-label">Workbench</span>
     </Destination>
     {domains.filter(domain => domain.status === 'active').map(domain => (
