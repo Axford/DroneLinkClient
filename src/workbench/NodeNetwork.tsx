@@ -9,27 +9,32 @@ export interface NodeNetworkSnapshot {
     queue: { size: number; utilisation: number; kicked: number; choked: number };
 }
 
-export default function NodeNetwork({ node, read, unavailable }: {
-    node: number;
-    read?: (signal: AbortSignal) => Promise<NodeNetworkSnapshot>;
-    unavailable: string;
-}) {
-    const [snapshot, setSnapshot] = useState<NodeNetworkSnapshot>();
+export function useNodeNetwork(node: number | undefined, transport: string | undefined,
+    read?: (signal: AbortSignal) => Promise<NodeNetworkSnapshot>) {
+    const [samples, setSamples] = useState<{ current: NodeNetworkSnapshot; previous?: NodeNetworkSnapshot; transport?: string }>();
     const [stale, setStale] = useState(false);
     const [error, setError] = useState<string>();
     const [busy, setBusy] = useState(false);
     const operation = useRef<AbortController | undefined>(undefined);
-    useEffect(() => () => operation.current?.abort(), []);
+    const available = !!read;
+
     useEffect(() => {
-        if (read) return;
-        operation.current?.abort();
-        operation.current = undefined;
+        setSamples(undefined);
+        setError(undefined);
+        setStale(false);
+    }, [node, transport]);
+
+    useEffect(() => {
         setBusy(false);
-        setStale(true);
-    }, [read]);
+        if (!available) setStale(true);
+        return () => {
+            operation.current?.abort();
+            operation.current = undefined;
+        };
+    }, [node, transport, available]);
 
     async function refresh() {
-        if (!read || operation.current) return;
+        if (node === undefined || !read || operation.current) return;
         const controller = new AbortController();
         operation.current = controller;
         setBusy(true);
@@ -38,7 +43,7 @@ export default function NodeNetwork({ node, read, unavailable }: {
             const result = await read(controller.signal);
             if (controller.signal.aborted) return;
             if (result.node !== node || result.schemaVersion !== 1) throw new Error('Unexpected node network snapshot.');
-            setSnapshot(result);
+            setSamples(prior => ({ current: result, previous: prior?.current, transport }));
             setStale(false);
         } catch (error) {
             if (!controller.signal.aborted) {
@@ -53,17 +58,29 @@ export default function NodeNetwork({ node, read, unavailable }: {
         }
     }
 
+    const snapshot = samples?.current.node === node && samples?.transport === transport ? samples?.current : undefined;
+    return { snapshot, previous: snapshot ? samples?.previous : undefined, stale: !available || stale, error, busy, available, refresh };
+}
+
+export default function NodeNetwork({ node, report, unavailable }: {
+    node: number;
+    report: ReturnType<typeof useNodeNetwork>;
+    unavailable: string;
+}) {
+    const { snapshot, previous, stale, error, busy, available } = report;
+    const queue = snapshot?.queue;
+    const prior = previous?.queue;
+    const comparable = !stale && queue && prior && queue.size === prior.size &&
+        queue.kicked >= prior.kicked && queue.choked >= prior.choked;
+
     return <section aria-label="Selected node network" className="dw-panel mb-3">
-        <div className="dw-toolbar">
-            <h3>Node {node} network</h3>
-            <button type="button" className="btn btn-outline-secondary" onClick={() => void refresh()}
-                disabled={!read || busy}>Refresh node network</button>
-        </div>
+        <h3>Node {node} network</h3>
         {busy && <p role="status">Reading node network…</p>}
-        {!read && <p role="status">{unavailable}</p>}
+        {!available && <p role="status">{unavailable}</p>}
         {error && <p role="alert">{error}</p>}
+        {!snapshot && available && !busy && !error && <p>Read node network to see its reported routes.</p>}
         {snapshot && <>
-            <p className="dw-meta">{!read || stale ? 'Last seen' : 'Received'} from node {node} over direct Wi-Fi at{' '}
+            <p className="dw-meta">{stale ? 'Last seen' : 'Received'} from node {node} over direct Wi-Fi at{' '}
                 <time dateTime={new Date(snapshot.receivedAt).toISOString()}>{new Date(snapshot.receivedAt).toLocaleTimeString()}</time>.</p>
             <div className="dw-workbench-interfaces">
                 {snapshot.interfaces.length ? snapshot.interfaces.map(item => <div className="dw-panel" key={item.channel}>
@@ -78,9 +95,13 @@ export default function NodeNetwork({ node, read, unavailable }: {
                     <th scope="row">{route.destination}</th><td>{route.nextHop}</td><td>{route.channel ?? '—'}</td>
                     <td>{route.cost}</td><td>{(route.ageMs / 1000).toFixed(1)} s</td>
                 </tr>)}</tbody>
-            </table></div> : <p>No routes reported by node {node}.</p>}
+            </table></div> : <p>{stale ? 'No routes at last read from' : 'No routes reported by'} node {node}.</p>}
             <p className="mb-0">Transmit queue · {snapshot.queue.utilisation}% utilization · {snapshot.queue.size} slots ·{' '}
                 {snapshot.queue.kicked} evicted · {snapshot.queue.choked} rejected</p>
+            {comparable && previous && <p className="dw-meta mb-0">
+                Counter change since read at <time dateTime={new Date(previous.receivedAt).toISOString()}>{new Date(previous.receivedAt).toLocaleTimeString()}</time>
+                {' · '}+{queue.kicked - prior.kicked} evicted · +{queue.choked - prior.choked} rejected
+            </p>}
         </>}
     </section>;
 }

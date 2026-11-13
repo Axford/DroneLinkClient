@@ -183,9 +183,11 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
         : <div className="dw-workbench-lens">
             {lens === 'network' && (workbench.network
-                ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode} selectionDisabled={filesBusy}
+                ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode}
+                    selectionDisabled={filesBusy} inspectedTransport={local ? localTransport : undefined}
                     readNode={!archived && local && localTransport === 'wifi' && selectedNodeId !== null &&
-                        workbench.network.paths.wifi[selectedNodeId]?.nextHop === selectedNodeId
+                        workbench.network.status === 'connected' && workbench.network.paths.wifi[selectedNodeId]?.reachable &&
+                        workbench.network.paths.wifi[selectedNodeId].nextHop === selectedNodeId
                         ? signal => workbench.readNetwork<NodeNetworkSnapshot>(selectedNodeId, signal) : undefined} />
                 : <p>{archived ? 'Live gateway routes are unavailable for archived Domains. Select a node to inspect retained observations.'
                     : 'Pair a local gateway to see live routes.'}</p>)}

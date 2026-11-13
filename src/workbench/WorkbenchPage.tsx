@@ -200,7 +200,7 @@ export default function WorkbenchPage() {
                     search={search} onSearch={setSearch} />
             </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} readNode={readNode} /> : selector}
+                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} /> : selector}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}

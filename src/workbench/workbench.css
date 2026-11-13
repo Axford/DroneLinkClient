@@ -130,3 +130,52 @@
 .dw-workspace .dw-parameter:has(.dw-parameter-plot) { display: flex; align-items: stretch; gap: var(--dw-space-1); }
 .dw-parameter:has(.dw-parameter-plot) .dw-parameter-tile { min-width: 0; }
 .dw-parameter .dw-parameter-plot { flex-shrink: 0; align-self: center; }
+
+.dw-network-graph {
+    height: clamp(23rem, 58dvh, 42rem);
+    background: var(--dw-color-canvas);
+    border-radius: var(--dw-radius);
+    overflow: hidden;
+    margin-bottom: var(--dw-space-3);
+}
+
+.dw-network-card {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: var(--dw-space-1);
+    padding: var(--dw-space-2);
+    border: 0;
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-raised);
+    color: var(--dw-color-text);
+    text-align: start;
+}
+
+.dw-network-card strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dw-network-card > span { font-size: var(--dw-font-size-meta); }
+.dw-network-card[aria-pressed="true"] { background: var(--dw-color-node-selected); }
+.dw-network-card:disabled { cursor: default; }
+.dw-network-queue { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dw-network-queue meter { flex: 1; min-width: 0; }
+.dw-network-handle { visibility: hidden; }
+
+.dw-network-edge-label,
+.dw-network-graph-status {
+    padding: var(--dw-space-1) var(--dw-space-2);
+    border: 0;
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-panel);
+    color: var(--dw-color-text);
+    font-size: var(--dw-font-size-meta);
+    white-space: nowrap;
+}
+
+.dw-network-edge-label { position: absolute; pointer-events: all; }
+.dw-network-edge-label[aria-pressed="true"] { background: var(--dw-color-node-selected); }
+.dw-network-gateway-details summary { cursor: pointer; font-weight: 600; }
+.dw-network-gateway-details[open] summary { margin-bottom: var(--dw-space-3); }
+.dw-network-card:is(button) { pointer-events: auto; }

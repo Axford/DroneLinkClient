@@ -222,7 +222,7 @@ Right-click or long-press a marker to open **Follow** for that node. Choose a so
 
 The standard Client release includes `/workbench/`. Verify and extract the release, then pass its `build/` directory to the [Server workbench launcher](../../DroneLinkServer/docs/operations.md#standalone-workbench). The standalone page uses the local gateway feed and shared typed channel Inspector. It can run on a workstation with internet access and needs no hosted DroneWright connection. Missing labels use numeric IDs until the node publishes names. See the [WB plan](../../DroneLinkDatastore/docs/planning/workbench.md) for acceptance.
 
-The Network panel shows the configured interfaces, packet counters and local paths. In the Inspector, Auto follows the gateway route for that node. An explicit Wi-Fi or Serial choice stays pinned when that transport drops, and the previous readings are marked last seen. The browser remembers the choice for that gateway and node. Serial diagnostic lines are local to the current browser connection and capped at 200.
+The Network lens maps observed next hops from the gateway and shows exact interface counters and local routes under **Gateway interfaces and routes**. In the Inspector, Auto follows the gateway route for that node. An explicit Wi-Fi or Serial choice stays pinned when that transport drops, and the previous readings are marked last seen. The browser remembers the choice for that gateway and node. Serial diagnostic lines are local to the current browser connection and capped at 200.
 
 ### Node files
 
@@ -266,7 +266,9 @@ time since Workbench received the result. Edit the startup settings through
 
 ### Selected node network
 
-Select a node in **Network**, then choose **Refresh node network**. The node snapshot shows its own mesh interfaces, outbound routes and transmit queue alongside the gateway view. An unreachable route or failed refresh marks the preceding snapshot as last seen.
+Select a node card in **Network**, then choose **Refresh node network** on the canvas. This requires a direct Wi-Fi route. The node snapshot adds its own reported next hops and a transmit queue meter to the graph. Select a wire label to see the destinations it serves, with cost and age. Each wire represents one reporter's next hop for the listed destinations. A reachable destination may still have unobserved intermediate hops.
+
+An unreachable route or failed refresh marks the preceding snapshot as last seen. After two comparable reads, the node details compare reported queue eviction and rejection counters. Select the gateway card to open its interface counters, local routes and serial diagnostics.
 
 ## Workbench live charts
 
