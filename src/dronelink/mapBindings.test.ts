@@ -57,3 +57,21 @@ test('late type discovery reconstructs existing values, while NAME-only, unknown
   for (const type of ['Unknown', 'constructor', '__proto__']) expect(mapBindings(node(channel(1, type, 8, [-1, 51, 0])))).toEqual({});
   expect(observedPositions({ 7: node() })).toEqual([]);
 });
+
+test('map wind requires the selected wing bearing and a valid primary position', () => {
+  const gps = channel(1, 'NMEA', 8, [-1, 51, 0]);
+  const local = channel(2, 'Wind', 14, [180], 9000);
+  const subscribed = channel(3, 'Sailor', 12, [270], 9000);
+  const wing = channel(4, 'WindFromWing', 15, [0]);
+  const newerWing = channel(5, 'WindFromWing', 15, [90], 8000);
+  expect(observedPositions({ 7: node(gps, local, subscribed) })[0].wind).toBeUndefined();
+  const state = node(gps, local, subscribed, wing, newerWing);
+  expect(observedPositions({ 7: state })[0].wind).toMatchObject({
+    degrees: 0, binding: { channelId: 4, parameterId: 15, reading: { lastHeard: 1000, source: 'Gateway 254' } }
+  });
+  for (const values of [[-1], [361], [NaN], [90, 180]]) {
+    wing.params[15] = reading(15, values);
+    expect(observedPositions({ 7: state })[0].wind).toBeUndefined();
+  }
+  expect(observedPositions({ 7: node(wing, newerWing) })).toEqual([]);
+});

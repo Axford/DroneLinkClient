@@ -18,6 +18,23 @@
   content: "";
 }
 
+.dw-map-wind {
+  width: var(--dw-icon-size);
+  height: var(--dw-icon-size);
+  margin-top: var(--dw-space-6);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px var(--dw-color-surface));
+}
+
+.dw-map-wind::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--dw-color-accent);
+  clip-path: polygon(50% 12%, 100% 62%, 84% 78%, 50% 44%, 16% 78%, 0 62%);
+  content: "";
+}
+
 .dw-map-secondary {
   width: var(--dw-space-6);
   height: var(--dw-space-6);
@@ -48,7 +65,8 @@
 }
 
 .dw-map-canvas .dw-map-marker,
-.dw-map-canvas .dw-map-heading {
+.dw-map-canvas .dw-map-heading,
+.dw-map-canvas .dw-map-wind {
   z-index: 1;
 }
 

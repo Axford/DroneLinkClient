@@ -48,6 +48,8 @@ The Domain map shows a read-only heading arrow above a valid position marker whe
 
 The Domain map also shows the selected NMEA secondary position as a ring, using the same coordinate checks and binding precedence as the primary position. The ring can appear on its own and selects the same node without moving the camera. It reports its own address, source and receipt. Fit includes both positions, while Locate, heading and Nav Follow continue to use the primary position. When the two fixes overlap at the current zoom, the primary marker stays on top.
 
+The blue wind chevron below the primary marker shows the saved world-relative bearing from the selected WindFromWing binding. It rotates with the map and has separate address, source and receipt in the primary marker description. Wind publishes a local sensor angle, and Sailor's subscribed value has no known reference frame in the observation, so both remain inspectable as bindings. An invalid wing bearing removes only the wind chevron.
+
 
 ## M1.2 bounded codec corrections — 2026-11-08
 

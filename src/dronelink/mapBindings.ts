@@ -4,6 +4,7 @@ import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_MODULE_PARAM
 export type MapRole = 'location' | 'location2' | 'heading' | 'target' | 'last' | 'wind';
 export interface MapBinding {
   role: MapRole;
+  moduleType: string;
   priority: number;
   channelId: number;
   parameterId: number;
@@ -41,7 +42,7 @@ export function mapBindings(node: NodeState): Partial<Record<MapRole, MapBinding
       if (reading?.msgType !== DRONE_LINK_MSG_TYPE_FLOAT || !reading.lastHeard) continue;
       const previous = selected[mapping.role];
       if (previous && (mapping.priority < previous.priority || (mapping.priority === previous.priority && channel.channel > previous.channelId))) continue;
-      selected[mapping.role] = { ...mapping, channelId: channel.channel,
+      selected[mapping.role] = { ...mapping, moduleType, channelId: channel.channel,
         path: `${channel.name || `Channel ${channel.channel}`}.${reading.name || `Param ${mapping.parameterId}`}`, reading };
     }
   }

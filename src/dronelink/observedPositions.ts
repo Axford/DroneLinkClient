@@ -1,6 +1,11 @@
 import { GlobalState, ParameterState } from './DroneLinkState';
 import { MapBinding, mapBindings, locationCoordinates } from './mapBindings';
 
+export interface ObservedBearing {
+  degrees: number;
+  binding: MapBinding;
+}
+
 export interface ObservedPosition {
   nodeId: number;
   droneId?: string;
@@ -11,7 +16,16 @@ export interface ObservedPosition {
   path: string;
   coordinates: [number, number];
   reading: ParameterState;
-  heading?: { degrees: number; binding: MapBinding };
+  heading?: ObservedBearing;
+  wind?: ObservedBearing;
+}
+
+function observedBearing(binding: MapBinding | undefined): ObservedBearing | undefined {
+  if (!binding || binding.reading.numValues !== 1 || binding.reading.values.length !== 1) return;
+  const degrees = binding.reading.values[0];
+  if (typeof degrees === 'number' && Number.isFinite(degrees) && degrees >= 0 && degrees <= 360) {
+    return { degrees, binding };
+  }
 }
 
 // Rendering consumes selected semantic bindings; it never chooses the source.
@@ -21,15 +35,13 @@ export function observedPositions(state: GlobalState, role: 'location' | 'locati
     const binding = bindings[role];
     const coordinates = locationCoordinates(binding);
     if (!binding || !coordinates) return [];
-    const heading = role === 'location' ? bindings.heading : undefined;
-    const degrees = heading?.reading.values[0];
-    const bearing = heading && heading.reading.numValues === 1 && heading.reading.values.length === 1 &&
-      typeof degrees === 'number' && Number.isFinite(degrees) && degrees >= 0 && degrees <= 360
-      ? { degrees, binding: heading }
-      : undefined;
+    const heading = role === 'location' ? observedBearing(bindings.heading) : undefined;
+    // Wind publishes a sensor-relative angle and Sailor's subscription does not establish a frame.
+    const wind = role === 'location' && bindings.wind?.moduleType === 'WindFromWing'
+      ? observedBearing(bindings.wind) : undefined;
     return [{ nodeId: node.id, droneId: node.droneId, name: node.name || `Node ${node.id}`,
       channelId: binding.channelId, parameterId: binding.parameterId, priority: binding.priority,
-      path: binding.path, coordinates, reading: binding.reading, heading: bearing }];
+      path: binding.path, coordinates, reading: binding.reading, heading, wind }];
   });
 }
 
