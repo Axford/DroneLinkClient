@@ -1,6 +1,6 @@
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from './DroneLinkMsg';
 import type { ChannelState, NodeState, ParameterState } from './DroneLinkState';
-import { channelVisualization, moduleSummaries, spatialSummaries, PacketTelemetryRenderer } from './moduleVisualizations';
+import { channelVisualization, moduleSummaries, spatialSummaries, depthLogSample, PacketTelemetryRenderer } from './moduleVisualizations';
 import type { VisualizationSetting } from './visualizationSettings';
 
 const channel = (id: number, volts: number, type = 'INA219'): ChannelState => ({
@@ -401,3 +401,25 @@ test.each([[0, undefined], [30, undefined], [30.01, 'warning'], [40, 'warning'],
         });
     }
 );
+
+
+test('Depth keeps current depth separate from the log vector and treats zero as no echo', () => {
+    const observed = channel(6, 0, 'Depth');
+    const reading = (param: number, values: number[]) => ({
+        ...observed.params[15], param, values, numValues: values.length
+    });
+    observed.params[13] = reading(13, [0]);
+    observed.params[14] = { ...reading(14, [-1, 51, 4.25]), lastHeard: 750 };
+    const inspect = () => channelVisualization(observed)?.inspector?.(observed);
+    expect(inspect()).toMatchObject({
+        measuredDepth: { text: 'No echo', unavailable: true, reading: observed.params[13] },
+        details: [
+            { parameterId: 13, text: 'No echo' },
+            { parameterId: 14, text: '4.25 m', reading: observed.params[14] }
+        ]
+    });
+    expect(depthLogSample(observed.params[14])).toBe(4.25);
+    for (const malformed of [[-1, 51, 0], [-1, 51, -4], [-1, 51, NaN], [-1, 51]]) {
+        expect(depthLogSample(reading(14, malformed))).toBeUndefined();
+    }
+});

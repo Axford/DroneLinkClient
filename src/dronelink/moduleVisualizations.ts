@@ -29,13 +29,19 @@ export type InspectorSummary = {
     attitude?: Attitude;
     primary: ObservedSummary[];
     supporting: ObservedSummary[];
-} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | {
+} | PacketTelemetrySummary | { inputs: PowerInputSummary[] } | AnemometerSummary | WaterSensorSummary | ReceiverSummary | MotorSummary | ServoSummary | Hmc5883lSummary | Mpu6050Summary | DepthSummary | {
     joystick: { x?: number; y?: number; z?: number; pressed?: boolean };
     details: ObservedSummary[];
 } | {
     sceneColours: (string | undefined)[];
     details: ObservedSummary[];
 };
+
+export interface DepthSummary {
+    measuredDepth: ObservedSummary;
+    logReading?: ParameterState;
+    details: ObservedSummary[];
+}
 
 export interface HorizonReadings {
     pitch: ObservedSummary;
@@ -601,7 +607,29 @@ function mpu6050Summary(channel: ChannelState): Mpu6050Summary {
     };
 }
 
+export function depthText(depth: number): string {
+    if (depth === 0) return 'No echo';
+    if (depth < 0.005) return '<0.01 m';
+    return `${depth.toFixed(2)} m`;
+}
+
+export function depthLogSample(reading: ParameterState | undefined): number | undefined {
+    const depth = observedFloatVector(reading, 3)?.[2];
+    if (depth !== undefined && depth > 0) return depth;
+}
+
+function depthSummary(channel: ChannelState): DepthSummary {
+    const depth = numericValue(channel.params[13], [DRONE_LINK_MSG_TYPE_FLOAT]);
+    const measuredDepth = field(channel, 13, 'Depth', depth !== undefined && depth >= 0 ? depthText(depth) : undefined);
+    if (depth === 0) measuredDepth.unavailable = true;
+    const logReading = channel.params[14];
+    const logDepth = observedFloatVector(logReading, 3)?.[2];
+    const loggedDepth = field(channel, 14, 'Logged depth', logDepth !== undefined && logDepth >= 0 ? depthText(logDepth) : undefined);
+    return { measuredDepth, logReading, details: [measuredDepth, loggedDepth] };
+}
+
 const visualizations = new Map<string, ModuleVisualization>([
+    ['Depth', { inspector: depthSummary }],
     ['MPU6050', { inspector: mpu6050Summary, overlay: channel => mpu6050Temperature(channel) }],
     ['HMC5883L', { inspector: hmc5883lSummary }],
     ['CMPS12', { inspector: cmps12Summary }],

@@ -1,0 +1,29 @@
+.dw-depth-trace {
+    display: grid;
+    justify-items: center;
+    gap: var(--dw-space-1);
+    margin: 0;
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-instrument-face);
+}
+
+.dw-depth-trace figcaption { display: flex; align-items: baseline; gap: var(--dw-space-2); }
+.dw-depth-trace strong {
+    color: var(--dw-color-instrument-reading);
+    font-size: var(--dw-font-size-heading);
+    font-variant-numeric: tabular-nums;
+}
+.dw-depth-trace strong[data-unavailable] { color: var(--dw-color-muted); }
+.dw-depth-chart {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--dw-space-1);
+    width: min(100%, 30rem);
+}
+.dw-depth-axis { display: flex; flex-direction: column; justify-content: space-between; text-align: end; }
+.dw-depth-chart svg { display: block; width: 100%; }
+.dw-depth-order { grid-column: 2; text-align: center; }
+.dw-depth-chart line { stroke: var(--dw-color-border); }
+.dw-depth-chart path { fill: none; stroke: var(--dw-color-instrument-reading); stroke-width: 2; }
+.dw-depth-chart circle { fill: var(--dw-color-instrument-reading); }

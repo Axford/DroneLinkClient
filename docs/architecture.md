@@ -191,6 +191,10 @@ The INA219 Summary leads with measured cell voltage on a fixed 0–5 V dial. The
 
 The INA3221 Summary presents the firmware's three ordered input slots, each with the INA219 0–5 V dial and its own load voltage, current, power, signed usage and observed alarm. Wide cards align the input rows. Input numbers and unit-redundant labels are available to assistive technology and in Reading Details. The Summary shows a label where a missing value would otherwise be ambiguous, and for the unitless alarm. Narrow cards stack the inputs and place supporting values beside their dial where space allows. Each reading retains provenance from its source parameter vector. Invalid vector shapes show unavailable for that parameter, while other vectors and valid individual entries remain visible. INA219 display thresholds remain specific to INA219.
 
+### Depth readout and log trace
+
+Depth reports current measured metres at parameter 13 and logs location and depth in parameter 14. The Summary uses the third log value for its downward trace, ordered by received sample. The firmware logs by movement, so sample spacing conveys neither elapsed time nor a fixed distance. Zero means no echo. Zero and invalid log readings break the trace. The shared observation window retains up to 100 samples over five minutes and resets with the Inspector source scope. Reading Details keeps the two receipts separate.
+
 ### Management summary
 
 Management leads with last reported uptime (parameter 13, seconds) and IP address (12). An all-zero IP observation means no address is assigned and retains its receipt in Reading Details. Reset reasons use bytes 1 and 2 of parameter 10 in core order. The optional firmware build reads the abbreviated Git commit published as CHAR at parameter 9 of the same Management channel. It has its own observation provenance. The summary displays the device-reported identifier without a release comparison. Device operations belong to the Workbench workflows.
