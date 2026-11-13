@@ -17,3 +17,42 @@
   clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
   content: "";
 }
+
+.dw-map-secondary {
+  width: var(--dw-space-6);
+  height: var(--dw-space-6);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.dw-map-secondary::before {
+  width: var(--dw-icon-size);
+  height: var(--dw-icon-size);
+  border: 2px solid var(--dw-color-text);
+  border-radius: 50%;
+  background: var(--dw-color-surface);
+  box-shadow: 0 0 0 1px var(--dw-color-surface);
+  content: "";
+}
+
+.dw-map-secondary[aria-pressed="true"]::before {
+  background: var(--dw-color-primary);
+}
+
+.dw-map-canvas {
+  isolation: isolate;
+}
+
+.dw-map-canvas .dw-map-marker,
+.dw-map-canvas .dw-map-heading {
+  z-index: 1;
+}
+
+.dw-map-secondary:focus-visible {
+  z-index: 2;
+  outline: 2px solid var(--dw-color-focus);
+}

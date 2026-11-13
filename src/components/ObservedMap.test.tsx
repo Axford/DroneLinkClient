@@ -46,6 +46,56 @@ test('missing map configuration keeps an explicit inspector fallback', () => {
   expect(select).toHaveBeenCalledWith(7);
 });
 
+test('secondary position has its own provenance and disappears independently of the primary marker', () => {
+  const extend = jest.fn();
+  const easeTo = jest.fn();
+  (mapboxgl.Map as unknown as jest.Mock).mockImplementation(({ container }) => ({
+    container, addControl: jest.fn(), on: jest.fn(), remove: jest.fn(), fitBounds: jest.fn(), easeTo
+  }));
+  (mapboxgl as any).LngLatBounds = jest.fn(() => ({ extend }));
+  (mapboxgl.Marker as unknown as jest.Mock).mockImplementation(({ element }) => {
+    const marker = {
+      setLngLat: jest.fn().mockReturnThis(),
+      addTo: (map: { container: HTMLElement }) => { map.container.append(element); return marker; },
+      remove: () => element.remove()
+    };
+    return marker;
+  });
+  const nodes = state();
+  const channels = nodes[7].channels;
+  const gps = channels[4].params;
+  gps[18] = { ...gps[8], param: 18, values: [-1.1, 51.1, 0], lastHeard: 3000, source: 'HTTP' };
+  channels[9] = { ...channels[4], channel: 9, params: {
+    5: gps[5], 18: { ...gps[18], values: [-1.2, 51.2, 0], lastHeard: 9000 }
+  } };
+  const props = { selectedNodeId: 7, token: 'fixture', user, onNodeSelect: jest.fn() };
+  const view = render(<ObservedMap {...props} state={nodes} />);
+  const primary = screen.getByRole('button', { name: /7>4.8.*Gateway 254.*Last-known position/ });
+  const secondary = screen.getByRole('button', { name: /7>4.18.*HTTP.*Last-known secondary position/ });
+  expect(secondary).toHaveAccessibleName(new RegExp(new Date(3000).toLocaleDateString()));
+  expect(secondary).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(secondary);
+  expect(props.onNodeSelect).toHaveBeenCalledWith(7);
+  expect(easeTo).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Fit observed positions' }));
+  expect(extend.mock.calls).toEqual([[[-1, 51]], [[-1.1, 51.1]]]);
+
+  gps[18] = { ...gps[18], values: [0, 51, 0] };
+  view.rerender(<ObservedMap {...props} state={{ ...nodes }} />);
+  expect(secondary).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Last-known secondary position/ })).not.toBeInTheDocument();
+  expect(primary).toBeInTheDocument();
+
+  delete gps[8];
+  gps[18] = { ...gps[18], values: [-1.1, 51.1, 0] };
+  view.rerender(<ObservedMap {...props} state={{ ...nodes }} />);
+  expect(primary).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Last-known secondary position/ })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Locate node 7' })).toBeDisabled();
+  view.rerender(<ObservedMap {...props} state={{}} />);
+  expect(screen.queryByRole('button', { name: /Last-known secondary position/ })).not.toBeInTheDocument();
+});
+
 test('heading uses the preferred binding and its own receipt, then clears for invalid readings and reset', () => {
   (mapboxgl.Map as unknown as jest.Mock).mockImplementation(({ container }) => ({
     container, addControl: jest.fn(), on: jest.fn(), remove: jest.fn()

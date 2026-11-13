@@ -15,11 +15,13 @@ export interface ObservedPosition {
 }
 
 // Rendering consumes selected semantic bindings; it never chooses the source.
-export function observedPositions(state: GlobalState): ObservedPosition[] {
+export function observedPositions(state: GlobalState, role: 'location' | 'location2' = 'location'): ObservedPosition[] {
   return Object.values(state).flatMap(node => {
-    const { location: binding, heading } = mapBindings(node);
+    const bindings = mapBindings(node);
+    const binding = bindings[role];
     const coordinates = locationCoordinates(binding);
     if (!binding || !coordinates) return [];
+    const heading = role === 'location' ? bindings.heading : undefined;
     const degrees = heading?.reading.values[0];
     const bearing = heading && heading.reading.numValues === 1 && heading.reading.values.length === 1 &&
       typeof degrees === 'number' && Number.isFinite(degrees) && degrees >= 0 && degrees <= 360

@@ -46,6 +46,8 @@ ObservedMap owns SDK initialization, marker updates/cleanup, explicit Fit observ
 
 The Domain map shows a read-only heading arrow above a valid position marker when the selected heading is a finite scalar from 0° through 360°. Mapbox aligns the arrow to map north as the camera turns. The position button exposes the heading's own address, source and receipt alongside the position provenance. Invalid preferred headings hide the arrow, and removing the position also removes its arrow. The Inspector's Map source bindings retains the underlying binding details.
 
+The Domain map also shows the selected NMEA secondary position as a ring, using the same coordinate checks and binding precedence as the primary position. The ring can appear on its own and selects the same node without moving the camera. It reports its own address, source and receipt. Fit includes both positions, while Locate, heading and Nav Follow continue to use the primary position. When the two fixes overlap at the current zoom, the primary marker stays on top.
+
 
 ## M1.2 bounded codec corrections — 2026-11-08
 

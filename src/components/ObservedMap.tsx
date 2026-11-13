@@ -8,7 +8,7 @@ import NodeSelector from './NodeSelector';
 import MapContextMenu from './MapContextMenu';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
-import { observedPositions, receiptLabel } from '../dronelink/observedPositions';
+import { ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
 import { authenticatedFetch } from '../utils/api';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './ObservedMap.css';
@@ -22,6 +22,10 @@ export interface ObservedMapProps {
   onNodeSelect: (nodeId: number) => void;
 }
 
+function positionDescription(position: ObservedPosition, label: string, now: number) {
+  return `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · ${label}`;
+}
+
 export default function ObservedMap({ token, user, state, viewState, selectedNodeId, onNodeSelect }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -31,6 +35,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     button: HTMLButtonElement;
     headingMarker?: mapboxgl.Marker;
   }>());
+  const secondaryMarkers = useRef(new Map<number, { marker: mapboxgl.Marker; button: HTMLButtonElement }>());
   const select = useRef(onNodeSelect); select.current = onNodeSelect;
   const [details, setDetails] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -38,6 +43,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   const [cameraRevision, setCameraRevision] = useState(0);
   const [now, setNow] = useState(Date.now());
   const positions = React.useMemo(() => observedPositions(state), [state]);
+  const secondaryPositions = React.useMemo(() => observedPositions(state, 'location2'), [state]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -50,6 +56,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     let current: mapboxgl.Map | undefined;
     let resizeObserver: ResizeObserver | undefined;
     const ownedMarkers = markers.current;
+    const ownedSecondaryMarkers = secondaryMarkers.current;
     const controller = new AbortController();
     setMapError(false);
     try {
@@ -80,6 +87,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     return () => {
       clearTimeout(saveTimer); controller.abort(); resizeObserver?.disconnect();
       ownedMarkers.forEach(({ marker, headingMarker }) => { marker.remove(); headingMarker?.remove(); }); ownedMarkers.clear();
+      ownedSecondaryMarkers.forEach(({ marker }) => marker.remove()); ownedSecondaryMarkers.clear();
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
       current?.remove(); map.current = null; setMapReady(false);
     };
@@ -108,7 +116,7 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
       entry.marker.setLngLat(position.coordinates);
       entry.button.textContent = position.name;
       entry.button.setAttribute('aria-pressed', String(position.nodeId === selectedNodeId));
-      let description = `${position.name} · Drone ${position.droneId || 'identity unavailable'} · Node ${position.nodeId} · Binding ${position.nodeId}>${position.channelId}.${position.parameterId} (${position.path}, priority ${position.priority}) · ${position.reading.source || 'Unknown source'} · Received ${receiptLabel(position.reading.lastHeard, now)} · Last-known position`;
+      let description = positionDescription(position, 'Last-known position', now);
       if (position.heading && !mapError) {
         const { degrees, binding } = position.heading;
         if (!entry.headingMarker) {
@@ -128,6 +136,37 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     }
   }, [positions, now, token, user, selectedNodeId, mapReady, mapError]);
 
+  useEffect(() => {
+    const currentMap = map.current;
+    if (!currentMap) return;
+    const visible = mapError ? [] : secondaryPositions;
+    const visibleIds = new Set(visible.map(position => position.nodeId));
+    for (const [id, entry] of Array.from(secondaryMarkers.current)) {
+      if (!visibleIds.has(id)) {
+        entry.marker.remove();
+        secondaryMarkers.current.delete(id);
+      }
+    }
+    for (const position of visible) {
+      let entry = secondaryMarkers.current.get(position.nodeId);
+      if (!entry) {
+        const button = document.createElement('button');
+        button.dataset.mapNode = String(position.nodeId);
+        button.type = 'button';
+        button.setAttribute('role', 'button');
+        button.className = 'dw-map-secondary';
+        button.addEventListener('click', () => select.current(position.nodeId));
+        entry = { button, marker: new mapboxgl.Marker({ element: button }).setLngLat(position.coordinates).addTo(currentMap) };
+        secondaryMarkers.current.set(position.nodeId, entry);
+      }
+      entry.marker.setLngLat(position.coordinates);
+      entry.button.setAttribute('aria-pressed', String(position.nodeId === selectedNodeId));
+      const description = positionDescription(position, 'Last-known secondary position', now);
+      entry.button.title = description;
+      entry.button.setAttribute('aria-label', description);
+    }
+  }, [secondaryPositions, now, token, user, selectedNodeId, mapReady, mapError]);
+
   const canLocate = (nodeId: number) => mapReady && !mapError && positions.some(position => position.nodeId === nodeId);
   const locateNode = (nodeId: number) => {
     const position = positions.find(position => position.nodeId === nodeId);
@@ -137,19 +176,22 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
   };
 
   const fitPositions = () => {
-    if (!map.current || !positions.length) return;
+    if (!map.current || !positionCount) return;
     const bounds = new mapboxgl.LngLatBounds();
     positions.forEach(position => bounds.extend(position.coordinates));
+    secondaryPositions.forEach(position => bounds.extend(position.coordinates));
     map.current.fitBounds(bounds, { padding: 50, maxZoom: 16, duration: 0 });
   };
+
+  const positionCount = positions.length + secondaryPositions.length;
 
   return <div className="dw-map" ref={pane}>
     <div ref={container} aria-label="Observed Drone map" className="dw-map-canvas" />
     <NodeSelector nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
       onLocate={locateNode} canLocate={canLocate} now={now} />
     <div className="dw-map-toolbar">
-      <span role="status">{!token ? 'Map unavailable' : mapError ? 'Map failed' : `${positions.length} last-known positions`}</span>
-      {token && positions.length > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
+      <span role="status">{!token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
+      {token && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}
       <IconButton label="Map details" icon={<InfoCircle />} onClick={() => setDetails(true)} />
     </div>
     <MapContextMenu pane={pane} canvas={container} enabled={mapReady && !mapError} state={state} positions={positions}
@@ -157,7 +199,8 @@ export default function ObservedMap({ token, user, state, viewState, selectedNod
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
       <p>The arrow shows the last-known heading when available. Heading and position can come from different sources and have different receipt times.</p>
-      <p>Select a node or marker to inspect it. Locate centres the map on its last-known position. Observations remain available in the inspector when the map is unavailable.</p>
+      <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
+      <p>Observations remain available in the inspector when the map is unavailable.</p>
     </SurfacePanel></SettingsDialog>
   </div>;
 }
