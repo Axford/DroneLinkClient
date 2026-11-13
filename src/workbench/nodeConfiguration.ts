@@ -11,6 +11,7 @@ interface DraftSubscription {
     valueStart: number;
     valueEnd: number;
     resolution: string;
+    sourceChannel?: number;
     address: SubscriptionAddress;
 }
 
@@ -81,6 +82,7 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
     const report = (line: number, severity: ConfigurationDiagnostic['severity'], message: string) =>
         diagnostics.push({ line, severity, message });
     const modules = new Map<number, DraftModule>();
+    const duplicateChannels = new Set<number>();
     let module: DraftModule | undefined;
     let inSections = false;
     let nodeId: number | undefined;
@@ -109,6 +111,7 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
             if (!decimal(value, 254)) {
                 report(line, 'error', 'Module channel must be a decimal address from 1 to 254.');
             } else if (modules.has(Number(value))) {
+                duplicateChannels.add(Number(value));
                 report(line, 'error', 'Another module already uses this channel.');
             } else {
                 module = { line, channel: Number(value), type: name, subscriptions: [] };
@@ -150,12 +153,14 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
             if (node.startsWith('@') || (/^\d+$/.test(node) && Number(node) === nodeId)) {
                 const numeric = /^\d+$/.test(channel);
                 const named = numeric ? [] : declarations.filter(item => moduleLookupName(item.name) === channel);
-                const ambiguous = named.length > 1;
-                const source = numeric ? modules.get(Number(channel)) : ambiguous ? undefined : named[0];
+                const ambiguous = numeric ? duplicateChannels.has(Number(channel)) :
+                    named.length > 1 || named.some(item => duplicateChannels.has(item.channel));
+                const source = ambiguous ? undefined : numeric ? modules.get(Number(channel)) : named[0];
+                subscription.sourceChannel = source?.channel;
                 subscription.resolution = source ? `Local: ${source.name || source.type} (channel ${source.channel})` :
-                    ambiguous ? 'Local source module name is ambiguous' : 'Local source module missing';
+                    ambiguous ? (numeric ? 'Local source channel is ambiguous' : 'Local source module name is ambiguous') : 'Local source module missing';
                 if (!source) report(subscription.line, 'warning', ambiguous ?
-                    'More than one local module has this name.' : 'The source module is not declared in this configuration.');
+                    'More than one declaration matches this local source.' : 'The source module is not declared in this configuration.');
             } else {
                 subscription.resolution = 'Remote source — unverified';
                 report(subscription.line, 'warning', !/^\d+$/.test(channel) || !/^\d+$/.test(parameter) ?

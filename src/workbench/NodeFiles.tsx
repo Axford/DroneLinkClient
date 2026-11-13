@@ -50,6 +50,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         return () => observer.disconnect();
     }, []);
     const [picker, setPicker] = useState(false);
+    const [view, setView] = useState<'logical' | 'code'>('logical');
+    const [selectedModule, setSelectedModule] = useState<number>();
+    const [lineToOpen, setLineToOpen] = useState<number>();
     const [source, setSource] = useState<'node' | 'cloud'>('node');
     const [cloudEntries, setCloudEntries] = useState<CloudFileEntry[]>();
     const [cloudFile, setCloudFile] = useState<CloudFile>();
@@ -89,7 +92,13 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
     const diagnostics = overview?.diagnostics ?? noDiagnostics;
     const configurationError = diagnostics.some(item => item.severity === 'error');
 
-    function goToLine(line: number) {
+    useEffect(() => {
+        setView('logical');
+        setSelectedModule(undefined);
+        setLineToOpen(undefined);
+    }, [node, source, current?.path]);
+
+    const goToLine = React.useCallback((line: number) => {
         const code = codeEditor.current;
         if (code) {
             code.gotoLine(line, 0, false);
@@ -99,7 +108,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         }
         const editor = editorRef.current;
         if (!editor) return;
-        const lines = currentDraft.split('\n');
+        const lines = editor.value.split('\n');
         const start = lines.slice(0, line - 1).reduce((offset, text) => offset + text.length + 1, 0);
         editor.focus();
         editor.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
@@ -107,7 +116,22 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
         const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
         editor.scrollTop = (line - 1) * lineHeight;
         editor.scrollLeft = 0;
+    }, []);
+
+    function openCodeAtLine(line: number) {
+        setView('code');
+        setLineToOpen(line);
     }
+
+    // The editor stays mounted when switching views to preserve its cursor and scroll.
+    useEffect(() => {
+        if (view !== 'code' || lineToOpen === undefined) return;
+        const frame = requestAnimationFrame(() => {
+            goToLine(lineToOpen);
+            setLineToOpen(undefined);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [view, lineToOpen, goToLine]);
 
     useEffect(() => { activity(busy, dirty || cloudDirty); return () => activity(false, false); }, [activity, busy, dirty, cloudDirty]);
     useEffect(() => {
@@ -380,19 +404,27 @@ export default function NodeFiles({ node, transport, available, uptimeMs, activi
             </p>}
             {feedback && !(picker && feedback.error) && <p role={feedback.error ? 'alert' : 'status'}>{feedback.text}</p>}
             {current && <>
+                {overview && <div className="dw-file-sources dw-config-views" role="group" aria-label="Configuration views">
+                    <button type="button" className="btn btn-sm" aria-pressed={view === 'logical'} onClick={() => setView('logical')}>Logical</button>
+                    <button type="button" className="btn btn-sm" aria-pressed={view === 'code'} onClick={() => setView('code')}>Code</button>
+                </div>}
+                <div hidden={!!overview && view !== 'code'}>
                 {highlighted ? <Suspense fallback={plainEditor}><ConfigurationEditor key={`${source}:${current.path}`}
                     editorRef={codeEditor} label={editorLabel} text={currentDraft} onChange={setCurrentDraft}
                     readOnly={!editable || busy} diagnostics={diagnostics} /></Suspense> : plainEditor}
+                </div>
                 {configuration && <details className="dw-file-checks">
                     <summary>{configurationError ? readOnly ? 'Configuration errors found.' : 'Fix configuration errors before uploading.' :
                         diagnostics.length ? `${diagnostics.length} configuration warning(s).` : 'No structural issues found.'}</summary>
                     <p className="dw-meta">Checks cover file structure, interval and subscription addresses. Module settings and live bindings are unverified.</p>
                     <ul className="list-unstyled mb-0">{diagnostics.map(({ line, severity, message }, index) => <li key={index}>
-                        <button type="button" className="btn btn-link text-start" onClick={() => goToLine(line)}>Line {line}: {severity} — {message}</button>
+                        <button type="button" className="btn btn-link text-start" onClick={() => openCodeAtLine(line)}>Line {line}: {severity} — {message}</button>
                     </li>)}</ul>
                 </details>}
-                {overview && <ConfigurationOverview key={`${source}:${current?.revision}`} overview={overview} text={draftText}
-                    editable={editable && !busy} onChange={text => setCurrentDraft(editorText(text))} goToLine={goToLine} />}
+                {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
+                    editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
+                    selectedChannel={selectedModule} onSelect={setSelectedModule}
+                    goToLine={openCodeAtLine} />}
                 {!showingCloud && <>
                     {backupHistory && <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={loadVersions}>Backup history</button>}
                     {!stored?.editable && <span className="dw-meta">The firmware reserves this file for upload recovery.</span>}

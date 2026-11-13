@@ -88,3 +88,41 @@
 .dw-file-explorer[data-compact="true"] { display: block; padding: var(--dw-space-3); }
 .dw-file-explorer[data-compact="true"] .dw-file-workspace { padding: var(--dw-space-3); }
 .dw-file-tree .dw-file-row time { max-width: 55%; text-align: end; }
+
+
+.dw-config-views { margin-bottom: var(--dw-space-2); }
+.dw-config-graph {
+    position: relative;
+    height: clamp(16rem, 42vh, 28rem);
+    border: 1px solid var(--dw-color-hover);
+    border-radius: var(--dw-radius-small);
+    overflow: hidden;
+    margin-bottom: var(--dw-space-3);
+    background: var(--dw-color-panel);
+}
+.dw-config-graph-module {
+    width: 200px;
+    background: var(--dw-color-raised);
+    border: 1px solid var(--dw-color-hover);
+    border-radius: var(--dw-radius-small);
+}
+.react-flow__node.selected .dw-config-graph-module {
+    outline: 2px solid var(--dw-color-primary);
+}
+.react-flow__node:focus-visible .dw-config-graph-module { outline: 2px solid var(--dw-color-focus); }
+.dw-config-graph-title { padding: var(--dw-space-2) var(--dw-space-3); }
+.dw-config-graph-title :is(strong, small) {
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.dw-config-graph-port {
+    position: relative;
+    height: 32px;
+    border-top: 1px solid var(--dw-color-hover);
+}
+.dw-config-graph-port .btn { width: 100%; height: 100%; text-align: start; }
+.dw-config-graph-output { padding: var(--dw-space-1) var(--dw-space-3); text-align: end; }
+.dw-config-graph-output, .dw-config-graph-port .btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-config-module[data-selected="true"] { box-shadow: inset 3px 0 var(--dw-color-primary); }

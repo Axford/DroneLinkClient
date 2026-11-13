@@ -8,6 +8,22 @@ jest.mock('./ConfigurationEditor', () => ({
     }) => <textarea data-testid="configuration-editor" aria-label={label} value={text} readOnly={readOnly} onChange={event => onChange(event.target.value)} />,
 }));
 
+// jsdom does not calculate graph geometry. The Chrome fixtures exercise the rendered edges.
+const originalResizeObserver = global.ResizeObserver;
+const originalDOMMatrix = window.DOMMatrixReadOnly;
+beforeAll(() => {
+    Object.defineProperty(window, "DOMMatrixReadOnly", { configurable: true, value: class { m22 = 1; } });
+    global.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+    };
+});
+afterAll(() => {
+    global.ResizeObserver = originalResizeObserver;
+    Object.defineProperty(window, 'DOMMatrixReadOnly', { configurable: true, value: originalDOMMatrix });
+});
+
 const stored = { path: '/sample.txt', text: 'First line\r\n', revision: 'a'.repeat(64), editable: true };
 
 it('opens a stored file, keeps a rejected draft, preserves line endings, and sends Restart separately', async () => {
@@ -69,6 +85,7 @@ it('checks the node configuration draft before sending its exact bytes and keeps
     try {
         render(<NodeFiles node={11} transport="wifi" available activity={jest.fn()} />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Code' }));
         const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         const upload = screen.getByRole('button', { name: 'Upload to node' });
         expect(fetchMock.mock.calls[0][0]).toBe('/api/workbench/v1/nodes/11/file?transport=wifi&path=%2Fconfig.ini');
@@ -123,13 +140,11 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         const props = { node: 11, transport: 'wifi' as const, activity: jest.fn() };
         const view = render(<NodeFiles {...props} available />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
-        const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
-        fireEvent.click(screen.getByText(/Modules and subscriptions/));
+        expect(await screen.findByRole('button', { name: 'Logical' })).toHaveAttribute('aria-pressed', 'true');
         expect(screen.getAllByText('Local: GPS Main (channel 10)')).toHaveLength(2);
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
         expect(screen.getByText('Local source module missing')).toBeInTheDocument();
         expect(screen.getByText('Local source module name is ambiguous')).toBeInTheDocument();
-        fireEvent.click(screen.getByRole('button', { name: 'Line 4: $location' }));
         fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
         const source = screen.getByRole('textbox', { name: 'Source for $location' });
         for (const value of ['invalid ; comment', '+255>1.8', '3>+256.8', '3>1.-1', '@other>10.8']) {
@@ -139,7 +154,15 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         view.rerender(<NodeFiles {...props} available={false} />);
         fireEvent.change(source, { target: { value: '@>10.8' } });
         fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Code' }));
+        const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         expect(editor).toHaveValue(edited.replace(/\r\n/g, '\n'));
+        fireEvent.change(editor, { target: { value: editor.value.replace('@>10.8', '@>GPSMain.location') } });
+        fireEvent.click(screen.getByRole('button', { name: 'Logical' }));
+        expect(screen.getByText('@>GPSMain.location')).toBeVisible();
+        fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Source for $location' }), { target: { value: '@>10.8' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const upload = screen.getByRole('button', { name: 'Upload to node' });
         expect(upload).toBeDisabled();
@@ -163,6 +186,7 @@ it('opens archived Cloud files read-only without node or save actions', async ()
     try {
         render(<NodeFiles domainId="archive" node={11} readOnly available={false} activity={jest.fn()} />);
         fireEvent.click(await screen.findByRole('button', { name: /^\/config\.ini/ }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Code' }));
         const editor = await screen.findByTestId('configuration-editor');
         expect(editor).toHaveAttribute('readonly');
         expect(editor).toHaveValue('node = 11\n');

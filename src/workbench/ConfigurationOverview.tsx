@@ -1,50 +1,61 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useId, useState } from 'react';
 import type { ConfigurationOverview as Overview } from './nodeConfiguration';
 import { updateSubscriptionSource } from './nodeConfiguration';
 
-type Subscription = Overview['modules'][number]['subscriptions'][number];
+const ConfigurationGraph = React.lazy(() => import('./ConfigurationGraph'));
 
-export default function ConfigurationOverview({ overview, text, editable, onChange, goToLine }: {
+type Module = Overview['modules'][number];
+type Subscription = Module['subscriptions'][number];
+
+export default function ConfigurationOverview({ overview, text, editable, onChange, goToLine, selectedChannel, onSelect }: {
     overview: Overview;
     text: string;
     editable: boolean;
     onChange: (draft: string) => void;
     goToLine: (line: number) => void;
+    selectedChannel?: number;
+    onSelect: (channel: number) => void;
 }) {
     const inputId = useId();
-    const editButton = useRef<HTMLButtonElement>(null);
     const [edit, setEdit] = useState<{ subscription: Subscription; text: string; value: string }>();
     const active = edit?.text === text ? edit : undefined;
     const updated = active && updateSubscriptionSource(text, active.subscription, active.value);
     const invalid = !!active && active.value.trim() !== active.subscription.source && updated === undefined;
 
+    const selectInput = useCallback((module: Module, subscription: Subscription) => {
+        onSelect(module.channel);
+        if (editable) setEdit({ subscription, text, value: subscription.source });
+        else document.getElementById(`${inputId}-line-${subscription.line}`)?.focus();
+    }, [editable, inputId, onSelect, text]);
+
     function finish(apply = false) {
         if (apply && updated !== undefined) onChange(updated);
         setEdit(undefined);
-        editButton.current?.focus();
+        if (active) document.getElementById(`${inputId}-edit-${active.subscription.line}`)?.focus();
     }
 
-    return <details className="dw-config-overview">
-        <summary>Modules and subscriptions ({overview.modules.length} modules)</summary>
+    return <section className="dw-config-overview" aria-label="Modules and subscriptions">
         <p className="dw-meta">From the draft. Local matches show modules declared in this file; parameter names, remote sources and live bindings are unverified. Correct malformed lines in the text editor.</p>
-        {!overview.modules.length && <p>No valid module declarations in the draft.</p>}
+        <Suspense fallback={<p role="status">Loading subscription graph…</p>}>
+            <ConfigurationGraph modules={overview.modules} selected={selectedChannel} onSelect={onSelect} onInput={selectInput} />
+        </Suspense>
         <ul className="list-unstyled">
-            {overview.modules.map(module => <li key={module.channel} className="dw-config-module">
-                <button type="button" className="btn btn-link p-0 text-start" onClick={() => goToLine(module.line)}>
+            {overview.modules.map(module => <li key={module.channel} className="dw-config-module" data-selected={module.channel === selectedChannel}>
+                <button type="button" className="btn btn-link p-0 text-start" onClick={() => { onSelect(module.channel); goToLine(module.line); }}>
                     {module.type}{module.name && ` · ${module.name}`} · Channel {module.channel}
                 </button>
                 {!module.subscriptions.length && <p className="dw-meta mb-0">No subscriptions declared.</p>}
                 {module.subscriptions.length > 0 && <ul className="list-unstyled mb-0">
                     {module.subscriptions.map(subscription => <li key={subscription.line} className="dw-config-subscription">
                         <div className="dw-toolbar">
-                            <button type="button" className="btn btn-link p-0 text-start" onClick={() => goToLine(subscription.line)}>
+                            <button type="button" className="btn btn-link p-0 text-start" id={`${inputId}-line-${subscription.line}`} onClick={() => { onSelect(module.channel); goToLine(subscription.line); }}>
                                 Line {subscription.line}: {subscription.input}
                             </button>
                             <code>{subscription.source}</code>
                             <span className="dw-meta">{subscription.resolution}</span>
-                            {editable && <button type="button" ref={active?.subscription === subscription ? editButton : undefined}
+                            {editable && <button type="button" id={`${inputId}-edit-${subscription.line}`}
                                 className="btn btn-outline-secondary" aria-expanded={active?.subscription === subscription} aria-label={`Edit source for ${subscription.input} on channel ${module.channel}`}
-                                onClick={() => setEdit({ subscription, text, value: subscription.source })}>Edit source</button>}
+                                onClick={() => selectInput(module, subscription)}>Edit source</button>}
                         </div>
                         {active && active.subscription === subscription && editable && <div className="dw-config-source">
                             <label htmlFor={inputId}>Source for {subscription.input}</label>
@@ -70,5 +81,5 @@ export default function ConfigurationOverview({ overview, text, editable, onChan
                 </ul>}
             </li>)}
         </ul>
-    </details>;
+    </section>;
 }
