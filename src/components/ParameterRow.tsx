@@ -2,10 +2,11 @@ import React, { useContext, useId, useState } from 'react';
 import { ParameterState } from '../dronelink/DroneLinkState';
 import { receiptLabel } from '../dronelink/observedPositions';
 import { ObservationNamesContext, presentParameter } from './parameterPresentation';
+import { ParameterEditorContext } from '../commands/ParameterEditor';
 import { ParameterCommands } from '../commands/CommandControls';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
-import { GraphUp } from 'react-bootstrap-icons';
+import { GraphUp, Pencil } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
 import { SignalPlotContext } from '../workbench/liveCharts/catalogue';
 import { isNumeric } from '../workbench/liveCharts/capture';
@@ -20,6 +21,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     const descriptionId = useId();
     const names = useContext(ObservationNamesContext);
     const plot = useContext(SignalPlotContext);
+    const editor = useContext(ParameterEditorContext);
+    const target = { nodeAddress: nodeId, channel: channelId, param: parameterId };
     const presentation = presentParameter(parameter, names);
     const observedName = !parameter.unavailable?.name && parameter.name?.trim() ? parameter.name : undefined;
     const catalogLabel = observedName ? undefined : catalogName;
@@ -52,6 +55,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
         {plot && isNumeric(parameter.msgType) && presentation.values.length > 0 &&
             <IconButton className="dw-parameter-plot" label={`Plot ${name}`} icon={<GraphUp aria-hidden="true" />}
                 onClick={() => plot(nodeId, channelId, parameterId)} />}
+        {editor?.canOpen(target) && <IconButton className="dw-parameter-edit" label="Edit parameter value"
+            icon={<Pencil aria-hidden="true" />} onClick={event => editor.open(target, name, event.currentTarget)} />}
         <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
             <SurfacePanel title="Observation">
                 <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Priority</dt><dd>{priority ?? 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>
@@ -66,7 +71,7 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
                 {observedName && parameter.nameLastHeard ? <p>Name received {new Date(parameter.nameLastHeard).toLocaleString()} via {parameter.nameSource || 'Unknown source'}</p> : null}
                 {parameter.unavailable?.name && <p>Name unavailable: {parameter.unavailable.name}</p>}
             </SurfacePanel>
-            {details && <ParameterCommands target={{ nodeAddress: nodeId, channel: channelId, param: parameterId }} observation={parameter.writeObservation} />}
+            {details && <ParameterCommands target={target} observation={editor ? undefined : parameter.writeObservation} />}
         </SettingsDialog>
     </article>;
 }

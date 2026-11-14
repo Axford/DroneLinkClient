@@ -268,3 +268,54 @@
 .inspector-panel > .tab-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); }
 .inspector-panel .dw-workbench-files { margin: 0; }
 .inspector-panel[data-size="full-window"] > .tab-content { padding: 0; }
+
+.dw-workspace .dw-parameter:has(.dw-parameter-edit) {
+    display: flex;
+    align-items: center;
+    gap: var(--dw-space-1);
+}
+.dw-parameter:has(.dw-parameter-edit) .dw-parameter-tile { min-width: 0; align-self: stretch; }
+.dw-parameter .dw-parameter-edit { flex-shrink: 0; }
+.dw-parameter-editor {
+    position: fixed;
+    z-index: 1070;
+    width: min(29rem, 100vw);
+    max-height: calc(100dvh - 2rem);
+    overflow: auto;
+    color: var(--dw-color-text);
+    background: var(--dw-color-surface);
+    border: 1px solid var(--dw-color-border);
+    border-radius: var(--dw-radius);
+    box-shadow: var(--dw-shadow);
+    font-size: var(--dw-font-size-base);
+}
+.dw-parameter-editor header {
+    position: sticky;
+    top: 0;
+    background: var(--dw-color-panel);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--dw-space-3) 0 0;
+    border-bottom: 1px solid var(--dw-color-border);
+    z-index: 1;
+}
+.dw-parameter-editor-handle {
+    flex: 1;
+    padding: var(--dw-space-3);
+    cursor: move;
+    touch-action: none;
+}
+.dw-parameter-editor-handle:focus-visible {
+    outline: 2px solid var(--dw-color-focus);
+    outline-offset: -3px;
+}
+.dw-parameter-editor form { padding: var(--dw-space-3); }
+.dw-parameter-editor legend { font-size: var(--dw-font-size-base); }
+.dw-parameter-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+    gap: var(--dw-space-2);
+    margin-bottom: var(--dw-space-3);
+}
+.dw-parameter-result { margin: var(--dw-space-3) 0; overflow-wrap: anywhere; }
+.dw-parameter-editor .dw-row-actions { display: flex; gap: var(--dw-space-2); justify-content: end; }

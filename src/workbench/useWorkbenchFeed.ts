@@ -42,6 +42,7 @@ interface Feed {
     routes: Routes;
     paths: Record<Transport, Routes>;
     observations: Record<Transport, GlobalState>;
+    lastKnown: Record<Transport, GlobalState>;
     interfaces: Partial<Record<Transport, InterfaceStatus>>;
     diagnostics: Diagnostic[];
 }
@@ -94,7 +95,7 @@ export interface WorkbenchCapture {
 }
 
 const emptyFeed: Feed = { status: 'connecting', routes: {}, paths: { wifi: {}, serial: {} },
-        observations: { wifi: {}, serial: {} }, interfaces: {}, diagnostics: [] };
+        observations: { wifi: {}, serial: {} }, lastKnown: { wifi: {}, serial: {} }, interfaces: {}, diagnostics: [] };
 
 export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalone, capture?: WorkbenchCapture): Feed {
     const [feed, setFeed] = useState<Feed>(emptyFeed);
@@ -103,6 +104,7 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
         setFeed(emptyFeed);
         if (!open) return;
         const observations = { wifi: new DroneLinkState({ debug: false }), serial: new DroneLinkState({ debug: false }) };
+        const lastKnown = { wifi: new DroneLinkState({ debug: false }), serial: new DroneLinkState({ debug: false }) };
         let routes: Routes = {};
         let paths: Feed['paths'] = { wifi: {}, serial: {} };
         let interfaces: Feed['interfaces'] = {};
@@ -112,6 +114,7 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
         let retry: ReturnType<typeof setTimeout> | undefined;
 
         const publish = (status: Feed['status']) => setFeed({ status, routes, paths, interfaces, diagnostics,
+            lastKnown: { wifi: { ...lastKnown.wifi.getState() }, serial: { ...lastKnown.serial.getState() } },
             observations: { wifi: { ...observations.wifi.getState() }, serial: { ...observations.serial.getState() } },
         });
         const publishRoutes = () => {
@@ -203,6 +206,7 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
                 if (message.msgType > DRONE_LINK_MSG_TYPE_NAME || !paths[transport][message.node]?.reachable) return;
                 capture?.packet(bytes, message, receivedAtMs, transport);
                 observations[transport].handleLinkMsg(message, false, 'Local', receivedAtMs);
+                lastKnown[transport].handleLinkMsg(message, false, 'Local', receivedAtMs);
                 publish('connected');
             });
             stream.onerror = () => {
@@ -223,6 +227,8 @@ export function useWorkbenchFeed(open: (() => WorkbenchStream) | null = standalo
             stream?.close();
             observations.wifi.destroy();
             observations.serial.destroy();
+            lastKnown.wifi.destroy();
+            lastKnown.serial.destroy();
         };
     }, [open, capture]);
 

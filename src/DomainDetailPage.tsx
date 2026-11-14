@@ -1,3 +1,6 @@
+import { ParameterEditorProvider } from './commands/ParameterEditor';
+import { cloudParameterPath, localParameterPath } from './commands/parameterPaths';
+import type { Scope } from './commands/session';
 import type { RouteTraceResult } from './workbench/RouteTrace';
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
@@ -197,13 +200,29 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             <NodeSelector inline nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={selectNode}
                 selectionDisabled={filesBusy} now={Date.now()} />
         </div>;
-    return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={{
+    const commandScope: Scope = {
         userId: user._id, domainId: domain._id, canSubmit: editableDomain !== undefined, captureEditAccess: () => {
             const authority = editAuthority.current;
             return () => authority !== undefined && editAuthority.current === authority;
         },
         canSettings: domain.status === 'active' && domain.canManageMembers, canTarget: canCloudTarget
-    }}><WorkspaceShell user={user} activeDomain={domain}>
+    };
+    return <CommandScope.Provider key={`${user._id}:${domain._id}`} value={commandScope}><WorkspaceShell user={user} activeDomain={domain}>
+        <ParameterEditorProvider resolve={(target, pinned) => {
+            const node = target.nodeAddress;
+            const local = workbench.usesLocal(node);
+            if (pinned === 'cloud' || (!pinned && !local)) return cloudParameterPath(commandScope, droneLinkState.state, target, local);
+            const selected = workbench.transport(node);
+            const pair = workbench.networkSession;
+            const transport = pinned ? pinned.endsWith(':wifi') ? 'wifi' : 'serial' : selected;
+            if (!pair || !transport) return;
+            const id = `${pair.key}:${transport}`;
+            return localParameterPath(target, { id, transport,
+                available: commandScope.canSubmit && local && selected === transport && (!pinned || pinned === id),
+                state: workbench.network?.lastKnown[transport] ?? {},
+                send: (endpoint, body) => workbench.parameterAction(node, transport, endpoint, body),
+            });
+        }}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
             <DomainWorkspace name={domain.name} activeLens={lens} onLensChange={setLens} status={
                     <div className="dw-toolbar">
@@ -232,6 +251,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     </NodeMapSettingsProvider>
             </DomainWorkspace>
         </VisualizationSettingsProvider>
+        </ParameterEditorProvider>
     </WorkspaceShell></CommandScope.Provider>;
 };
 

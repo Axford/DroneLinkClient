@@ -17,6 +17,7 @@ export interface Command {
   transport: 'http'; priority: number; acceptedAt: string; expiresAt: string; terminalAt: string | null;
   reason: string | null; submittedBy: Attribution; cancelledBy: Attribution | null;
 }
+export interface ValueObservation { msgType: number; bytes: Uint8Array }
 export interface WriteObservation { expected: Expected; bytes: Uint8Array }
 
 export const addressFields = ['source', 'node', 'channel', 'param', 'priority'] as const;
@@ -44,9 +45,11 @@ function decodeText(text: string): string {
     throw new Error('Use a valid text escape or enter a double backslash.');
   });
 }
-export function fieldsFromObservation({ expected, bytes }: WriteObservation): string[] {
+export function fieldsFromObservation(observation: WriteObservation | ValueObservation): string[] {
+  const { bytes } = observation;
+  const msgType = 'expected' in observation ? observation.expected.msgType : observation.msgType;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  switch (expected.msgType) {
+  switch (msgType) {
     case CHAR: return [visibleText(bytes)];
     case UINT8: return Array.from(bytes, String);
     case ADDR: {
@@ -55,7 +58,7 @@ export function fieldsFromObservation({ expected, bytes }: WriteObservation): st
       return result.map(String);
     }
     default: return Array.from({ length: bytes.length / 4 }, (_, i) => {
-      const value = expected.msgType === UINT32 ? view.getUint32(i * 4, true) : view.getFloat32(i * 4, true);
+      const value = msgType === UINT32 ? view.getUint32(i * 4, true) : view.getFloat32(i * 4, true);
       return Number.isFinite(value) ? String(value) : '';
     });
   }
@@ -66,7 +69,7 @@ export function integer(text: string, min: number, max: number, label: string) {
   if (!/^\d+$/.test(text) || !Number.isSafeInteger(value) || value < min || value > max) throw new Error(`${label} must be a whole number from ${min} to ${max}.`);
   return value;
 }
-export function typedPayload(expected: Expected, fields: string[]): Payload {
+export function typedPayload(expected: Pick<Expected, 'msgType' | 'payloadBytes'>, fields: string[]): Payload {
   if (expected.msgType === CHAR) {
     const text = decodeText(fields[0]);
     if (text.length > expected.payloadBytes || /[^\u0001-\u00ff]/.test(text)) throw new Error('Use only single-byte characters and stay within the observed size.');

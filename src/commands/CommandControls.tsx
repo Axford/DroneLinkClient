@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Form } from 'react-bootstrap';
 import { ArrowClockwise, CheckLg, ChevronRight, ClockHistory, Pencil, Tag, XLg } from 'react-bootstrap-icons';
-import { DRONE_LINK_MSG_TYPE_ADDR, DRONE_LINK_MSG_TYPE_CHAR } from '@dronelink/protocol';
+import ParameterFields from './ParameterFields';
 import IconButton from '../components/ui/IconButton';
 import SettingsDialog from '../components/ui/SettingsDialog';
 import SurfacePanel from '../components/ui/SurfacePanel';
 import {
-  Address, Command, Query, Target, WriteObservation, addressFields, commandAddress, fieldsFromObservation,
+  Command, Query, Target, WriteObservation, commandAddress, fieldsFromObservation,
   integer, operationLabel, requestedText, typedPayload
 } from './model';
 import { CommandError, Scope, commandRequest, message, resolveAttempt, root, submit, useCommandJournal, useCommandScope } from './session';
@@ -34,14 +34,14 @@ function Acceptance({ command }: { command: Command }) {
   </div>;
 }
 
-function Recovery({ scope }: { scope: Scope }) {
+export function CommandRecovery({ scope, onRecovered }: { scope: Scope; onRecovered?: (command: Command) => void }) {
   const { attempt, notice } = useCommandJournal(scope);
   const [error, setError] = useState('');
   if (!attempt || attempt.status === 'rejected') return notice ? <Alert variant="warning">{notice}</Alert> : null;
   if (busy(attempt.status)) return <p role="status">{attempt.status === 'checking' ? 'Checking submission…' : 'Submitting command…'}</p>;
   const action = (retry: boolean) => {
     setError('');
-    void resolveAttempt(scope, retry).catch(problem => setError(message(problem)));
+    void resolveAttempt(scope, retry).then(command => { if (command) onRecovered?.(command); }).catch(problem => setError(message(problem)));
   };
   return <Alert variant="warning">
     {attempt.request && <div>{operationLabel(attempt.request.operation)} · {commandAddress(attempt.request.target)}</div>}
@@ -79,21 +79,7 @@ function WriteForm({ scope, target, observation, latest, onClose }: {
   return <Form onSubmit={event => { event.preventDefault(); if (!stale && scope.canSubmit) void send(); }}>
     {stale && <Alert variant="warning">Observation metadata changed. Close and reopen the editor to review it.</Alert>}
     {error && <Alert variant="warning">{error}</Alert>}
-    {expected.msgType === DRONE_LINK_MSG_TYPE_ADDR ? Array.from({ length: fields.length / 5 }, (_, row) =>
-      <fieldset key={row} className="mb-2">
-        <legend className="fs-6">Address {row + 1}</legend>
-        <div className="d-flex flex-wrap gap-2">{addressFields.map((name: keyof Address, i) =>
-          <label key={name}>{name}<Form.Control aria-label={`Address ${row + 1} ${name}`} inputMode="numeric" size="sm"
-            value={fields[row * 5 + i]} onChange={event => setField(row * 5 + i, event.target.value)} /></label>)}</div>
-      </fieldset>) : fields.map((value, index) => {
-        const text = expected.msgType === DRONE_LINK_MSG_TYPE_CHAR;
-        const label = text ? 'Requested text' : `Value ${index + 1}`;
-        return <label key={index} className="d-block mb-2">{label}
-          <Form.Control aria-label={label} value={value} inputMode={text ? 'text' : 'decimal'}
-            maxLength={text ? expected.payloadBytes * 4 : 40} onChange={event => setField(index, event.target.value)} />
-          {text && <small className="dw-meta">{'Use \\n for a line break and \\\\ for a backslash.'}</small>}
-        </label>;
-      })}
+    <ParameterFields msgType={expected.msgType} fields={fields} onChange={setField} />
     <div className="dw-row-actions">
       <IconButton label="Close editor" icon={<XLg />} onClick={onClose} />
       <IconButton label="Submit write" icon={<CheckLg />} type="submit" disabled={!scope.canSubmit || stale || Boolean(attempt && attempt.status !== 'rejected')} />
@@ -121,7 +107,7 @@ export function ParameterCommands({ target, observation }: { target: Target; obs
   };
   return <SurfacePanel title="Cloud commands">
     {last && sameTarget(last.target, target) && <Acceptance command={last} />}
-    <Recovery scope={scope} />
+    <CommandRecovery scope={scope} />
     {error && <Alert variant="warning">{error}</Alert>}
     {scope.canSubmit && <div className="dw-row-actions">
       {observation && !draft && <IconButton label="Edit parameter value" icon={<Pencil />} disabled={blocked} onClick={() => setDraft(observation)} />}
@@ -287,7 +273,7 @@ export function DomainCommands({ node }: { node?: number }) {
     <IconButton label="Domain commands" icon={<ClockHistory />} onClick={() => setShow(true)} />
     <SettingsDialog title="Domain commands" show={show} onHide={() => setShow(false)}>
       {show && <>
-        <Recovery scope={scope} />
+        <CommandRecovery scope={scope} />
         {last && <SurfacePanel title="Latest request"><Acceptance command={last} /></SurfacePanel>}
         {scope.canSubmit && node !== undefined && scope.canTarget?.(node) !== false && <NumericQuery key={node} scope={scope} node={node} />}
         <SurfacePanel title="Command queue"><CommandHistory scope={scope} /></SurfacePanel>

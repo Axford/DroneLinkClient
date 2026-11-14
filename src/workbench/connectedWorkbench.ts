@@ -1,3 +1,4 @@
+import { localParameterResponse } from '../commands/parameterPaths';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authenticatedFetchJson } from '../utils/api';
 import type { GlobalState } from '../dronelink/DroneLinkState';
@@ -214,5 +215,12 @@ export function useConnectedWorkbench(domainId?: string) {
         const response = await request(activePair, 'query-value', grant, signal, { node, channel, parameter, transport: selected });
         if (!response.ok) throw await localError(response);
     }
-    return { networkSession: activePair, network: activePair ? feed : undefined, paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, readNetwork, traceRoute, fileRequest, fileBackups: activePair?.fileBackups === true };
+    async function parameterAction(node: number, selected: Transport, endpoint: string, body: unknown) {
+        if (!activePair || !access || currentPath.current?.(node) !== selected) throw new Error('The selected local route is unavailable.');
+        const signal = AbortSignal.timeout(10000);
+        const grant = await access.token(signal);
+        if (livePair.current !== activePair || currentPath.current?.(node) !== selected) throw new Error('The selected local route changed.');
+        return localParameterResponse(await request(activePair, `nodes/${node}/${endpoint}?transport=${selected}`, grant, signal, body));
+    }
+    return { networkSession: activePair, network: activePair ? feed : undefined, paired: !!activePair, status: feed.status, error, busy, connect, disconnect, choice, choose, usesLocal, transport, mixed, query, parameterAction, readNetwork, traceRoute, fileRequest, fileBackups: activePair?.fileBackups === true };
 }

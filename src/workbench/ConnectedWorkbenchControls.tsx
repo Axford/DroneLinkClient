@@ -1,3 +1,4 @@
+import { LastKnownParameterActions } from '../commands/ParameterEditor';
 import React, { useState } from 'react';
 import ChannelList from '../components/ChannelList';
 import { ObservationNamesContext } from '../components/parameterPresentation';
@@ -52,6 +53,8 @@ export function ConnectedLocalInspector({ node, workbench, state, canQuery }: { 
             {observed && <CommandScope.Provider value={null}>
                 <ObservationNamesContext.Provider value={state}><ChannelList node={observed} sampleLive={!!transport} /></ObservationNamesContext.Provider>
             </CommandScope.Provider>}
+            {transport && !workbench.network?.observations[transport][node] &&
+                <LastKnownParameterActions node={workbench.network?.lastKnown[transport][node]} />}
             {canQuery && <form className="dw-toolbar" onSubmit={event => {
                 event.preventDefault();
                 if (busy || !transport) return;

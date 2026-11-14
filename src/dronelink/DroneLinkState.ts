@@ -18,6 +18,7 @@ export interface ParameterState {
   writable: boolean;
   priority?: number;
   writeObservation?: WriteObservation;
+  observationBytes?: Uint8Array;
   param: number;
   name?: string;
   timestamp?: number;
@@ -417,6 +418,12 @@ export class DroneLinkState {
       } else {
         param.lastHeard = timestamp;
         param.source = interfaceName;
+        param.observationBytes = msg.encodeUnframed().slice(-msg.msgLength);
+        param.writeObservation = msg.writable ? {
+          bytes: param.observationBytes,
+          expected: { observationEpoch: 'local', nodeGeneration: 0, msgType: msg.msgType,
+            payloadBytes: msg.msgLength, writable: true },
+        } : undefined;
       }
     }
 
@@ -642,6 +649,7 @@ export class DroneLinkState {
           const msg = new DroneLinkMsg(); msg.parse(bytes.buffer);
           if (kind === 'name') { parameter.name = msg.payloadToString(); parameter.nameLastHeard = Date.parse(facet.lastReceivedAt); parameter.nameSource = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP'; }
           else {
+            parameter.observationBytes = payload;
             parameter.msgType = type; parameter.bytesPerValue = msg.bytesPerValue(); parameter.numValues = msg.numValues();
             parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
             const priority = facet.priority;

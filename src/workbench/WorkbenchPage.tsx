@@ -1,3 +1,5 @@
+import { LastKnownParameterActions, ParameterEditorProvider } from '../commands/ParameterEditor';
+import { localParameterPath, localParameterResponse } from '../commands/parameterPaths';
 import type { RouteTraceResult } from './RouteTrace';
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { DomainLens, DomainLensPanels, DomainWorkspace } from '../components/DomainWorkspace';
@@ -75,7 +77,7 @@ export default function WorkbenchPage() {
         },
     }), [capture]);
     const feed = useWorkbenchFeed(undefined, captureFeed);
-    const { status, routes, paths, observations, interfaces } = feed;
+    const { status, routes, paths, observations, lastKnown, interfaces } = feed;
     const [mapToken, setMapToken] = useState<string | null>();
     const [lens, setLens] = useState<DomainLens>('nodes');
     const mapView = React.useRef<User['mapState']>(undefined);
@@ -184,6 +186,7 @@ export default function WorkbenchPage() {
             return reading && <p className="dw-meta" key={transport}>{transportLabel[transport]} last received {localTime(reading.lastHeard)}. Hidden by transport selection.</p>;
         })}
         {!node && <p>{connected && path?.reachable ? 'Waiting for publications.' : 'Local route unavailable.'}</p>}
+        {!node && active && selectedNode !== undefined && <LastKnownParameterActions node={lastKnown[active][selectedNode]} />}
         {node && active && <InspectorSessionProvider key={active} nodes={observations[active]} inventoryComplete={false}>
             <ObservationNamesContext.Provider value={observations[active]}>
                 <ChannelList key={node.id} node={node} sampleLive={connected && !!path?.reachable} />
@@ -194,7 +197,22 @@ export default function WorkbenchPage() {
 
 
     return <div className="dw-workspace" data-bs-theme="dark"><PrimaryNavBar standalone domains={[]} /><main className="content-wrapper workspace-operations">
-        <DomainWorkspace name="Workbench" activeLens={showCharts ? undefined : lens} onLensChange={next => { setShowCharts(false); setLens(next); }}
+        <ParameterEditorProvider resolve={(target, pinned) => {
+            const id = target.nodeAddress;
+            const preference = choiceFor(id);
+            const selected = preference === 'auto' ? routes[id]?.transport : preference;
+            const transport = pinned === 'wifi' || pinned === 'serial' ? pinned : selected;
+            if (!transport) return;
+            const action = async (endpoint: string, body: unknown) => localParameterResponse(await fetch(
+                `/api/workbench/v1/nodes/${id}/${endpoint}?transport=${transport}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body), signal: AbortSignal.timeout(10000),
+                }));
+            return localParameterPath(target, { id: transport, transport,
+                available: connected && transport === selected && !!paths[transport][id]?.reachable,
+                state: lastKnown[transport], send: action,
+            });
+        }}><DomainWorkspace name="Workbench" activeLens={showCharts ? undefined : lens} onLensChange={next => { setShowCharts(false); setLens(next); }}
             lensAction={<button type="button" className={`nav-link ${showCharts ? 'active' : ''}`} aria-pressed={showCharts}
                 onClick={() => setShowCharts(current => !current)}>Live charts{capturing && ' · Capturing'}</button>}
             status={<span className="dw-status" role="status">{connected ? 'Local gateway connected' : status === 'connecting' ?
@@ -216,6 +234,6 @@ export default function WorkbenchPage() {
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
                     available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} observed={node} activity={reportFiles} />} />} />
             </SignalPlotContext.Provider>
-        </DomainWorkspace>
+        </DomainWorkspace></ParameterEditorProvider>
     </main></div>;
 }
