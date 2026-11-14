@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import NodeNetwork, { useNodeNetwork } from './NodeNetwork';
 import NetworkGraph from './NetworkGraph';
+import RouteTrace, { useRouteTrace } from './RouteTrace';
+import type { TraceRequest } from './RouteTrace';
 import { gatewayRouteStatus, networkTopology } from './networkTopology';
 import type { NodeNetworkSnapshot } from './NodeNetwork';
 import { transportLabel, transports, useWorkbenchFeed } from './useWorkbenchFeed';
@@ -10,7 +12,7 @@ function localTime(timestamp: number) {
     return <time dateTime={date.toISOString()}>{date.toLocaleTimeString()}</time>;
 }
 
-export default function WorkbenchNetwork({ feed, selectedNode, select, selectionDisabled, nodeTransport, inspectedTransport, readNode }: {
+interface WorkbenchNetworkProps {
     feed: ReturnType<typeof useWorkbenchFeed>;
     selectedNode?: number;
     select: (node: number) => boolean;
@@ -18,11 +20,17 @@ export default function WorkbenchNetwork({ feed, selectedNode, select, selection
     nodeTransport?: 'wifi' | 'serial';
     inspectedTransport?: 'wifi' | 'serial';
     readNode?: (signal: AbortSignal) => Promise<NodeNetworkSnapshot>;
-}) {
+    traceRoute?: TraceRequest;
+}
+
+export default function WorkbenchNetwork({ feed, selectedNode, select, selectionDisabled, nodeTransport, inspectedTransport, readNode, traceRoute }: WorkbenchNetworkProps) {
     const { status, paths, observations, interfaces, diagnostics } = feed;
+    const route = selectedNode !== undefined && inspectedTransport ? paths[inspectedTransport][selectedNode] : undefined;
+    const routeKey = traceRoute && route?.reachable ? `${interfaces[route.transport]?.address}:${route.nextHop}` : undefined;
+    const trace = useRouteTrace(selectedNode, inspectedTransport, routeKey, traceRoute);
     const report = useNodeNetwork(selectedNode, nodeTransport, readNode);
     const gatewayDetails = useRef<HTMLDetailsElement>(null);
-    const topology = networkTopology(feed, selectedNode, report.snapshot, report.stale, inspectedTransport);
+    const topology = networkTopology(feed, selectedNode, report.snapshot, report.stale, inspectedTransport, trace.available ? trace.visible : undefined);
     const connected = status === 'connected';
     const configured = transports.filter(transport => interfaces[transport]);
     const nodes = Array.from(new Set([...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number))).sort((a, b) => a - b);
@@ -30,12 +38,17 @@ export default function WorkbenchNetwork({ feed, selectedNode, select, selection
         <h2 id="workbench-network">Gateway network</h2>
         <NetworkGraph topology={topology} selectedNode={selectedNode} snapshot={report.snapshot} stale={report.stale}
             connected={connected} selectionDisabled={selectionDisabled} select={select}
+            runTrace={() => void trace.run()} tracing={trace.busy}
+            canTrace={trace.available && !trace.cooling}
+            traceStatus={trace.error ? 'Trace details · Unavailable' : trace.history[0] ?
+                `${trace.visible ? 'Trace details' : 'Previous trace'} · ${trace.history[0].roundTripMs} ms` : undefined}
             refresh={() => void report.refresh()} reading={report.busy} canRead={report.available}
             inspectGateway={() => {
                 if (!gatewayDetails.current) return;
                 gatewayDetails.current.open = true;
                 gatewayDetails.current.querySelector('summary')?.focus();
             }} />
+        <RouteTrace trace={trace} connected={connected && trace.available} />
         {selectedNode !== undefined && <NodeNetwork node={selectedNode} report={report}
             unavailable={connected ? 'The selected node needs a direct Wi-Fi route.' : 'The gateway connection is unavailable.'} />}
         <details ref={gatewayDetails} className="dw-panel mb-3 dw-network-gateway-details">

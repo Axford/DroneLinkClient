@@ -270,6 +270,8 @@ Select a node card in **Network**, then choose **Refresh node network** on the c
 
 An unreachable route or failed refresh marks the preceding snapshot as last seen. After two comparable reads, the node details compare reported queue eviction and rejection counters. Select the gateway card to open its interface counters, local routes and serial diagnostics.
 
+Choose **Trace route** on the Network graph to send a single probe over the selected reachable local transport. The graph shows separate outbound and return arrows for a complete hop record. Select a trace wire to see the round-trip time, per-hop metrics and recent replies. An incomplete reply lists only recorded hops. Connected Workbench requires current edit access.
+
 ## Workbench live charts
 
 Open **Live charts** in standalone Workbench, or choose **Plot** on a numeric Inspector parameter. Use **Find parameters** and **Add series** to compare signals across nodes and select individual vector components. Signals with a known common unit share a panel by default. Use **Separate** to put a signal on its own scale.

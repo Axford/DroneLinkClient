@@ -88,7 +88,7 @@ interface CardData extends Record<string, unknown> {
 }
 
 type GraphNode = Node<CardData, 'network-card'>;
-type GraphEdge = Edge<{ label: string; accessibleLabel: string; activate: (trigger: HTMLButtonElement) => void; active: boolean; bend: number }, 'reported-hop'>;
+type GraphEdge = Edge<{ label: string; accessibleLabel: string; activate: (trigger: HTMLButtonElement) => void; active?: boolean; bend: number }, 'reported-hop'>;
 
 function NetworkCard({ data }: NodeProps<GraphNode>) {
     const { title, name, status, selected, queue, activate, disabled } = data;
@@ -151,7 +151,7 @@ function FitTopology({ layout }: { layout: Map<string, XYPosition> }) {
 }
 
 export default function NetworkGraph({ topology, selectedNode, snapshot, stale, connected, selectionDisabled,
-    select, refresh, reading, canRead, inspectGateway }: {
+    select, refresh, reading, canRead, inspectGateway, runTrace, tracing, canTrace, traceStatus }: {
     topology: ReturnType<typeof networkTopology>;
     selectedNode?: number;
     snapshot?: NodeNetworkSnapshot;
@@ -163,6 +163,10 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
     reading: boolean;
     canRead: boolean;
     inspectGateway: () => void;
+    runTrace: () => void;
+    tracing: boolean;
+    canTrace: boolean;
+    traceStatus?: string;
 }) {
     const [focusedHop, setFocusedHop] = useState<string>();
     const hopTrigger = useRef<HTMLButtonElement>(null);
@@ -170,7 +174,7 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
         setFocusedHop(undefined);
         hopTrigger.current?.focus();
     };
-    const hop = topology.hops.find(item => item.id === focusedHop);
+    const hop = topology.hops.find(item => !item.trace && item.id === focusedHop);
     const pairs = new Map<string, ReportedHop[]>();
     const pairKey = (item: ReportedHop) => [item.from, item.to].sort().join(':');
     for (const hop of topology.hops) {
@@ -207,6 +211,7 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
             },
         })),
     ];
+    const displayNode = (id: string) => id === gatewayId ? 'gateway' : id.replace('node-', 'node ');
     const edges: GraphEdge[] = topology.hops.map(item => {
         const from = layout.get(item.from)!;
         const to = layout.get(item.to)!;
@@ -218,7 +223,8 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
         const active = item.id === focusedHop;
         const highlighted = active || isSelectedRoute(item);
         const historical = item.routes.every(route => route.status === 'Last seen' || route.status === 'Expired' || route.status.startsWith('Interface down'));
-        const stroke = highlighted ? 'var(--dw-color-accent)' : 'var(--dw-color-muted)';
+        const stroke = item.trace === 'Outbound' ? 'var(--dw-trace-outbound)' : item.trace === 'Return'
+            ? 'var(--dw-trace-return)' : highlighted ? 'var(--dw-color-accent)' : 'var(--dw-color-muted)';
         const pair = pairs.get(pairKey(item))!;
         const direction = item.from < item.to ? 1 : -1;
         const distanceSquared = dx * dx + dy * dy;
@@ -233,9 +239,16 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
         return {
             id: item.id, source: item.from, target: item.to, sourceHandle, targetHandle, type: 'reported-hop',
             markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
-            style: { stroke, strokeWidth: highlighted ? 2.5 : 1.5, strokeDasharray: historical ? '5 4' : undefined },
-            data: { label: item.transport, bend, accessibleLabel: `${item.reporter} to ${item.to === gatewayId ? 'gateway' : item.to.replace('node-', 'node ')} via ${item.transport}`,
-                active, activate: trigger => {
+            style: { stroke, strokeWidth: item.trace || highlighted ? 2.5 : 1.5,
+                strokeDasharray: item.trace === 'Return' || (!item.trace && historical) ? '5 4' : undefined },
+            data: { label: item.transport, bend, accessibleLabel: item.trace
+                ? `${item.trace} trace from ${displayNode(item.from)} to ${displayNode(item.to)}`
+                : `${item.reporter} to ${displayNode(item.to)} via ${item.transport}`,
+                active: item.trace ? undefined : active, activate: trigger => {
+                    if (item.trace) {
+                        document.getElementById('workbench-route-trace')?.focus();
+                        return;
+                    }
                     hopTrigger.current = trigger;
                     setFocusedHop(active ? undefined : item.id);
                 } },
@@ -254,10 +267,17 @@ export default function NetworkGraph({ topology, selectedNode, snapshot, stale, 
                 <Panel position="top-left"><span className="dw-network-graph-status">
                     {connected || !topology.hops.length ? 'Observed next hops' : 'Last seen · Observed next hops'}
                 </span></Panel>
-                {selectedNode !== undefined && <Panel position="top-right">
+                {selectedNode !== undefined && <Panel position="top-right" className="dw-network-actions">
+                    <button type="button" className="btn btn-secondary" disabled={!canTrace || tracing} onClick={runTrace} aria-controls="workbench-route-trace">
+                        {tracing ? 'Tracing…' : 'Trace route'}
+                    </button>
                     <button type="button" className="btn btn-secondary" disabled={!canRead || reading} onClick={refresh}>
                         {reading ? 'Reading node network…' : 'Refresh node network'}
                     </button>
+                </Panel>}
+                {traceStatus && <Panel position="bottom-right">
+                    <button type="button" className="dw-network-graph-status dw-trace-status"
+                        onClick={() => document.getElementById('workbench-route-trace')?.focus()}>{traceStatus}</button>
                 </Panel>}
             </ReactFlow>
         </div>

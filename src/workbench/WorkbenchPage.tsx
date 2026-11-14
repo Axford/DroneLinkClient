@@ -1,3 +1,4 @@
+import type { RouteTraceResult } from './RouteTrace';
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import { DomainLens, DomainLensPanels, DomainWorkspace } from '../components/DomainWorkspace';
 import PrimaryNavBar from '../PrimaryNavBar';
@@ -101,6 +102,15 @@ export default function WorkbenchPage() {
             if (!response.ok) throw new Error(body.error || 'Node network snapshot unavailable.');
             return body;
         } : undefined;
+    const traceRoute = connected && active && path?.reachable && interfaces[active]?.up !== false
+        ? async (signal: AbortSignal): Promise<RouteTraceResult> => {
+            const response = await fetch(`/api/workbench/v1/nodes/${selectedNode}/trace-route?transport=${active}`, {
+                method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', signal,
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Route trace unavailable.');
+            return result;
+        } : undefined;
     const configured = transports.filter(transport => interfaces[transport]);
     const nodes = useMemo(() => Array.from(new Set([...Object.keys(routes), ...Object.keys(paths.wifi), ...Object.keys(paths.serial)].map(Number)))
         .sort((a, b) => a - b), [routes, paths]);
@@ -200,7 +210,7 @@ export default function WorkbenchPage() {
                     search={search} onSearch={setSearch} />
             </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} /> : selector}
+                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} /> : selector}
             </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 context={transportChoice} modules={modules}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}

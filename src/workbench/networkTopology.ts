@@ -1,4 +1,6 @@
 import type { Transport } from './useWorkbenchFeed';
+import { traceLegs } from './RouteTrace';
+import type { RouteTraceResult } from './RouteTrace';
 import type { NodeNetworkSnapshot } from './NodeNetwork';
 import { transportLabel, transports, useWorkbenchFeed } from './useWorkbenchFeed';
 
@@ -20,6 +22,7 @@ export interface ReportedHop {
     reporter: string;
     transport: string;
     routes: ReportedRoute[];
+    trace?: 'Outbound' | 'Return';
 }
 
 export const gatewayId = 'gateway';
@@ -35,7 +38,7 @@ export function gatewayRouteStatus(feed: Feed, transport: Transport, destination
 }
 
 export function networkTopology(feed: Feed, selectedNode?: number, snapshot?: NodeNetworkSnapshot, stale = false,
-    inspectedTransport?: Transport) {
+    inspectedTransport?: Transport, trace?: RouteTraceResult) {
     const gatewayAddresses = transports.map(transport => feed.interfaces[transport]?.address);
     const addresses = new Set<number>();
     const hops = new Map<string, ReportedHop>();
@@ -80,6 +83,20 @@ export function networkTopology(feed: Feed, selectedNode?: number, snapshot?: No
                 destination: route.destination, cost: route.cost, receivedAt: snapshot.receivedAt,
                 secondsAtRead: route.ageMs / 1000, inspected: false, status: stale ? 'Last seen' : iface?.up === false ? 'Interface down at snapshot' : 'At snapshot',
             });
+        }
+    }
+    if (trace) {
+        const { outbound, returning } = traceLegs(trace);
+        for (const [leg, sequence] of [['Outbound', outbound], ['Return', returning]] as const) {
+            for (let i = 1; i < sequence.length; i++) {
+                const from = target(sequence[i - 1].node);
+                const to = target(sequence[i].node);
+                if (from === to) continue;
+                addAddress(sequence[i - 1].node);
+                addAddress(sequence[i].node);
+                const id = JSON.stringify(['trace', leg, i]);
+                hops.set(id, { id, from, to, reporter: 'Route trace', transport: leg, routes: [], trace: leg });
+            }
         }
     }
     return { addresses: Array.from(addresses).sort((a, b) => a - b), names, hops: Array.from(hops.values()) };

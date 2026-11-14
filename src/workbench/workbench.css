@@ -178,3 +178,17 @@
 .dw-network-gateway-details summary { cursor: pointer; font-weight: 600; }
 .dw-network-gateway-details[open] summary { margin-bottom: var(--dw-space-3); }
 .dw-network-card:is(button) { pointer-events: auto; }
+
+.dw-network-graph {
+    --dw-trace-outbound: var(--dw-color-navigation-heading);
+    --dw-trace-return: var(--dw-color-navigation-wind);
+}
+
+.dw-network-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dw-space-1); }
+.dw-route-trace details + details { margin-top: var(--dw-space-2); }
+.dw-route-trace summary { cursor: pointer; }
+.dw-trace-legs { display: flex; flex-wrap: wrap; gap: var(--dw-space-3); margin-block: var(--dw-space-2) 0; }
+.dw-trace-hops { display: flex; flex-wrap: wrap; gap: var(--dw-space-2); padding: 0; list-style: none; }
+.dw-trace-hops li { padding: var(--dw-space-1) var(--dw-space-2); border-radius: var(--dw-radius-small); background: var(--dw-color-raised); }
+
+.dw-trace-status { cursor: pointer; }

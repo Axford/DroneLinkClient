@@ -1,3 +1,4 @@
+import type { RouteTraceResult } from './workbench/RouteTrace';
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Spinner, Alert, Badge } from 'react-bootstrap';
@@ -185,6 +186,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             {lens === 'network' && (workbench.network
                 ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode}
                     selectionDisabled={filesBusy} inspectedTransport={local ? localTransport : undefined}
+                    traceRoute={editableDomain && local && localTransport && selectedNodeId !== null
+                        ? signal => workbench.traceRoute<RouteTraceResult>(selectedNodeId, signal) : undefined}
                     readNode={!archived && local && localTransport === 'wifi' && selectedNodeId !== null &&
                         workbench.network.status === 'connected' && workbench.network.paths.wifi[selectedNodeId]?.reachable &&
                         workbench.network.paths.wifi[selectedNodeId].nextHop === selectedNodeId
