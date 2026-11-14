@@ -127,7 +127,7 @@
 .dw-map-inspector-slot .inspector-panel {
   pointer-events: auto;
   width: 100%;
-  height: 100%;
+  height: auto;
   max-height: 100%;
   padding: var(--dw-space-2);
   border-radius: calc(var(--dw-radius) * 1.5);
