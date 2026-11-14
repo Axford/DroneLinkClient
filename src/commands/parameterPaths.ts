@@ -15,6 +15,7 @@ export function sampleFor(state: GlobalState, target: Target) {
 export function cloudParameterPath(scope: Scope, state: GlobalState, target: Target, local: boolean): ParameterPath {
     const getDelivery = (command: Command): Delivery => ({
         status: command.state === 'pending' ? 'Pending retrieval' : command.state === 'retrieved' ? 'Retrieved by polling node' : command.state,
+        awaitingObservation: command.state === 'retrieved',
         receivedAfterMs: command.terminalAt ? Date.parse(command.terminalAt) : Date.parse(command.acceptedAt),
         refresh: command.state === 'pending' ? async () => getDelivery((await commandRequest<{ data: Command }>(
             `${root(scope.domainId)}/commands/${encodeURIComponent(command.id)}`, { userId: scope.userId })).data) : undefined,
@@ -36,7 +37,7 @@ export async function localParameterResponse(response: Response): Promise<Delive
     if (!response.ok) throw new Error(body.error ?? `Local parameter operation failed (${response.status}).`);
     if (body.status !== 'queued' || !Number.isSafeInteger(body.receivedAfterMs))
         throw new Error('The gateway response was incomplete.');
-    return { status: 'Queued at local gateway', receivedAfterMs: body.receivedAfterMs, local: true };
+    return { status: 'Queued at local gateway', receivedAfterMs: body.receivedAfterMs, local: true, awaitingObservation: true };
 }
 
 export function localParameterPath(target: Target, route: {

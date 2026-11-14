@@ -26,10 +26,11 @@ export interface Delivery {
     status: string;
     receivedAfterMs?: number;
     local?: boolean;
+    awaitingObservation?: boolean;
     refresh?: () => Promise<Delivery>;
 }
 type ResolvePath = (target: Target, pinned?: string) => ParameterPath | undefined;
-interface EditorContext { canOpen: (target: Target) => boolean; open: (target: Target, name: string, opener: HTMLElement) => void }
+interface EditorContext { resolve: ResolvePath; canOpen: (target: Target) => boolean; open: (target: Target, name: string, opener: HTMLElement) => void }
 export const ParameterEditorContext = createContext<EditorContext | null>(null);
 
 export function LastKnownParameterActions({ node }: { node?: NodeState }) {
@@ -193,6 +194,7 @@ export function ParameterEditorProvider({ resolve, children }: React.PropsWithCh
     const [drafts, setDrafts] = useState<Draft[]>([]);
     const draftKey = (draft: Draft) => `${draft.path.id}:${commandAddress(draft.target)}`;
     const controller: EditorContext = {
+        resolve,
         canOpen: target => {
             const path = resolve(target);
             return !!(path?.available && path.sample.observation);

@@ -77,6 +77,15 @@
 [data-bs-theme] .dw-channel-view-switch:hover { background: var(--dw-color-hover); }
 .channel-card .card-body { padding: var(--dw-space-1) var(--dw-space-2) var(--dw-space-2); container-type: inline-size; }
 
+.dw-channel-actions .dw-module-status-action {
+    width: calc(var(--dw-space-6) + var(--dw-space-1));
+    height: calc(var(--dw-space-6) + var(--dw-space-1));
+    min-height: calc(var(--dw-space-6) + var(--dw-space-1));
+}
+.dw-channel-actions .dw-module-status-action svg { width: 14px; height: 14px; }
+.dw-module-status-action[aria-disabled="true"] { opacity: var(--dw-opacity-disabled); cursor: default; }
+.dw-module-status-feedback { max-width: 18ch; text-align: end; }
+
 .dw-parameter-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));

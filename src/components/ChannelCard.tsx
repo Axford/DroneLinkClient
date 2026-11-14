@@ -5,6 +5,7 @@ import { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_ERROR, DRONE_MODULE_PARAM_NAME, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
 import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions';
 import IconButton from './ui/IconButton';
+import ModuleStatusAction from './ModuleStatusAction';
 import ParameterList from './ParameterList';
 import ProbeInstrument from './ProbeInstrument';
 import ChannelSummary, { ChannelSummaryDetails } from './ChannelSummary';
@@ -80,6 +81,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                         aria-controls={bodyId} data-inspector-focus={`view-${channelId}`} onClick={() => onShowParameters(!showParameters)} />
                     <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />
                 </div>}
+                <ModuleStatusAction key={`${nodeId}:${channelId}:${generation}`} node={nodeId} channel={channelId} name={String(name)} status={status} />
                 {actions}
                 {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
             </div>
