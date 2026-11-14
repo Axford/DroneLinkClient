@@ -232,7 +232,7 @@ The **Files** tab expands into the Explorer. Choose **On-node** to browse the se
 
 In an active hosted Domain, Owners, Editors and Platform Admins can open and save the selected node's editable **Cloud** files without pairing. The list shows the server's last modified date and the narrow picker includes the time. **Copy to Cloud** saves the current editor text. **Load into node draft** targets the existing on-node path and requires a reachable local route. Cloud edits are separate from retained **Backup history**.
 
-Use **Open node configuration** to open the selected node's existing `/config.ini`. **Logical** and **Code** share one draft. Use **Add module** in either view to search the selected node's catalogue. GPS (NMEA) and Pilot (Nav) have reviewed starter templates. Select GPS on the graph to set its serial port. Select Pilot to pick a GPS location output, then review the proposed subscription and any publication change before applying. Guided editing requires matching build markers and still leaves physical wiring and runtime behavior for you to verify. [Gateway catalogue setup](../../DroneLinkServer/docs/operations.md#module-catalogue)
+Use **Open node configuration** to open the selected node's existing `/config.ini`. **Logical**, **Physical** and **Code** share one draft. The standalone **Add module** button searches module types reported by the selected node. Added modules include commented defaults and examples for available startup settings. In Code, type a setting name inside a module section to see suggestions for that type. Select GPS on the graph to set its serial port. Select Pilot to pick a GPS location output, then review the proposed subscription and any publication change before applying. Guided editing requires matching build markers. [Gateway catalogue setup](../../DroneLinkServer/docs/operations.md#module-catalogue)
 
 Use **Edit source** for a manual address change or **Code** for other module types and settings. Click a diagnostic to jump to its line. Correct structural errors before Upload. Upload verifies stored bytes. Restart separately when ready to activate the change, then check fresh observations. Other files, including `/safeMode.ini`, use the generic editor.
 
@@ -263,6 +263,8 @@ The serial row displays the configured baud and 8N1. The receipt age is the
 time since Workbench received the result. Edit the startup settings through
 **Files**, verify Upload, then Restart separately. See the
 [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+
+Expand a detected I²C device card to see possible types and run **Identify device** when a reviewed signature is available. Choose a supported type and use **Add … to draft** on the card. A manual identification also works for address-based candidates without a signature. The draft gets the detected bus and address. Apply it separately with **Upload to node**.
 
 ### Selected node network
 
