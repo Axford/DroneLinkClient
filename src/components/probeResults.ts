@@ -1,7 +1,7 @@
 import type { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from '../dronelink/DroneLinkMsg';
 
-const pins = [4, 13, 14, 15, 16, 25, 26, 32, 33, 34, 35] as const;
+export const probePins = [4, 13, 14, 15, 16, 25, 26, 32, 33, 34, 35] as const;
 export const probeModeLabels = ['Digital', 'Analog', 'Serial'] as const;
 const resultBase = 10;
 export const probeBauds = [1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400];
@@ -58,12 +58,12 @@ function unsigned32(parameter: ParameterState | undefined): number | undefined {
 }
 
 export function probeModes(gpio: number): string[] {
-    if (!(pins as readonly number[]).includes(gpio)) return [];
+    if (!(probePins as readonly number[]).includes(gpio)) return [];
     return ['digital', ...(gpio >= 32 ? ['analog', 'analog,voltage'] : []), ...probeBauds.map(baud => `serial,${baud}`)];
 }
 
 export function readProbeResults(channel: ChannelState) {
-    const rows = pins.flatMap<{ gpio: number; result: ParameterState; mode: number; status: number; description: string; baud?: number }>(gpio => {
+    const rows = probePins.flatMap<{ gpio: number; result: ParameterState; mode: number; status: number; description: string; baud?: number }>(gpio => {
         const result = channel.params[resultBase + gpio];
         if (!result) return [];
         if (gpio >= 32 && result.msgType === DRONE_LINK_MSG_TYPE_FLOAT) {

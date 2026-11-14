@@ -79,6 +79,7 @@ it('checks the node configuration draft before sending its exact bytes and keeps
     const previousFetch = global.fetch;
     const fetchMock = jest.fn()
         .mockResolvedValueOnce(reply(config))
+        .mockResolvedValueOnce(reply({ schemaVersion: 1, node: 11, entries: [] }))
         .mockResolvedValueOnce(reply({ ...config, text: edited, revision: 'b'.repeat(64) }))
         .mockResolvedValueOnce(reply({ error: 'The stored file changed.' }, 409));
     global.fetch = fetchMock;
@@ -110,14 +111,14 @@ it('checks the node configuration draft before sending its exact bytes and keeps
         fireEvent.change(editor, { target: { value: edited.replace(/\r\n/g, '\n') } });
         fireEvent.click(upload);
         expect(await screen.findByText(/Stored file verified by readback/)).toBeInTheDocument();
-        expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ path: config.path, revision: config.revision, text: edited });
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ path: config.path, revision: config.revision, text: edited });
+        expect(fetchMock).toHaveBeenCalledTimes(3);
         const laterDraft = editor.value.replace('2000', '3000');
         fireEvent.change(editor, { target: { value: laterDraft } });
         fireEvent.click(upload);
         expect(await screen.findByRole('alert')).toHaveTextContent('The stored file changed.');
         expect(editor).toHaveValue(laterDraft);
-        expect(JSON.parse(fetchMock.mock.calls[2][1].body).revision).toBe('b'.repeat(64));
+        expect(JSON.parse(fetchMock.mock.calls[3][1].body).revision).toBe('b'.repeat(64));
     } finally {
         global.fetch = previousFetch;
     }

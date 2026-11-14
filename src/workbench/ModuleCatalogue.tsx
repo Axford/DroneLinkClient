@@ -1,9 +1,7 @@
 import React, { useId, useState } from 'react';
 import SettingsDialog from '../components/ui/SettingsDialog';
 import type { ConfigurationOverview } from './nodeConfiguration';
-import { i2cStarters } from './nodeConfiguration';
-import type { Starter } from './nodeConfiguration';
-import { hex } from './i2cDiscovery';
+import type { ModuleSetting } from './moduleSettings';
 import { connectGpsLocation, gpsPort, setGpsPort } from './nodeConfiguration';
 
 interface Parameter { name: string; address: number; type: string; count: number }
@@ -12,6 +10,7 @@ interface Entry {
     description: string;
     category: string;
     support: 'supported' | 'unsupported' | 'unknown';
+    settings?: ModuleSetting[];
     serialPort?: Parameter;
     locationOutput?: Parameter;
     locationInput?: Parameter;
@@ -24,35 +23,27 @@ export interface Catalogue {
     metadataStatus: 'marker-match' | 'different-build' | 'unverified' | 'unavailable';
     entries: Entry[];
 }
-const labels: Record<Starter, string> = { NMEA: 'GPS', Nav: 'Pilot', Probe: 'Probe',
-    INA219: 'INA219', INA3221: 'INA3221', BME280: 'BME280', QMC5883L: 'QMC5883L' };
-
-function isStarter(type: string, i2cCandidates?: string[]): type is Starter {
-    return type === 'NMEA' || type === 'Nav' || type === 'Probe' ||
-        (i2cStarters.some(candidate => candidate === type) && !!i2cCandidates?.includes(type));
-}
+const moduleLabel = (type: string) => type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : type;
 const supported = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.entries.find(entry => entry.type === type && entry.support === 'supported');
 const matched = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.metadataStatus === 'marker-match' ? supported(catalogue, type) : undefined;
 
-export function ModuleCatalogue({ initialSearch, gpsConnector, i2c, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
+export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
     catalogue?: Catalogue;
     initialSearch?: string;
     gpsConnector?: 1 | 2;
-    i2c?: { channel: number; address: number; candidates: string[] };
     loading: boolean;
     canAdd: boolean;
     onRetry: () => void;
     onClose: () => void;
-    onAdd: (type: Starter) => void;
+    onAdd: (type: string) => void;
 }) {
     const id = useId();
     const [search, setSearch] = useState(initialSearch ?? '');
     const words = search.toLowerCase().trim().split(/\s+/);
     const entries = catalogue?.entries.filter(entry => {
-        if (i2c && !i2c.candidates.includes(entry.type)) return false;
-        const terms = `${entry.type} ${entry.category} ${entry.description} ${isStarter(entry.type, i2c?.candidates) ? labels[entry.type] : ''}`.toLowerCase();
+        const terms = `${entry.type} ${entry.category} ${entry.description} ${moduleLabel(entry.type)}`.toLowerCase();
         return words.every(word => terms.includes(word));
     });
     return <SettingsDialog title="Add module" show onHide={onClose}>
@@ -67,24 +58,23 @@ export function ModuleCatalogue({ initialSearch, gpsConnector, i2c, catalogue, l
                     : catalogue?.metadataStatus === 'unverified' ? 'Catalogue metadata has not been matched to this node.'
                     : 'Release metadata is unavailable.'}
             </p>
+            {catalogue?.metadataStatus === 'unavailable' && <p className="dw-meta">Templates include built-in examples and any available catalogue settings.</p>}
             <button type="button" className="btn btn-outline-secondary mb-2" onClick={onRetry}>Refresh catalogue</button>
             {gpsConnector && <p className="dw-meta">A GPS added from this connector will use Serial {gpsConnector}.</p>}
-            {i2c && <p className="dw-meta">Proposed assignment: I²C channel {i2c.channel} · {hex(i2c.address)}.</p>}
             {!canAdd && <p className="dw-meta">A free channel and a structurally valid draft are required to add a module.</p>}
             {!entries?.length && <p>{catalogue?.entries.length ? 'No modules match your search.' : 'No catalogue entries available.'}</p>}
             <ul className="list-unstyled">
                 {entries?.map(entry => {
                     const type = entry.type;
-                    const starter = isStarter(type, i2c?.candidates);
+                    const label = moduleLabel(type);
                     return <li key={type} className="dw-config-module">
-                        <div><strong>{starter ? labels[type] === type ? type : `${labels[type]} · ${type}` : type}</strong>{entry.category && ` · ${entry.category}`}</div>
+                        <div><strong>{label === type ? type : `${label} · ${type}`}</strong>{entry.category && ` · ${entry.category}`}</div>
                         <div className="dw-meta">{entry.description}</div>
                         <div className="dw-toolbar">
                             <span className="dw-meta">{entry.support === 'supported' ? 'Supported by this node' :
                                 entry.support === 'unsupported' ? 'Not reported by this node' : 'Support unknown'}</span>
-                            {starter ? <button type="button" className="btn btn-outline-secondary"
-                                disabled={!canAdd || entry.support !== 'supported'} onClick={() => onAdd(type)}>Add {labels[type]}</button>
-                                : <span className="dw-meta">No reviewed starter template</span>}
+                            {entry.support === 'supported' && <button type="button" className="btn btn-outline-secondary"
+                                disabled={!canAdd} onClick={() => onAdd(type)}>Add {label}</button>}
                         </div>
                     </li>;
                 })}

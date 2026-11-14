@@ -11,7 +11,9 @@ import useNarrowLayout from '../components/ui/useNarrowLayout';
 import { CloudFile, CloudFileEntry, cloudNodeFiles } from './cloudNodeFiles';
 import { authenticatedFetchJson } from '../utils/api';
 import ConfigurationOverview from './ConfigurationOverview';
-import type { Starter } from './nodeConfiguration';
+import { moduleSettingsExamples } from './moduleSettings';
+import { i2cDefaults } from './i2cDiscovery';
+import type { ResponseAddress } from './i2cDiscovery';
 import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
 import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
 import type { Catalogue } from './ModuleCatalogue';
@@ -60,7 +62,6 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
     const [picker, setPicker] = useState(false);
     const [view, setView] = useState<'logical' | 'physical' | 'code'>('logical');
     const [gpsConnector, setGpsConnector] = useState<1 | 2>();
-    const [i2cStarter, setI2cStarter] = useState<{ channel: number; address: number; candidates: string[] }>();
     const [catalogueSearch, setCatalogueSearch] = useState('');
     const [catalogueOpen, setCatalogueOpen] = useState(false);
     const [catalogueLoading, setCatalogueLoading] = useState(false);
@@ -123,6 +124,12 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         setCatalogueLoading(false);
         setCatalogueResult(undefined);
     }, [catalogueContext]);
+
+    const loadCatalogueRef = React.useRef(loadCatalogue);
+    loadCatalogueRef.current = loadCatalogue;
+    useEffect(() => {
+        if (configuration && editable && (view === 'code' || view === 'physical')) void loadCatalogueRef.current(false);
+    }, [catalogueContext, configuration, editable, view]);
 
     useEffect(() => {
         if (!catalogueResult) return;
@@ -224,15 +231,15 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         setCatalogueResult(undefined);
     }
 
-    function openCatalogue(search = '', connector?: 1 | 2, i2c?: typeof i2cStarter) {
+    function openCatalogue(search = '', connector?: 1 | 2) {
         setGpsConnector(connector);
-        setI2cStarter(i2c);
         setCatalogueSearch(search);
         setCatalogueOpen(true);
-        void loadCatalogue();
+        if (!catalogue && !catalogueLoading) void loadCatalogue();
     }
 
-    async function loadCatalogue() {
+    async function loadCatalogue(force = true) {
+        if (!force && (catalogue || catalogueLoading)) return;
         const id = ++catalogueRequest.current;
         setCatalogueResult(undefined);
         if (!available || !transport || (domainId && !remote)) { setCatalogueLoading(false); return; }
@@ -249,19 +256,22 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         }
     }
 
-    function addModule(type: Starter) {
-        if (!canAddModule || !catalogue?.entries.some(entry => entry.type === type && entry.support === 'supported')) return;
-        const edit = appendStarter(draftText, node, type, gpsConnector, i2cStarter);
+    function addModule(type: string, i2c?: ResponseAddress) {
+        const entry = catalogue?.entries.find(entry => entry.type === type && entry.support === 'supported');
+        if (!canAddModule || !entry) return false;
+        const settings = moduleSettingsExamples(type, entry.settings, i2cDefaults[type]);
+        const edit = appendStarter(draftText, node, type, catalogueOpen ? gpsConnector : undefined, i2c, settings);
         if (!edit) {
-            setCatalogueOpen(false);
-            setFeedback({ text: 'The starter could not fit in the node’s 8 KiB configuration file.', error: true });
-            return;
+            setFeedback({ text: 'The module could not fit in the node’s 8 KiB configuration file.', error: true });
+            return false;
         }
+        setFeedback(undefined);
         setCurrentDraft(editorText(edit.text));
         setSelectedModule(edit.channel);
         setSelectedPin(undefined);
         setCatalogueOpen(false);
         if (view === 'code') openCodeAtLine(edit.line);
+        return true;
     }
 
     async function run(operation: () => Promise<void>, allowed = canAct) {
@@ -501,19 +511,21 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
             </p>}
             {feedback && !(picker && feedback.error) && <p role={feedback.error ? 'alert' : 'status'}>{feedback.text}</p>}
             {current && <>
-                {overview && <div className="dw-file-sources dw-config-views" role="group" aria-label="Configuration views">
+                {overview && <div className="dw-config-views">
+                  <div className="dw-file-sources" role="group" aria-label="Configuration views">
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'logical'} onClick={() => setView('logical')}>Logical</button>
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'physical'} onClick={() => setView('physical')}>Physical</button>
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'code'} onClick={() => setView('code')}>Code</button>
-                    {editable && <button type="button" className="btn btn-sm" disabled={busy}
+                  </div>
+                    {editable && <button type="button" className="btn btn-primary btn-sm" disabled={busy}
                         onClick={() => openCatalogue()}>Add module</button>}
                 </div>}
-                {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} i2c={i2cStarter} catalogue={catalogue} loading={catalogueLoading}
+                {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} catalogue={catalogue} loading={catalogueLoading}
                     canAdd={canAddModule} onRetry={() => void loadCatalogue()} onClose={() => setCatalogueOpen(false)} onAdd={addModule} />}
                 <div hidden={!!overview && view !== 'code'}>
                 {highlighted ? <Suspense fallback={plainEditor}><ConfigurationEditor key={`${source}:${current.path}`}
                     editorRef={codeEditor} label={editorLabel} text={currentDraft} onChange={setCurrentDraft}
-                    readOnly={!editable || busy} diagnostics={diagnostics} /></Suspense> : plainEditor}
+                    readOnly={!editable || busy} diagnostics={diagnostics} catalogue={configuration ? catalogue : undefined} /></Suspense> : plainEditor}
                 </div>
                 {configuration && <details className="dw-file-checks">
                     <summary>{configurationError ? readOnly ? 'Configuration errors found.' : 'Fix configuration errors before uploading.' :
@@ -529,7 +541,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                         available={available && !showingCloud} editable={canGuide}
                         selectedChannel={selectedModule} onSelect={setSelectedModule} onChange={text => setCurrentDraft(editorText(text))}
                         selectedPin={selectedPin} setSelectedPin={setSelectedPin} goToLine={openCodeAtLine} onCatalogue={editable && !busy ? openCatalogue : undefined}
-                        onI2cCatalogue={canGuide ? target => openCatalogue('', undefined, target) : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
+                        supportedTypes={catalogue?.entries.filter(entry => entry.support === 'supported').map(entry => entry.type)}
+                        onCheckCatalogue={() => void loadCatalogue()} catalogueLoading={catalogueLoading}
+                        onAcceptI2c={canAddModule ? addModule : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
                 </Suspense>}
                 {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}

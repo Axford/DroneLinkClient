@@ -1,3 +1,4 @@
+import type { ModuleSetting } from './moduleSettings';
 import { probeModes } from '../components/probeResults';
 
 export interface ConfigurationDiagnostic {
@@ -233,13 +234,10 @@ function patchModuleLine(text: string, module: DraftModule, key: string, value: 
     return { text: lines.join(newline), changes: [{ after }] };
 }
 
-export type Starter = 'NMEA' | 'Nav' | 'Probe' | 'INA219' | 'INA3221' | 'BME280' | 'QMC5883L';
-export const i2cStarters = ['INA219', 'INA3221', 'BME280', 'QMC5883L'] as const;
-
-export function appendStarter(text: string, node: number, type: Starter, gpsConnector?: 1 | 2,
-    i2c?: { channel: number; address: number }) {
-    if (i2cStarters.some(candidate => candidate === type) &&
-        (!i2c || !Number.isInteger(i2c.channel) || i2c.channel < 0 || i2c.channel > 7 ||
+export function appendStarter(text: string, node: number, type: string, gpsConnector?: 1 | 2,
+    i2c?: { channel: number; address: number }, settings: ModuleSetting[] = []) {
+    if (!/^[A-Za-z][A-Za-z0-9]{0,18}$/.test(type)) return;
+    if (i2c && (!Number.isInteger(i2c.channel) || i2c.channel < 0 || i2c.channel > 7 ||
             !Number.isInteger(i2c.address) || i2c.address < 8 || i2c.address > 119)) return;
     const overview = inspectNodeConfiguration(text, node);
     if (overview.diagnostics.some(item => item.severity === 'error')) return;
@@ -248,13 +246,17 @@ export function appendStarter(text: string, node: number, type: Starter, gpsConn
     if (channel === undefined) return;
     const newline = ending(text);
     const prefix = text + (text.endsWith(newline) ? newline : newline + newline);
-    const base = type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : type;
+    const base = (type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : type).slice(0, 13);
     const names = new Set(overview.modules.map(module => moduleLookupName(module.name)));
     let name = base;
     for (let index = 2; names.has(name); index++) name = `${base}${index}`;
     const lines = [`[${type} = ${channel}]`, `  name = ${name}`];
     if (type === 'NMEA' && gpsConnector !== undefined) lines.push(`  port = ${gpsConnector}`);
-    if (i2c && i2cStarters.some(candidate => candidate === type)) lines.push(`  bus = ${i2c.channel}`, `  addr = ${i2c.address}`);
+    if (i2c) lines.push(`  bus = ${i2c.channel}`, `  addr = ${i2c.address}`);
+    const active = new Set(['name', ...(i2c ? ['bus', 'addr'] : []), ...(type === 'NMEA' && gpsConnector !== undefined ? ['port'] : [])]);
+    for (const { name, value } of settings) {
+        if (!active.has(name)) lines.push(`  ; ${name} = ${value}`);
+    }
     const draft = prefix + [...lines, ''].join(newline);
     if (bytes(draft) <= maxNodeFileBytes) return { text: draft, line: prefix.split(newline).length, channel };
 }

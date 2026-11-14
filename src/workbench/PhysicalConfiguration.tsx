@@ -45,14 +45,52 @@ function DeviceCard({ data }: NodeProps<DeviceNode>) {
     </button>;
 }
 
-type GhostNode = Node<{ label: string; detail: string; select: () => void }, 'ghost'>;
+type GhostNode = Node<{ label: string; detail: string; select: () => void; content?: React.ReactNode }, 'ghost'>;
 
 function GhostCard({ data }: NodeProps<GhostNode>) {
-    return <button type="button" className="dw-physical-device dw-i2c-ghost nodrag nopan" data-detection="responded" onClick={data.select}>
-        <strong>{data.label}</strong>
-        <span>{data.detail}</span>
+    return <section className="dw-physical-device dw-i2c-ghost nodrag nopan nowheel"
+        data-detection="responded" data-expanded={!!data.content}>
+        <button type="button" className="btn btn-sm text-start dw-i2c-ghost-toggle" onClick={data.select}
+            aria-expanded={!!data.content}>
+            <strong>{data.label}</strong>
+            <span>{data.detail}</span>
+        </button>
         <Handle type="target" position={Position.Left} id="left" />
-    </button>;
+        {data.content}
+    </section>;
+}
+
+function AcceptDetection({ types, address, match, supportedTypes, loading, onCheck, onAccept }: {
+    types: string[];
+    address: ResponseAddress;
+    match?: string;
+    supportedTypes?: string[];
+    loading: boolean;
+    onCheck: () => void;
+    onAccept?: (type: string, address: ResponseAddress) => boolean;
+}) {
+    const [preferred, setPreferred] = useState('');
+    if (!onAccept) return null;
+    if (!supportedTypes?.length) return <button type="button" className="btn btn-sm btn-outline-secondary"
+        disabled={loading} onClick={onCheck}>{loading ? 'Checking module support…' : 'Check module support'}</button>;
+
+    const options = types.filter(type => supportedTypes.includes(type));
+    const type = options.includes(preferred) ? preferred :
+        match && options.includes(match) ? match : options.length === 1 ? options[0] : '';
+    if (!options.length) return <p className="dw-meta mb-0">No supported module matches this detection.</p>;
+
+    return <div className="dw-i2c-accept">
+        <label>Module type
+            <select className="form-select form-select-sm" value={type} onChange={event => setPreferred(event.target.value)}>
+                <option value="">Select I²C module</option>
+                {options.map(type => <option key={type}>{type}</option>)}
+            </select>
+        </label>
+        {type && type !== match && <span className="dw-meta">Manual identification</span>}
+        <button type="button" className="btn btn-primary btn-sm" disabled={!type} onClick={() => onAccept(type, address)}>
+            {type ? `Add ${type} to draft` : 'Add to draft'}
+        </button>
+    </div>;
 }
 
 type EvidenceNode = Node<{ content: React.ReactNode }, 'evidence'>;
@@ -65,16 +103,16 @@ function EvidenceCard({ data }: NodeProps<EvidenceNode>) {
     </section>;
 }
 
-function RevealEvidence({ device }: { device?: string }) {
+function RevealEvidence({ device, card }: { device?: string; card?: string }) {
     const { fitView } = useReactFlow();
-    const height = useStore(state => state.nodeLookup.get('i2c-evidence')?.measured.height);
+    const height = useStore(state => state.nodeLookup.get(card ?? '')?.measured.height);
     useEffect(() => {
-        if (!device || !height) return;
+        if (!device || !card || !height) return;
         const frame = requestAnimationFrame(() => {
-            void fitView({ nodes: [{ id: 'board' }, { id: device }, { id: 'i2c-evidence' }], maxZoom: 1, duration: 180 });
+            void fitView({ nodes: [...(device === card ? [] : [{ id: device }]), { id: 'board' }, { id: card }], maxZoom: 1, duration: 180 });
         });
         return () => cancelAnimationFrame(frame);
-    }, [device, fitView, height]);
+    }, [device, card, fitView, height]);
     return null;
 }
 
@@ -137,10 +175,13 @@ function ProbeSettings({ gpio, value, onApply, editable }: {
 }
 
 export default function PhysicalConfiguration({ board, onBoard, overview, text, node, observed, available, editable,
-    selectedChannel, onSelect, onChange, goToLine, since, storedText, onCatalogue, selectedPin, setSelectedPin, diagnosticsAvailable, discovery, onI2cCatalogue }: {
+    selectedChannel, onSelect, onChange, goToLine, since, storedText, onCatalogue, selectedPin, setSelectedPin, diagnosticsAvailable, discovery, supportedTypes, catalogueLoading, onCheckCatalogue, onAcceptI2c }: {
     board: boolean;
     diagnosticsAvailable: boolean;
-    onI2cCatalogue?: (target: ResponseAddress & { candidates: string[] }) => void;
+    supportedTypes?: string[];
+    catalogueLoading: boolean;
+    onCheckCatalogue: () => void;
+    onAcceptI2c?: (type: string, target: ResponseAddress) => boolean;
     discovery: ReturnType<typeof useI2cDiscovery>;
     selectedPin?: string;
     setSelectedPin: (pin: string | undefined) => void;
@@ -197,7 +238,6 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
 
     const selectedAddress = ghost ?? selected?.i2cAddress;
     const target = selectedAddress && responses.find(response => responseKey(response) === responseKey(selectedAddress));
-    const identification = target && discovery.results[responseKey(target)];
     const selectedBus = point?.id.startsWith('i') ? Number(point.id.slice(1)) : undefined;
 
     function chooseGhost(id: string) {
@@ -255,13 +295,47 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
                 style: { stroke: device.gpio === undefined ? 'var(--dw-color-primary)' : 'var(--dw-color-text)', strokeWidth: 2 } }));
     });
 
+    function detectionDetails(address: ResponseAddress, includeAssignment: boolean) {
+        const possible = candidates(address.address);
+        const result = discovery.results[responseKey(address)];
+        return <>
+            <p className="dw-meta">Address responded · {new Date(scan!.receivedAt).toLocaleTimeString()}</p>
+            {possible.length > 0 && <p>Possible: {possible.join(', ')}</p>}
+            {canIdentify(address.address) ? <button type="button" className="btn btn-sm btn-outline-secondary"
+                disabled={!diagnosticsAvailable || !!discovery.busy} onClick={() => discovery.identify(address)}>
+                Identify device
+            </button> : <p className="dw-meta">No reviewed register signature for this address.</p>}
+            {discovery.busy?.startsWith('Reading') && <span role="status">Reading register…</span>}
+            {result && <>
+                <p>{result.match ? `Matched ${result.match}` : 'Identification inconclusive'}
+                    {' · '}{new Date(result.receivedAt).toLocaleTimeString()}</p>
+                {result.error && <p role="alert">{result.error}</p>}
+                <ul>{result.reads.map(read => <li key={read.register}>
+                    Register {hex(read.register)} · {read.status.replace(/-/g, ' ')}{read.bytes.length ? ` · ${read.bytes.map(hex).join(' ')}` : ''}
+                </li>)}</ul>
+                <a href={result.source} target="_blank" rel="noreferrer">Signature datasheet</a>
+            </>}
+            {includeAssignment && <AcceptDetection types={possible} address={address} match={result?.match}
+                supportedTypes={supportedTypes} loading={catalogueLoading} onCheck={onCheckCatalogue}
+                onAccept={onAcceptI2c && ((type, address) => {
+                    if (!onAcceptI2c(type, address)) return false;
+                    setSelectedGhost(undefined);
+                    return true;
+                })} />}
+        </>;
+    }
+
     for (const item of ghosts) {
         const match = discovery.results[responseKey(item)]?.match;
         const names = candidates(item.address);
-        const label = `Detected ${hex(item.address)}`;
-        nodes.push({ id: item.id, type: 'ghost', position: positions.get(item.id)!, selected: ghost?.id === item.id, data: {
-            label, detail: match ? `Signature matches ${match}` : names.length ? `Possible: ${names.join(', ')}` : 'Unknown device',
-            select: () => chooseGhost(item.id),
+        const expanded = ghost?.id === item.id;
+        nodes.push({ id: item.id, type: 'ghost', position: positions.get(item.id)!, selected: expanded, data: {
+            label: `Detected ${hex(item.address)} · I²C ${item.channel}`,
+            detail: match ? `Signature matches ${match}` : names.length ? `Possible: ${names.join(', ')}` : 'Unknown device',
+            select: () => expanded ? setSelectedGhost(undefined) : chooseGhost(item.id),
+            content: expanded ? <div className="dw-i2c-ghost-details" role="region" aria-label="I²C device evidence">
+                {detectionDetails(item, true)}
+            </div> : undefined,
         } });
         edges.push({ id: item.id, source: 'board', sourceHandle: item.connections[0], target: item.id, targetHandle: 'left',
             ariaLabel: `I²C channel ${item.channel} to detected ${hex(item.address)}`,
@@ -269,31 +343,12 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
     }
 
     const evidenceDevice = target ? ghost?.id ?? selected?.id : undefined;
-    if (target && evidenceDevice) {
+    const evidenceCard = ghost?.id ?? (evidenceDevice ? 'i2c-evidence' : undefined);
+    if (target && evidenceDevice && !ghost) {
         nodes.push({ id: 'i2c-evidence', type: 'evidence', position: { x: 55, y: boardHeight + 26 }, data: {
             content: <>
                 <strong>I²C channel {target.channel} · {hex(target.address)}</strong>
-                <p className="dw-meta">Address responded · {new Date(scan!.receivedAt).toLocaleTimeString()}</p>
-                {candidates(target.address).length > 0 && <p>Possible: {candidates(target.address).join(', ')}</p>}
-                <button type="button" className="btn btn-outline-secondary"
-                    disabled={!diagnosticsAvailable || !!discovery.busy || !canIdentify(target.address)}
-                    onClick={() => discovery.identify(target)}>Identify device</button>
-                {ghost && onI2cCatalogue && candidates(target.address).length > 0 &&
-                    <button type="button" className="btn btn-outline-secondary ms-2" onClick={() =>
-                        onI2cCatalogue({ ...target, candidates: identification?.match ? [identification.match] : candidates(target.address) })}>
-                        Review module assignment
-                    </button>}
-                {!canIdentify(target.address) && <p className="dw-meta">No reviewed register signature for this address.</p>}
-                {discovery.busy?.startsWith('Reading') && <span role="status">Reading register…</span>}
-                {identification && <>
-                    <p>{identification.match ? `Matched ${identification.match}` : 'Identification inconclusive'}
-                        {' · '}{new Date(identification.receivedAt).toLocaleTimeString()}</p>
-                    {identification.error && <p role="alert">{identification.error}</p>}
-                    <ul>{identification.reads.map(read => <li key={read.register}>
-                        Register {hex(read.register)} · {read.status.replace(/-/g, ' ')}{read.bytes.length ? ` · ${read.bytes.map(hex).join(' ')}` : ''}
-                    </li>)}</ul>
-                    <a href={identification.source} target="_blank" rel="noreferrer">Signature datasheet</a>
-                </>}
+                {detectionDetails(target, false)}
             </>,
         } });
         edges.push({ id: 'i2c-evidence-link', source: 'board', sourceHandle: `i${target.channel}`, target: 'i2c-evidence',
@@ -326,7 +381,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
                     nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}>
                     <Background /><Controls showInteractive={false} />
                     <Panel position="bottom-right" className="dw-physical-key" aria-label="Wiring legend">Draft wiring</Panel>
-                    <RevealEvidence device={evidenceDevice} />
+                    <RevealEvidence device={evidenceDevice} card={evidenceCard} />
                     <Panel position="top-left" className="dw-i2c-coverage nopan">
                         <button type="button" className="btn btn-outline-secondary"
                             disabled={!diagnosticsAvailable || !!discovery.busy}

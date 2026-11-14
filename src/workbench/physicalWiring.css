@@ -131,3 +131,28 @@
     font-size: .75rem;
     pointer-events: none;
 }
+
+.dw-i2c-ghost-toggle {
+    display: grid;
+    gap: var(--dw-space-1);
+    padding: 0;
+}
+
+.dw-i2c-ghost[data-expanded="true"] {
+    width: 260px;
+    z-index: 1;
+}
+
+.dw-i2c-ghost-details {
+    display: grid;
+    gap: var(--dw-space-1);
+    max-height: 245px;
+    overflow: auto;
+}
+
+.dw-i2c-ghost-details p, .dw-i2c-ghost-details ul { margin-bottom: 0; }
+
+.dw-i2c-accept {
+    display: grid;
+    gap: var(--dw-space-1);
+}

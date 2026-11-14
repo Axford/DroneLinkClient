@@ -90,7 +90,14 @@
 .dw-file-tree .dw-file-row time { max-width: 55%; text-align: end; }
 
 
-.dw-config-views { margin-bottom: var(--dw-space-2); }
+.dw-config-views {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--dw-space-2);
+    margin-bottom: var(--dw-space-2);
+}
 .dw-config-graph {
     position: relative;
     height: clamp(16rem, 42vh, 28rem);

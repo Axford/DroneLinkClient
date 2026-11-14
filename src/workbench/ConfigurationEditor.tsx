@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import * as ace from 'ace-builds';
 import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/ext-language_tools';
+import type { Catalogue } from './ModuleCatalogue';
+import { moduleSettingsExamples } from './moduleSettings';
+import { i2cDefaults } from './i2cDiscovery';
 import 'ace-builds/src-noconflict/theme-dracula';
 import type { ConfigurationDiagnostic } from './nodeConfiguration';
 
@@ -44,18 +48,21 @@ class ConfigurationMode extends TextMode {
     $id = 'ace/mode/dronelink-config';
 }
 
-export default function ConfigurationEditor({ text, onChange, readOnly, label, diagnostics, editorRef }: {
+export default function ConfigurationEditor({ text, onChange, readOnly, label, diagnostics, editorRef, catalogue }: {
     text: string;
     onChange: (value: string) => void;
     readOnly: boolean;
     label: string;
     diagnostics: ConfigurationDiagnostic[];
+    catalogue?: Catalogue;
     editorRef: React.MutableRefObject<ace.Ace.Editor | null>;
 }) {
     const container = useRef<HTMLDivElement>(null);
     const syncing = useRef(false);
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
+    const completionCatalogue = useRef(catalogue);
+    completionCatalogue.current = catalogue;
 
     useEffect(() => {
         const editor = ace.edit(container.current!, {
@@ -65,6 +72,30 @@ export default function ConfigurationEditor({ text, onChange, readOnly, label, d
             tabSize: 2,
             useSoftTabs: true,
         });
+        const settingsCompleter: ace.Ace.Completer = {
+            identifierRegexps: [/[$A-Za-z0-9_]/],
+            getCompletions(editor, session, position, _prefix, callback) {
+                const before = session.getLine(position.row).slice(0, position.column);
+                if (editor.getReadOnly() || !/^\s*(?:\$?[A-Za-z_0-9]*)$/.test(before)) {
+                    callback(null, []);
+                    return;
+                }
+                let type: string | undefined;
+                for (let row = position.row - 1; row >= 0; row--) {
+                    const line = session.getLine(row);
+                    if (!/^\s*\[/.test(line)) continue;
+                    type = /^\s*\[\s*([A-Za-z][A-Za-z0-9]*)\s*=/.exec(line)?.[1];
+                    break;
+                }
+                const entry = completionCatalogue.current?.entries.find(entry => entry.type === type);
+                const settings = type ? moduleSettingsExamples(type, entry?.settings, i2cDefaults[type]) : [];
+                const suffix = session.getLine(position.row).slice(position.column);
+                callback(null, settings.map(({ name, value }, index) => ({
+                    caption: name, value: /^\s*=/.test(suffix) ? name : `${name} = ${value}`, meta: 'setting', score: 1000 - index,
+                })));
+            },
+        };
+        editor.setOptions({ enableBasicAutocompletion: [settingsCompleter], enableLiveAutocompletion: [settingsCompleter] });
         editor.session.setUseWorker(false);
         editor.session.setMode(new ConfigurationMode());
         editorRef.current = editor;
