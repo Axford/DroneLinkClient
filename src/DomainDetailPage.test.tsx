@@ -85,9 +85,15 @@ test('newer archived access context wins over an older delayed Owner refresh', a
   });
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
   await screen.findByText('Alpha'); act(() => window.dispatchEvent(new Event('focus'))); await waitFor(() => expect(refreshes).toBe(2));
-  act(() => window.dispatchEvent(new Event('focus'))); await screen.findByText(/Archived domain · Read-only/);
+  act(() => window.dispatchEvent(new Event('focus'))); await screen.findByRole('button', { name: 'Archived · Read-only' });
   await act(async () => finishOld(reply({ data: { _id: 'a', name: 'Alpha', revision: 2, status: 'active', myRole: 'owner' } })));
-  expect(screen.getByText(/Archived domain · Read-only/)).toBeInTheDocument();
+  const status = screen.getByRole('button', { name: 'Archived · Read-only' });
+  expect(status).toHaveAttribute('aria-expanded', 'false');
+  expect(screen.queryByRole('button', { name: 'Connect local gateway' })).not.toBeInTheDocument();
+  fireEvent.click(status);
+  expect(await screen.findByText(/Read-only retained history. Live updates are stopped./)).toBeVisible();
+  expect(screen.getByText('0 Drones · 0 parameters')).toBeVisible();
+  expect(within(screen.getByRole('navigation', { name: 'Domain lenses' })).getByRole('button', { name: 'Archived · Read-only' })).toBe(status);
 });
 test('a late denied request from a previous domain cannot clear the current domain', async () => {
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
@@ -194,7 +200,7 @@ test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected
   global.fetch = requests as unknown as typeof fetch;
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
   const lenses = within(await screen.findByRole('navigation', { name: 'Domain lenses' }));
-  expect(lenses.getAllByRole('button').map(button => button.textContent)).toEqual(['Nodes', 'Map', 'Network']);
+  for (const name of ['Nodes', 'Map', 'Network']) expect(lenses.getByRole('button', { name })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
   fireEvent.click(lenses.getByRole('button', { name: 'Nodes' }));
   fireEvent.click(screen.getByRole('button', { name: /^Inspect node 11:/ }));

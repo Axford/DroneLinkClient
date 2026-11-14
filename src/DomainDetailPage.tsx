@@ -4,10 +4,10 @@ import type { Scope } from './commands/session';
 import type { RouteTraceResult } from './workbench/RouteTrace';
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Spinner, Alert, Badge } from 'react-bootstrap';
+import { Dropdown } from 'react-bootstrap';
 import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
-import { DomainLens, DomainLensPanels, DomainWorkspace } from './components/DomainWorkspace';
+import { DomainLens, DomainLensPanels, DomainWorkspace, WorkspaceStatus } from './components/DomainWorkspace';
 import NodeSelector from './components/NodeSelector';
 import type { NodeNetworkSnapshot } from './workbench/NodeNetwork';
 import WorkbenchNetwork from './workbench/WorkbenchNetwork';
@@ -39,6 +39,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+    const [gatewayOpen, setGatewayOpen] = useState(false);
     const [lens, setLens] = useState<DomainLens>('map');
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
@@ -73,7 +74,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         const controller = new AbortController();
         let active = true;
         refreshGeneration.current++;
-        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); setLens('map'); reset();
+        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); setLens('map'); setGatewayOpen(false); reset();
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -167,6 +168,19 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const state = workbench.mixed(droneLinkState.state);
     const local = selectedNodeId !== null && workbench.usesLocal(selectedNodeId);
     const archived = domain.status === 'archived';
+    const showGateway = domain.status === 'active' && window.isSecureContext;
+    const sharedUpdates = droneLinkState.observationStatus;
+    const gatewayStatus = workbench.paired ? (workbench.status === 'connected' ? 'Local gateway connected'
+        : workbench.status === 'reconnecting' ? 'Local gateway reconnecting…' : 'Connecting to local gateway…') : '';
+    const statusLabel = archived ? 'Archived · Read-only' : workbench.error ? 'Local gateway connection issue'
+        : sharedUpdates === 'ready' && gatewayStatus ? gatewayStatus : `Shared updates: ${sharedUpdates}`;
+    const compactUpdates: Record<string, string> = {
+        idle: 'Updates idle', loading: 'Loading updates', resynchronising: 'Resyncing',
+        ready: 'Updates ready', retrying: 'Retrying', stopped: 'Updates stopped',
+    };
+    const shortStatus = archived ? 'Read-only' : workbench.error ? 'Gateway issue'
+        : sharedUpdates === 'ready' && gatewayStatus ? 'Gateway ' + workbench.status
+        : compactUpdates[sharedUpdates] ?? sharedUpdates;
     const canReadFiles = archived
         ? user.isPlatformAdmin === true || domain.myRole === 'owner' || domain.myRole === 'editor'
         : domain.canEdit;
@@ -225,17 +239,22 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         }}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
             <DomainWorkspace name={domain.name} activeLens={lens} onLensChange={setLens} status={
-                    <div className="dw-toolbar">
-                        <Badge bg="secondary">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'}</Badge>
-                        <span className="dw-status" role="status" title="Shared observation updates">Shared updates: {droneLinkState.observationStatus}</span>
-                        <span className="dw-meta" title="Observed parameters">{droneLinkState.stats.received} parameters</span>
-                        {droneLinkState.isLoading && <Spinner animation="border" size="sm" />}
-                    </div>
-            } notices={<>
-                {domain.status === 'archived' && <Alert variant="warning" className="dw-alert">Archived domain · Read-only retained history. Live updates are stopped.</Alert>}
-                {domain.status === 'active' && window.isSecureContext && <GatewayConnection workbench={workbench} />}
-                <VisualizationSettingsNotice />
-            </>}>
+                <WorkspaceStatus
+                    label={statusLabel}
+                    shortLabel={shortStatus}
+                    warning={archived || sharedUpdates === 'retrying' || !!workbench.error || (workbench.paired && workbench.status === 'reconnecting')}>
+                    {!archived && <p>Shared updates: {sharedUpdates}</p>}
+                    {archived && <p>Archived domain · Read-only retained history. Live updates are stopped.</p>}
+                    <p className="dw-meta">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'} · {droneLinkState.stats.received} parameters</p>
+                    {showGateway && <>
+                        {gatewayStatus && <p>{gatewayStatus}</p>}
+                        <Dropdown.Item as="button" eventKey="gateway" onClick={() => setGatewayOpen(true)}>
+                            {workbench.paired || workbench.error ? 'Local gateway settings' : 'Connect local gateway'}
+                        </Dropdown.Item>
+                    </>}
+                </WorkspaceStatus>
+            } notices={<VisualizationSettingsNotice />}>
+                    {showGateway && <GatewayConnection workbench={workbench} open={gatewayOpen} onClose={() => setGatewayOpen(false)} />}
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <DomainLensPanels overMap={lens === 'map'} lens={lensContent}

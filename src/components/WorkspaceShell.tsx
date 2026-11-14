@@ -32,7 +32,7 @@ export default function WorkspaceShell({ user, activeDomain, shortcuts, children
     return () => { generation++; clearInterval(timer); controller.abort(); window.removeEventListener('focus', changed); window.removeEventListener(accessEvent, changed); };
   }, [shortcuts]);
   return <div className="dw-workspace" data-bs-theme="dark">
-    <PrimaryNavBar user={user} domains={domains} activeDomainId={activeDomain?._id} />
+    <PrimaryNavBar user={user} domains={domains} activeDomainId={activeDomain?._id} workspaceTitle={activeDomain?.name} />
     <main className={`content-wrapper ${activeDomain ? 'workspace-operations' : ''}`}>{children}</main>
   </div>;
 }

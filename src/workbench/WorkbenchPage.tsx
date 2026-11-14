@@ -2,7 +2,7 @@ import { LastKnownParameterActions, ParameterEditorProvider } from '../commands/
 import { localParameterPath, localParameterResponse } from '../commands/parameterPaths';
 import type { RouteTraceResult } from './RouteTrace';
 import React, { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react';
-import { DomainLens, DomainLensPanels, DomainWorkspace } from '../components/DomainWorkspace';
+import { DomainLens, DomainLensPanels, DomainWorkspace, WorkspaceStatus } from '../components/DomainWorkspace';
 import PrimaryNavBar from '../PrimaryNavBar';
 import type { User } from '../App';
 import type { GlobalState } from '../dronelink/DroneLinkState';
@@ -196,7 +196,7 @@ export default function WorkbenchPage() {
 
 
 
-    return <div className="dw-workspace" data-bs-theme="dark"><PrimaryNavBar standalone domains={[]} /><main className="content-wrapper workspace-operations">
+    return <div className="dw-workspace" data-bs-theme="dark"><PrimaryNavBar standalone domains={[]} workspaceTitle="Workbench" /><main className="content-wrapper workspace-operations">
         <ParameterEditorProvider resolve={(target, pinned) => {
             const id = target.nodeAddress;
             const preference = choiceFor(id);
@@ -215,8 +215,10 @@ export default function WorkbenchPage() {
         }}><DomainWorkspace name="Workbench" activeLens={showCharts ? undefined : lens} onLensChange={next => { setShowCharts(false); setLens(next); }}
             lensAction={<button type="button" className={`nav-link ${showCharts ? 'active' : ''}`} aria-pressed={showCharts}
                 onClick={() => setShowCharts(current => !current)}>Live charts{capturing && ' · Capturing'}</button>}
-            status={<span className="dw-status" role="status">{connected ? 'Local gateway connected' : status === 'connecting' ?
-                'Connecting to local gateway…' : 'Local gateway disconnected. Reconnecting…'}</span>}>
+            status={<WorkspaceStatus label={connected ? 'Local gateway connected' : status === 'connecting' ?
+                'Connecting to local gateway…' : 'Local gateway reconnecting…'}
+                shortLabel={connected ? 'Connected' : status === 'connecting' ? 'Connecting' : 'Reconnecting'}
+                warning={status === 'reconnecting'} />}>
             <SignalPlotContext.Provider value={plot}>
             <DomainLensPanels overMap={!showCharts && lens === 'map'} lens={showCharts ? <Suspense fallback={<p role="status">Loading live charts…</p>}>
                 <LiveCharts capture={capture} connected={connected} onCapturing={running => {

@@ -1,5 +1,6 @@
 import { LastKnownParameterActions } from '../commands/ParameterEditor';
 import React, { useState } from 'react';
+import SettingsDialog from '../components/ui/SettingsDialog';
 import ChannelList from '../components/ChannelList';
 import { ObservationNamesContext } from '../components/parameterPresentation';
 import type { GlobalState } from '../dronelink/DroneLinkState';
@@ -9,15 +10,21 @@ import { transportLabel } from './useWorkbenchFeed';
 
 type Connection = ReturnType<typeof useConnectedWorkbench>;
 
-export function GatewayConnection({ workbench }: { workbench: Connection }) {
+export function GatewayConnection({ workbench, open, onClose }: { workbench: Connection; open: boolean; onClose: () => void }) {
     const [port, setPort] = useState('8002');
     const [key, setKey] = useState('');
-    const [editing, setEditing] = useState(false);
-    return <section aria-label="Local Workbench connection" className="dw-toolbar mb-2">
+    const label = workbench.status === 'connected' ? 'Local gateway connected'
+        : workbench.status === 'reconnecting' ? 'Local gateway reconnecting…' : 'Connecting to local gateway…';
+    const close = () => {
+        onClose();
+        setKey('');
+        if (!workbench.paired) workbench.disconnect();
+    };
+    return <SettingsDialog title="Local gateway" compact show={open} onHide={close}>
         {workbench.paired ? <>
-            <span role="status">{workbench.status === 'connected' ? 'Local gateway connected' : 'Connecting to local gateway…'}</span>
-            <button type="button" className="btn btn-outline-secondary" onClick={() => { setEditing(false); workbench.disconnect(); }}>Disconnect local gateway</button>
-        </> : editing ? <form className="dw-toolbar" onSubmit={event => {
+            <span role="status">{label}</span>
+            <div><button type="button" className="btn btn-outline-secondary" onClick={() => { workbench.disconnect(); onClose(); }}>Disconnect local gateway</button></div>
+        </> : <form className="dw-gateway-form" onSubmit={event => {
             event.preventDefault();
             const supplied = key;
             setKey('');
@@ -25,11 +32,13 @@ export function GatewayConnection({ workbench }: { workbench: Connection }) {
         }}>
             <label>Gateway port <input className="form-control" inputMode="numeric" maxLength={5} value={port} onChange={event => setPort(event.target.value)} /></label>
             <label>Pairing key <input className="form-control" type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} /></label>
-            <button type="submit" className="btn btn-primary" disabled={workbench.busy}>Connect</button>
-            <button type="button" className="btn btn-outline-secondary" onClick={() => { setKey(''); setEditing(false); workbench.disconnect(); }}>Cancel</button>
-        </form> : <button type="button" className="btn btn-outline-secondary" onClick={() => setEditing(true)}>Connect local gateway</button>}
+            <div className="dw-toolbar">
+                <button type="submit" className="btn btn-primary" disabled={workbench.busy}>Connect</button>
+                <button type="button" className="btn btn-outline-secondary" onClick={close}>Cancel</button>
+            </div>
+        </form>}
         {workbench.error && <span role="alert">{workbench.error}</span>}
-    </section>;
+    </SettingsDialog>;
 }
 
 export function SourceChoice({ node, workbench }: { node: number; workbench: Connection }) {

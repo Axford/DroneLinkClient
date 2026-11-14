@@ -13,11 +13,16 @@ interface PrimaryNavBarProps {
   domains: Domain[];
   activeDomainId?: string;
   standalone?: boolean;
+  workspaceTitle?: string;
 }
 
-export default function PrimaryNavBar({ user, domains, activeDomainId, standalone = false }: PrimaryNavBarProps) {
+const compactPortraitQuery = '(orientation: portrait) and (max-width: 480px)';
+export const useCompactPortraitNav = () => useMediaQuery(compactPortraitQuery);
+
+export default function PrimaryNavBar({ user, domains, activeDomainId, standalone = false, workspaceTitle }: PrimaryNavBarProps) {
   const portrait = useMediaQuery('(orientation: portrait)');
-  const compact = useMediaQuery('(orientation: portrait) and (max-width: 480px), (orientation: landscape) and (max-height: 480px)');
+  const compact = useMediaQuery(`${compactPortraitQuery}, (orientation: landscape) and (max-height: 480px)`);
+  const showWorkspaceTitle = compact && portrait && !!workspaceTitle;
   const [domainExpanded, setDomainExpanded] = useState(false);
   const [homeCollapsed, setHomeCollapsed] = useState(false);
   useEffect(() => setDomainExpanded(false), [activeDomainId]);
@@ -40,7 +45,7 @@ export default function PrimaryNavBar({ user, domains, activeDomainId, standalon
     ))}
   </>;
 
-  return <nav className={`primary-nav-bar${showLabels ? ' primary-nav-bar-expanded' : ''}`} aria-label="Primary navigation">
+  return <nav className={`primary-nav-bar${showLabels ? ' primary-nav-bar-expanded' : ''}${showWorkspaceTitle ? ' primary-nav-bar-with-title' : ''}`} aria-label="Primary navigation">
     {compact ? (
       <Dropdown drop={portrait ? 'down' : 'end'} focusFirstItemOnShow="keyboard" className="primary-nav-header">
         <Dropdown.Toggle as={IconButton} label="Open navigation" icon={<List aria-hidden="true" />} id="primary-nav-toggle" />
@@ -55,6 +60,7 @@ export default function PrimaryNavBar({ user, domains, activeDomainId, standalon
         <Nav className="primary-nav-links">{destinations}</Nav>
       </>
     )}
+    {showWorkspaceTitle && <h1 className="primary-nav-title">{workspaceTitle}</h1>}
     {user && <Dropdown drop={portrait ? 'down' : 'up'} className="primary-nav-account" focusFirstItemOnShow="keyboard">
       <Dropdown.Toggle variant="link" className="primary-nav-profile" aria-label={`Account: ${user.displayName}`} title={user.displayName}>
         {user.profilePicture ? <Image src={user.profilePicture} roundedCircle alt="" /> : <PersonCircle aria-hidden="true" />}

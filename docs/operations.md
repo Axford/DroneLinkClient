@@ -244,7 +244,7 @@ In **Physical**, choose **Scan I²C** to check all multiplexer channels on the s
 
 ### Connected Workbench
 
-Open the active hosted Domain and select **Connect local gateway**. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)
+Open the active hosted Domain, open the status popover beside the lens tabs, and select **Connect local gateway**. Open **Local gateway settings** from the same popover to check an existing connection or disconnect. Enter the port and pairing key printed by the local gateway and allow Chrome loopback access. Use **Node source** to choose Auto, Local or Cloud for each node. Auto selects Local while a route is reachable. The explicit Local view stays on its source when a route drops. **Query local value** sends one direct read-only request for the selected node when your current role permits it. Cloud mode uses the existing Domain commands. [Gateway setup](../../DroneLinkServer/docs/operations.md#connected-workbench)
 
 ### Connected node-file backups
 

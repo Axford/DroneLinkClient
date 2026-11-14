@@ -35,6 +35,7 @@ test('an open Domain starts as an expandable landscape rail with active destinat
   expect(nav.getByRole('link', { name: 'Workbench' })).toHaveAttribute('href', 'http://localhost:8002/workbench/');
   expect(nav.getByRole('link', { name: 'Open Fleet' })).toHaveAttribute('aria-current', 'page');
   expect(nav.queryByRole('link', { name: 'Open Old Fleet' })).not.toBeInTheDocument();
+  expect(nav.queryByRole('heading', { name: 'Fleet' })).not.toBeInTheDocument();
   expect(nav.getByRole('button', { name: 'Account: Pilot' })).toBeInTheDocument();
   fireEvent.click(nav.getByRole('button', { name: 'Expand navigation' }));
   expect(nav.getByRole('button', { name: 'Collapse navigation' })).toBeInTheDocument();
@@ -53,6 +54,8 @@ test.each([true, false])('a short edge uses a pop-up and keeps account access in
   const toggle = nav.getByRole('button', { name: 'Open navigation' });
   const account = nav.getByRole('button', { name: 'Account: Pilot' });
   expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  if (portrait) expect(nav.getByRole('heading', { name: 'Fleet' })).toBeVisible();
+  else expect(nav.queryByRole('heading', { name: 'Fleet' })).not.toBeInTheDocument();
   expect(nav.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
   await act(async () => { fireEvent.click(toggle); });
   expect(toggle).toHaveAttribute('aria-expanded', 'true');

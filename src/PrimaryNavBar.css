@@ -123,3 +123,21 @@
 }
 
 .primary-nav-workbench.primary-nav-link { color: var(--dw-color-workbench); }
+
+.primary-nav-bar-with-title :is(.primary-nav-header, .primary-nav-account) {
+  padding-inline: var(--dw-space-1);
+}
+
+[data-bs-theme] .primary-nav-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-block: var(--dw-space-2);
+  font-size: var(--dw-font-size-heading);
+  line-height: var(--dw-line-height-heading);
+  overflow-wrap: anywhere;
+}
+
+.primary-nav-bar-with-title .primary-nav-popup {
+  max-width: calc(100vw - var(--dw-space-4));
+}
