@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Background, Controls, Handle, Panel, Position, ReactFlow, useReactFlow, useStore } from '@xyflow/react';
-import type { Edge, Node, NodeProps } from '@xyflow/react';
+import type { Edge, Node, NodeChange, NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { NodeState } from '../dronelink/DroneLinkState';
 import { DRONE_MODULE_PARAM_STATUS, DRONE_LINK_MSG_TYPE_UINT8_T } from '../dronelink/DroneLinkMsg';
@@ -221,6 +221,22 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         return true;
     }
 
+    const [measurements, setMeasurements] = useState<ReadonlyMap<string, NonNullable<Node['measured']>>>(new Map());
+    const rememberMeasurements = useCallback((changes: NodeChange[]) => {
+        setMeasurements(previous => {
+            let next: Map<string, NonNullable<Node['measured']>> | undefined;
+            for (const change of changes) {
+                if (change.type !== 'dimensions' || !change.dimensions) continue;
+                const measured = previous.get(change.id);
+                const { width, height } = change.dimensions;
+                if (measured?.width === width && measured.height === height) continue;
+                next ??= new Map(previous);
+                next.set(change.id, change.dimensions);
+            }
+            return next ?? previous;
+        });
+    }, []);
+
     const nodes: (BoardNode | DeviceNode | GhostNode | EvidenceNode)[] = [{ id: 'board', type: 'board', position: { x: 0, y: 0 }, data: {
         selected: selectedPin, select: id => { setSelectedPin(id); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
     } }];
@@ -300,6 +316,9 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
             style: { stroke: 'var(--dw-color-success)', strokeDasharray: '5 4' } });
     }
 
+    // The draft and live readings rebuild graph nodes. Carry measured sizes forward
+    // so React Flow preserves their handles between updates and can still resize cards.
+    const measuredNodes = nodes.map(item => ({ ...item, measured: measurements.get(item.id) }));
     const serial = selected?.module.type === 'NMEA' ? gpsPort(text, selected.module) : undefined;
     const i2c = selected?.bus === true;
 
@@ -320,7 +339,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         </label>
         {board && <>
             <div className="dw-config-graph dw-physical-graph" role="region" aria-label="Physical wiring graph">
-                <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="dark" fitView minZoom={0.08}
+                <ReactFlow nodes={measuredNodes} edges={edges} onNodesChange={rememberMeasurements} nodeTypes={nodeTypes} colorMode="dark" fitView minZoom={0.08}
                     nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}>
                     <Background /><Controls showInteractive={false} />
                     <Panel position="bottom-right" className="dw-physical-key" aria-label="Wiring legend">Draft wiring</Panel>
