@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Background, Controls, Handle, Panel, Position, ReactFlow, useReactFlow, useStore } from '@xyflow/react';
-import type { Edge, Node, NodeChange, NodeProps } from '@xyflow/react';
+import type { Edge, Node, NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { NodeState } from '../dronelink/DroneLinkState';
 import { DRONE_MODULE_PARAM_STATUS, DRONE_LINK_MSG_TYPE_UINT8_T } from '../dronelink/DroneLinkMsg';
@@ -12,6 +12,7 @@ import { gpsPort, inspectNodeConfiguration, probePinSettings, setGpsPort, setPhy
 import type { ConfigurationOverview } from './nodeConfiguration';
 import { candidates, canIdentify, hex, responseKey } from './i2cDiscovery';
 import type { ResponseAddress, useI2cDiscovery } from './i2cDiscovery';
+import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
 import './physicalWiring.css';
 import boardImage from './DroneLinkV4PinOutSimple.png';
 
@@ -221,22 +222,6 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         return true;
     }
 
-    const [measurements, setMeasurements] = useState<ReadonlyMap<string, NonNullable<Node['measured']>>>(new Map());
-    const rememberMeasurements = useCallback((changes: NodeChange[]) => {
-        setMeasurements(previous => {
-            let next: Map<string, NonNullable<Node['measured']>> | undefined;
-            for (const change of changes) {
-                if (change.type !== 'dimensions' || !change.dimensions) continue;
-                const measured = previous.get(change.id);
-                const { width, height } = change.dimensions;
-                if (measured?.width === width && measured.height === height) continue;
-                next ??= new Map(previous);
-                next.set(change.id, change.dimensions);
-            }
-            return next ?? previous;
-        });
-    }, []);
-
     const nodes: (BoardNode | DeviceNode | GhostNode | EvidenceNode)[] = [{ id: 'board', type: 'board', position: { x: 0, y: 0 }, data: {
         selected: selectedPin, select: id => { setSelectedPin(id); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
     } }];
@@ -316,9 +301,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
             style: { stroke: 'var(--dw-color-success)', strokeDasharray: '5 4' } });
     }
 
-    // The draft and live readings rebuild graph nodes. Carry measured sizes forward
-    // so React Flow preserves their handles between updates and can still resize cards.
-    const measuredNodes = nodes.map(item => ({ ...item, measured: measurements.get(item.id) }));
+    const { measuredNodes, rememberMeasurements } = useMeasuredGraphNodes(nodes);
     const serial = selected?.module.type === 'NMEA' ? gpsPort(text, selected.module) : undefined;
     const i2c = selected?.bus === true;
 

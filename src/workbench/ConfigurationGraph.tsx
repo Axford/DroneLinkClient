@@ -4,6 +4,7 @@ import {
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
 import type { ConfigurationOverview } from './nodeConfiguration';
 
 type Module = ConfigurationOverview['modules'][number];
@@ -89,10 +90,12 @@ export default function ConfigurationGraph({ modules, selected, onSelect, onInpu
         return { nodes, edges };
     }, [modules, onInput, onSelect, selected]);
 
+    const { measuredNodes, rememberMeasurements } = useMeasuredGraphNodes(nodes);
+
     if (!modules.length) return <p>No valid module declarations in the draft.</p>;
 
     return <div className="dw-config-graph" role="region" aria-label="Subscription graph">
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} colorMode="dark"
+        <ReactFlow nodes={measuredNodes} edges={edges} onNodesChange={rememberMeasurements} nodeTypes={nodeTypes} colorMode="dark"
             fitView fitViewOptions={{ maxZoom: 1 }} minZoom={0.2}
             nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}
             onNodeClick={(_, node) => onSelect(Number(node.id))}>
