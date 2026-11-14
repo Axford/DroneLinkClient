@@ -20,6 +20,7 @@ import { CommandScope } from './commands/session';
 import InspectorPanel from './components/InspectorPanel';
 import { InspectorSessionProvider } from './components/InspectorSession';
 import NodeFiles from './workbench/NodeFiles';
+import { transportLabel } from './workbench/useWorkbenchFeed';
 import { useConnectedWorkbench } from './workbench/connectedWorkbench';
 import { ConnectedLocalInspector, GatewayConnection, SourceChoice } from './workbench/ConnectedWorkbenchControls';
 import { VisualizationSettingsNotice, VisualizationSettingsProvider } from './components/VisualizationSettings';
@@ -262,6 +263,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}
                                 canReset={domain.canEdit === true && domain.status !== 'archived'}
                                 sourceChoice={workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
+                                localHeading={local && selectedNodeId !== null
+                                    ? `Node ${selectedNodeId} · Local${localTransport ? ` · ${transportLabel[localTransport]}` : ' · Last seen'}` : undefined}
                                 localModules={local && selectedNodeId !== null ? <ConnectedLocalInspector node={selectedNodeId}
                                     workbench={workbench} state={state} canQuery={domain.canEdit} /> : undefined}
                                 localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}

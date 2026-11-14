@@ -45,7 +45,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
             return <li key={node.id} data-selected={node.id === selectedNodeId}>
                 <button type="button" className="dw-node-select" aria-pressed={node.id === selectedNodeId}
                     aria-label={routeStatus ? `${node.name || `Node ${node.id}`} · ${routeStatus}` : `Inspect node ${node.id}: ${node.name || `Node ${node.id}`}`} disabled={selectionDisabled && node.id !== selectedNodeId} aria-describedby={`${listId}-receipt-${node.id}`}
-                    onClick={() => { if (onNodeSelect(node.id) !== false && narrow) setExpanded(false); }}>
+                    onClick={() => { if (onNodeSelect(node.id) !== false && narrow && !inline) setExpanded(false); }}>
                     <strong className="dw-node-name" title={nodeLabel(node)}>{nodeLabel(node)}</strong>
                     {routeStatus && <span className="dw-meta dw-node-route-status"> · {routeStatus}</span>}
                     <span className="dw-node-age" aria-hidden="true" title={node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}>{compactReceiptAge(node.lastHeard, now)}</span>
@@ -61,12 +61,12 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
         aria-expanded={expanded} aria-controls={expanded ? listId : undefined} aria-haspopup={narrow ? 'dialog' : undefined}
         onClick={() => setExpanded(value => !value)} />;
 
-    return <section className={`dw-node-list ${inline ? 'dw-node-list-inline' : ''} ${!narrow && !expanded ? 'collapsed' : ''}`} aria-label={label}>
+    return <section className={`dw-node-list ${inline ? 'dw-node-list-inline' : ''} ${!inline && !narrow && !expanded ? 'collapsed' : ''}`} aria-label={label}>
         <span className="visually-hidden">{nodes.length} observed nodes</span>
-        {narrow || inline ? <header className="dw-node-list-header">
+        {inline ? items : narrow ? <header className="dw-node-list-header">
             <div><strong>Nodes · {nodes.length}</strong><div className="dw-meta">{selectedLabel}</div></div>{toggle}
         </header> : <div className="dw-node-list-toggle">{toggle}</div>}
-        {!narrow && expanded && items}
-        {narrow && <SettingsDialog title={label} show={expanded} onHide={() => setExpanded(false)}>{items}</SettingsDialog>}
+        {!inline && !narrow && expanded && items}
+        {!inline && narrow && <SettingsDialog title={label} show={expanded} onHide={() => setExpanded(false)}>{items}</SettingsDialog>}
     </section>;
 }

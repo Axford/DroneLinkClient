@@ -60,6 +60,11 @@ it('uses the local feed only and discards stale readings before route or stream 
             stream.send('observation', { packetBase64: value, receivedAtMs: route.lastHeardAtMs });
             stream.send('observation', { packetBase64: name, receivedAtMs: route.lastHeardAtMs + 1 });
         });
+        const inspector = screen.getByRole('region', { name: 'Node Inspector' });
+        expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
+        expect(within(screen.getByRole('region', { name: 'Local nodes' })).queryByRole('button', { name: /node list/i })).not.toBeInTheDocument();
+        expect(within(inspector).getByRole('group', { name: 'Module list controls' })).toContainElement(
+            within(inspector).getByRole('button', { name: 'Collapse All' }));
         const parameter = screen.getByRole('article', { name: 'Parameter 11>5.8' });
         expect(within(parameter).getByText('42')).toBeInTheDocument();
         expect(within(parameter).getByText('V')).toBeInTheDocument();
@@ -67,12 +72,12 @@ it('uses the local feed only and discards stale readings before route or stream 
         expect(parameter.querySelector('time')?.dateTime).toBe(new Date(route.lastHeardAtMs).toISOString());
 
         act(() => stream.send('route', { ...route, reachable: false }));
-        expect(screen.getByText('Node 11 · Local · Last seen')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Node 11 · Local · Wi-Fi · Last seen' })).toBeInTheDocument();
         act(() => stream.send('route', { ...route, reachable: true }));
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
         act(() => stream.send('observation', { packetBase64: value, receivedAtMs: route.lastHeardAtMs + 2 }));
         act(() => stream.onerror?.());
-        expect(screen.getByText('Node 11 · Local · Last seen')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Node 11 · Local · Wi-Fi · Last seen' })).toBeInTheDocument();
         act(() => jest.advanceTimersByTime(1000));
         const reconnected = Feed.connections[1];
         act(() => {
@@ -81,6 +86,9 @@ it('uses the local feed only and discards stale readings before route or stream 
         });
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
         expect(global.fetch).not.toHaveBeenCalled();
+        fireEvent.click(within(inspector).getByRole('tab', { name: 'Files' }));
+        expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
+        expect(within(inspector).queryByRole('group', { name: 'Module list controls' })).not.toBeInTheDocument();
         view.unmount();
         expect(reconnected.close).toHaveBeenCalledTimes(1);
     } finally {

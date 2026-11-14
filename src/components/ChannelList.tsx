@@ -6,9 +6,20 @@ import IconButton from './ui/IconButton';
 import ChannelCard from './ChannelCard';
 import { useChannelPresentation } from './InspectorSession';
 
+export function ChannelListActions({ node }: { node: NodeState }) {
+    const view = useChannelPresentation(node);
+    if (!view.ids.length) return null;
+    const allExpanded = view.ids.every(id => !view.collapsed.includes(id));
+    return <>
+        {view.ids.length > 1 && <IconButton label="Reorder channels" icon={<ArrowDownUp />} aria-pressed={view.reordering}
+            data-inspector-focus="reorder" onClick={view.toggleReordering} />}
+        <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />}
+            data-inspector-focus="bulk" onClick={() => view.setAllCollapsed(allExpanded)} />
+    </>;
+}
+
 export default function ChannelList({ node, sampleLive = false }: { node: NodeState; sampleLive?: boolean }) {
     const view = useChannelPresentation(node);
-    const allExpanded = view.ids.every(id => !view.collapsed.includes(id));
     const [now, setNow] = useState(Date.now);
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -24,13 +35,6 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
     if (!view.ids.length) return <Card><Card.Body>No channels discovered for this node</Card.Body></Card>;
 
     return <div>
-        <div className="channel-list-header d-flex justify-content-between align-items-center mb-2">
-            <h6 className="mb-0 text-white">Channels ({view.ids.length})</h6>
-            <div className="dw-row-actions">
-                {view.ids.length > 1 && <IconButton label="Reorder channels" icon={<ArrowDownUp />} aria-pressed={view.reordering} data-inspector-focus="reorder" onClick={view.toggleReordering} />}
-                <IconButton label={allExpanded ? 'Collapse All' : 'Expand All'} icon={allExpanded ? <ArrowsCollapse /> : <ArrowsExpand />} data-inspector-focus="bulk" onClick={() => view.setAllCollapsed(allExpanded)} />
-            </div>
-        </div>
         <span role="status" className="visually-hidden">{announcement}</span>
         <div className="dw-channel-grid">
             {view.ids.map((id, index) => {

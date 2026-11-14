@@ -8,7 +8,7 @@ import DangerAction from './ui/DangerAction';
 import { DroneLinkStateHook } from '../dronelink/useDroneLinkState';
 import NodeInfo from './NodeInfo';
 import { ObservationNamesContext } from './parameterPresentation';
-import ChannelList from './ChannelList';
+import ChannelList, { ChannelListActions } from './ChannelList';
 import { useInspectorFocus } from './InspectorSession';
 import { DomainCommands } from '../commands/CommandControls';
 import NodeInspector from './NodeInspector';
@@ -22,10 +22,11 @@ interface InspectorPanelProps {
     files?: React.ReactNode;
     filesAvailable?: boolean;
     localModules?: React.ReactNode;
+    localHeading?: React.ReactNode;
     localActions?: React.ReactNode;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId, sourceChoice, files, filesAvailable, localModules, localActions }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId, sourceChoice, files, filesAvailable, localModules, localHeading, localActions }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -42,6 +43,8 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
 
     const focusTracking = useInspectorFocus(selectedNodeId, selectedNode?.observationGeneration);
     return <NodeInspector selected={selectedNodeId !== null} context={sourceChoice} files={files} filesAvailable={filesAvailable}
+        heading={selectedNodeId !== null && (localHeading ?? `Node ${selectedNodeId} · Cloud`)}
+        moduleActions={selectedNode && <ChannelListActions node={selectedNode} />}
         focusTracking={focusTracking} actions={localModules ? localActions : <div className="dw-row-actions">
             <DomainCommands node={selectedNode?.id} />
             <IconButton data-inspector-focus="tools" label="Inspector tools" icon={<Gear />} onClick={() => setTools(true)} />

@@ -5,7 +5,10 @@
 [data-bs-theme] .dw-inspector-size [aria-pressed="true"] { background: var(--dw-color-neutral-selected); color: var(--dw-color-text); }
 .inspector-panel[data-size="collapsed"] > :not(.inspector-header) { display: none; }
 .inspector-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); scrollbar-color: var(--dw-color-border) var(--dw-color-canvas); scrollbar-width: thin; }
-.channel-list-header { background: var(--dw-color-panel); padding: var(--dw-space-3); border-radius: var(--dw-radius); }
+.dw-inspector-heading { margin: 0; font-size: inherit; font-weight: 600; }
+.inspector-header { flex-wrap: wrap; }
+.dw-inspector-tab-strip { display: flex; flex: none; flex-wrap: wrap; align-items: end; justify-content: space-between; }
+.dw-inspector-module-actions { display: flex; gap: var(--dw-space-1); margin-inline-start: auto; padding-inline-end: var(--dw-space-2); }
 
 /* Row-major grids preserve reading and keyboard order as the Inspector resizes. */
 .dw-channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; gap: var(--dw-space-2); }
@@ -142,7 +145,7 @@
 .dw-exact-values code { white-space: pre-wrap; overflow-wrap: anywhere; }
 .dw-channel-reorder { display: flex; flex-shrink: 0; padding: var(--dw-space-1); }
 .dw-channel-reorder [aria-disabled="true"] { opacity: var(--dw-opacity-disabled); cursor: default; }
-.channel-list-header [aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
+.dw-inspector-module-actions [aria-pressed="true"] { background: var(--dw-color-primary); color: var(--dw-color-text); }
 
 .dw-visualization-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 176px), 1fr)); gap: var(--dw-space-3); }
 .dw-channel-summary {
@@ -343,3 +346,6 @@
 }
 .dw-parameter-result { margin: var(--dw-space-3) 0; overflow-wrap: anywhere; }
 .dw-parameter-editor .dw-row-actions { display: flex; gap: var(--dw-space-2); justify-content: end; }
+
+.dw-inspector-tab-strip.dw-workspace-tabs,
+.dw-inspector-tab-strip > .dw-workspace-tabs { padding-inline: 0; }

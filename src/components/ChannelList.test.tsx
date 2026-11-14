@@ -1,7 +1,7 @@
 import { CommandScope } from '../commands/session';
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import ChannelList from './ChannelList';
+import ChannelList, { ChannelListActions } from './ChannelList';
 import { InspectorSessionProvider } from './InspectorSession';
 import { ChannelState, GlobalState, NodeState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T } from '../dronelink/DroneLinkMsg';
@@ -12,7 +12,7 @@ const channel = (id: number, name: string, reading: string): ChannelState => ({
 });
 
 const node = (id: number, channels: NodeState['channels'], observationGeneration = 0): NodeState => ({ id, channels, observationGeneration, lastHeard: 1000 });
-const session = (current: NodeState, nodes: GlobalState = { [current.id]: current }, domain = 'a', layout = 'wide') => <InspectorSessionProvider key={domain} nodes={nodes} inventoryComplete><style>{'.collapse:not(.show) { display: none; }'}</style><ChannelList key={`${layout}:${current.id}:${current.observationGeneration}`} node={current} /></InspectorSessionProvider>;
+const session = (current: NodeState, nodes: GlobalState = { [current.id]: current }, domain = 'a', layout = 'wide') => <InspectorSessionProvider key={domain} nodes={nodes} inventoryComplete><style>{'.collapse:not(.show) { display: none; }'}</style><ChannelListActions node={current} /><ChannelList key={`${layout}:${current.id}:${current.observationGeneration}`} node={current} /></InspectorSessionProvider>;
 
 test('bulk and individual expansion stay in sync across repeated expand/collapse actions', async () => {
     render(session(node(10, {

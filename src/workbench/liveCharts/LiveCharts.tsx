@@ -77,7 +77,8 @@ export default function LiveCharts({ capture, connected, onCapturing, catalogue,
         <div className="dw-chart-actions">
             {running ? <Button size="sm" onClick={() => {
                 capture.stop(Date.now()); onCapturing(false); changeNow();
-            }}>Stop capture</Button> : <Button size="sm" disabled={!connected} onClick={() => {
+            }}>Stop capture</Button> : <Button size="sm" disabled={!connected} title="Collect up to 15 minutes of gateway receipts."
+                aria-description="Collect up to 15 minutes of gateway receipts." onClick={() => {
                 capture.start(Date.now()); clearInspection(); onCapturing(true); changeNow();
             }}>Start capture</Button>}
             {frozen ? <Button size="sm" variant="outline-secondary" onClick={() => {
@@ -86,10 +87,9 @@ export default function LiveCharts({ capture, connected, onCapturing, catalogue,
                 capture.freeze(Date.now()); changeNow();
             }}>Freeze view</Button>}
         </div>
-        <p className="dw-meta mb-0">{!bounds ? 'Start capture to collect up to 15 minutes of gateway receipts.' :
-            <>{running ? frozen ? 'View frozen · Capture continues' : 'Following live' : 'Capture stopped'}
+        {bounds && <p className="dw-meta mb-0">{running ? frozen ? 'View frozen · Capture continues' : 'Following live' : 'Capture stopped'}
                 {' · '}{availability?.earliest !== undefined ? `Earliest sample ${timeLabel(availability.earliest)}` : 'Waiting for numeric samples'}
-                {availability?.limited && ' · Packet limit reached'}{!connected && running && ' · Gateway disconnected'}</>}</p>
+                {availability?.limited && ' · Packet limit reached'}{!connected && running && ' · Gateway disconnected'}</p>}
         <div className="dw-chart-picker">
             <label>Find parameters<input className="form-control form-control-sm" type="search" value={search}
                 onChange={event => { onSearch(event.target.value); setSelected(''); }} /></label>

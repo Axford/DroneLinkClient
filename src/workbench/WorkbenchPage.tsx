@@ -10,7 +10,7 @@ import ObservedMap from '../components/ObservedMap';
 import NodeInspector from '../components/NodeInspector';
 import NodeSelector from '../components/NodeSelector';
 import NodeFiles from './NodeFiles';
-import ChannelList from '../components/ChannelList';
+import ChannelList, { ChannelListActions } from '../components/ChannelList';
 import { InspectorSessionProvider } from '../components/InspectorSession';
 import { ObservationNamesContext } from '../components/parameterPresentation';
 import { Transport, transportLabel, transports, useWorkbenchFeed, WorkbenchCapture } from './useWorkbenchFeed';
@@ -180,18 +180,16 @@ export default function WorkbenchPage() {
         </select>
     </label>;
     const modules = selectedNode === undefined ? <p>Select a node to inspect its observations.</p> : <>
-        <p>Node {selectedNode} · Local{showTransport && active ? ` · ${transportLabel[active]}` : ''}{node && (!connected || !path?.reachable) ? ' · Last seen' : ''}</p>
         {choice !== 'auto' && transports.filter(transport => transport !== choice).map(transport => {
             const reading = observations[transport][selectedNode];
             return reading && <p className="dw-meta" key={transport}>{transportLabel[transport]} last received {localTime(reading.lastHeard)}. Hidden by transport selection.</p>;
         })}
         {!node && <p>{connected && path?.reachable ? 'Waiting for publications.' : 'Local route unavailable.'}</p>}
         {!node && active && selectedNode !== undefined && <LastKnownParameterActions node={lastKnown[active][selectedNode]} />}
-        {node && active && <InspectorSessionProvider key={active} nodes={observations[active]} inventoryComplete={false}>
+        {node && active &&
             <ObservationNamesContext.Provider value={observations[active]}>
                 <ChannelList key={node.id} node={node} sampleLive={connected && !!path?.reachable} />
-            </ObservationNamesContext.Provider>
-        </InspectorSessionProvider>}
+            </ObservationNamesContext.Provider>}
     </>;
 
 
@@ -231,10 +229,12 @@ export default function WorkbenchPage() {
             </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
                 {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} /> : selector}
-            </div>} inspector={<NodeInspector key={selectedNode} selected={selectedNode !== undefined}
-                context={transportChoice} modules={modules}
+            </div>} inspector={<InspectorSessionProvider nodes={active ? observations[active] : {}} inventoryComplete={false}>
+                <NodeInspector key={selectedNode} selected={selectedNode !== undefined}
+                heading={selectedNode !== undefined && <span>Node {selectedNode} · Local{active ? ` · ${transportLabel[active]}` : ''}{node && (!connected || !path?.reachable) ? ' · Last seen' : ''}</span>}
+                context={transportChoice} modules={modules} moduleActions={node && <ChannelListActions node={node} />}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
-                    available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} observed={node} activity={reportFiles} />} />} />
+                    available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} observed={node} activity={reportFiles} />} /></InspectorSessionProvider>} />
             </SignalPlotContext.Provider>
         </DomainWorkspace></ParameterEditorProvider>
     </main></div>;

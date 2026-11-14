@@ -6,7 +6,6 @@ import { ObservationNamesContext } from '../components/parameterPresentation';
 import type { GlobalState } from '../dronelink/DroneLinkState';
 import { CommandScope } from '../commands/session';
 import { NodeSource, useConnectedWorkbench } from './connectedWorkbench';
-import { transportLabel } from './useWorkbenchFeed';
 
 type Connection = ReturnType<typeof useConnectedWorkbench>;
 
@@ -57,7 +56,6 @@ export function ConnectedLocalInspector({ node, workbench, state, canQuery }: { 
     const transport = workbench.transport(node);
     const observed = state[node];
     return <>
-            <p>Node {node} · Local{transport ? ` · ${transportLabel[transport]}` : ' · Last seen'}</p>
             {!transport && <p>The selected local route is unavailable.</p>}
             {observed && <CommandScope.Provider value={null}>
                 <ObservationNamesContext.Provider value={state}><ChannelList node={observed} sampleLive={!!transport} /></ObservationNamesContext.Provider>
