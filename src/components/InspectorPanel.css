@@ -104,7 +104,16 @@
     color: var(--dw-color-text);
     overflow-wrap: anywhere;
 }
-.dw-parameter:has(.dw-parameter-actions) .dw-parameter-tile { padding-bottom: var(--dw-space-8); }
+.dw-parameter:has(.dw-parameter-actions) {
+    --dw-parameter-actions-width: var(--dw-space-6);
+}
+.dw-parameter:has(.dw-parameter-actions button + button) {
+    --dw-parameter-actions-width: calc(2 * var(--dw-space-6));
+}
+.dw-parameter:has(.dw-parameter-actions) .dw-parameter-tile > :is(.dw-parameter-values, .dw-meta) {
+    padding-inline-end: var(--dw-parameter-actions-width);
+}
+.dw-parameter-tile > .dw-meta { display: block; }
 .dw-parameter-actions {
     position: absolute;
     inset-inline-end: var(--dw-space-1);
@@ -114,6 +123,7 @@
 .dw-parameter-actions .dw-icon-button {
     width: var(--dw-space-6);
     height: var(--dw-space-6);
+    min-height: var(--dw-space-6);
 }
 .dw-parameter-actions .dw-icon-button svg { width: 10px; height: 10px; }
 .dw-parameter-tile[data-writable="true"] { background: rgba(68, 113, 177, .35); }
