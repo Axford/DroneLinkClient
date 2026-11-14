@@ -40,7 +40,7 @@ export default function ModuleStatusAction({ node, channel, name, status }: {
     const received = samePath && canObserveResult && delivery?.receivedAfterMs !== undefined &&
         (path?.sample.receivedAt ?? 0) > delivery.receivedAfterMs &&
         observed?.msgType === DRONE_LINK_MSG_TYPE_UINT8_T && observed.bytes.length === 1;
-    const matches = confirmed || (received && observed.bytes[0] === request.value);
+    const matches = confirmed || (received && (request.value === 1 ? observed.bytes[0] > 0 : observed.bytes[0] === 0));
     const pending = !!request && !request.error && (!delivery || (!matches && !elapsed &&
         (refresh || canObserveResult)));
     const feedback = request && (request.error ?? (!delivery ? 'Submitting…' :

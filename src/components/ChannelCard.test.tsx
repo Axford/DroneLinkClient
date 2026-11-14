@@ -71,6 +71,16 @@ test('the collapsed header writes the observed status without changing it before
     view.rerender(statusCard(0, 1300));
     expect(screen.getByRole('button', { name: 'Enable GPS' })).toBeVisible();
     expect(screen.getByText('Newer status observation matches')).toBeVisible();
+    const enable = screen.getByRole('button', { name: 'Enable GPS' });
+    write.mockResolvedValueOnce({ status: 'Queued at local gateway', receivedAfterMs: 1350, local: true, awaitingObservation: true });
+    fireEvent.click(enable);
+    expect(write).toHaveBeenLastCalledWith(expect.objectContaining({ bytes: Uint8Array.of(0) }), { values: [1] });
+    await screen.findByText('Waiting for a newer status observation');
+    expect(enable.closest('.channel-card')).toHaveAttribute('data-status', 'disabled');
+    view.rerender(statusCard(2, 1400));
+    expect(screen.getByRole('button', { name: 'Disable GPS' }).closest('.channel-card')).toHaveAttribute('data-status', 'waiting');
+    expect(screen.getByText('Newer status observation matches')).toBeVisible();
+    expect(screen.queryByText('Newer status observation differs')).not.toBeInTheDocument();
     view.rerender(statusCard(0, 1300, false));
     expect(screen.getByRole('button', { name: 'Enable GPS' })).toHaveAttribute('aria-disabled', 'true');
 });
