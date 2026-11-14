@@ -28,6 +28,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     const catalogLabel = observedName ? undefined : catalogName;
     const name = observedName ?? catalogLabel ?? `Param ${parameterId}`;
     const receivedAt = presentation.values.length ? parameter.lastHeard : undefined;
+    const canPlot = plot && isNumeric(parameter.msgType) && presentation.values.length > 0;
+    const canEdit = editor && editor.canOpen(target);
     const address = `${nodeId}>${channelId}.${parameterId}`;
     const writability = presentation.writable === undefined ? 'Writability unavailable' : presentation.writable ? 'Observed writable' : 'Observed read-only';
     const priority = presentation.type ? parameter.priority : undefined;
@@ -52,11 +54,12 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
             </span> : <span className="dw-meta">Value unavailable</span>}
             {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
         </button>
-        {plot && isNumeric(parameter.msgType) && presentation.values.length > 0 &&
-            <IconButton className="dw-parameter-plot" label={`Plot ${name}`} icon={<GraphUp aria-hidden="true" />}
+        {(canPlot || canEdit) && <div className="dw-parameter-actions">
+            {canPlot && <IconButton label={`Plot ${name}`} icon={<GraphUp aria-hidden="true" />}
                 onClick={() => plot(nodeId, channelId, parameterId)} />}
-        {editor?.canOpen(target) && <IconButton className="dw-parameter-edit" label="Edit parameter value"
-            icon={<Pencil aria-hidden="true" />} onClick={event => editor.open(target, name, event.currentTarget)} />}
+            {canEdit && <IconButton label="Edit parameter value" icon={<Pencil aria-hidden="true" />}
+                onClick={event => editor.open(target, name, event.currentTarget)} />}
+        </div>}
         <SettingsDialog title={`Parameter details: ${name}`} show={details} onHide={() => setDetails(false)}>
             <SurfacePanel title="Observation">
                 <dl><dt>Address</dt><dd>{address}</dd><dt>Type</dt><dd>{presentation.type || 'Unavailable'}</dd><dt>Priority</dt><dd>{priority ?? 'Unavailable'}</dd><dt>Observed writability</dt><dd>{writability}</dd><dt>Exact decoded values</dt><dd>

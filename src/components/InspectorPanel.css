@@ -82,7 +82,7 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
     gap: var(--dw-space-1);
 }
-.dw-parameter-grid > .dw-parameter { display: block; min-width: 0; }
+.dw-parameter-grid > .dw-parameter { position: relative; min-width: 0; }
 .dw-parameter-tile {
     display: block;
     width: 100%;
@@ -95,6 +95,18 @@
     color: var(--dw-color-text);
     overflow-wrap: anywhere;
 }
+.dw-parameter:has(.dw-parameter-actions) .dw-parameter-tile { padding-bottom: var(--dw-space-8); }
+.dw-parameter-actions {
+    position: absolute;
+    inset-inline-end: var(--dw-space-1);
+    bottom: var(--dw-space-1);
+    display: flex;
+}
+.dw-parameter-actions .dw-icon-button {
+    width: var(--dw-space-6);
+    height: var(--dw-space-6);
+}
+.dw-parameter-actions .dw-icon-button svg { width: 10px; height: 10px; }
 .dw-parameter-tile[data-writable="true"] { background: rgba(68, 113, 177, .35); }
 .dw-parameter-tile:hover { box-shadow: inset 0 0 0 1px var(--dw-color-border); }
 .dw-parameter-tile:focus-visible { outline: 2px solid var(--dw-color-focus); outline-offset: -2px; }
@@ -269,13 +281,6 @@
 .inspector-panel .dw-workbench-files { margin: 0; }
 .inspector-panel[data-size="full-window"] > .tab-content { padding: 0; }
 
-.dw-workspace .dw-parameter:has(.dw-parameter-edit) {
-    display: flex;
-    align-items: center;
-    gap: var(--dw-space-1);
-}
-.dw-parameter:has(.dw-parameter-edit) .dw-parameter-tile { min-width: 0; align-self: stretch; }
-.dw-parameter .dw-parameter-edit { flex-shrink: 0; }
 .dw-parameter-editor {
     position: fixed;
     z-index: 1070;
