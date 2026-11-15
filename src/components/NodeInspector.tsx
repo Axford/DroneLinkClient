@@ -14,9 +14,15 @@ const inspectorSizes = [
 export type InspectorSize = typeof inspectorSizes[number]['id'];
 export const InspectorSizePreference = createContext<[InspectorSize, (size: InspectorSize) => void] | null>(null);
 
-export default function NodeInspector({ selected, heading, actions, context, moduleActions, modules, files, filesAvailable = true, focusTracking }: {
+export interface InspectorSource {
+    label: 'Local' | 'Cloud';
+    transport?: string;
+    lastSeen?: boolean;
+}
+
+export default function NodeInspector({ selected, identity, actions, context, moduleActions, modules, files, filesAvailable = true, focusTracking }: {
     selected: boolean;
-    heading?: React.ReactNode;
+    identity?: { id: number; name?: string; source: InspectorSource };
     moduleActions?: React.ReactNode;
     actions?: React.ReactNode;
     context?: React.ReactNode;
@@ -32,12 +38,20 @@ export default function NodeInspector({ selected, heading, actions, context, mod
     const collapsed = size === 'collapsed';
     const active = files && filesAvailable ? view : 'modules';
     const motion = useFloatingInspectorMotion(size, active);
+    const name = identity?.name?.trim();
     return <section aria-label="Node Inspector" className="inspector-panel text-white" data-size={size} {...focusTracking} ref={element => {
         motion.ref.current = element;
         if (focusTracking) focusTracking.ref.current = element;
     }}>
         <header className="inspector-header">
-            {heading && !collapsed && <h2 className="dw-inspector-heading">{heading}</h2>}
+            {identity && !collapsed && <div className="dw-inspector-identity">
+                <h2 className="dw-inspector-heading">{name ? <>
+                    {identity.id} <span className="dw-inspector-title-arrow" aria-hidden="true">▶</span> {name}
+                </> : `Node ${identity.id}`}</h2>
+                <div className="dw-inspector-source">
+                    {[identity.source.label, identity.source.transport, identity.source.lastSeen && 'Last seen'].filter(Boolean).join(' · ')}
+                </div>
+            </div>}
             {context && <div className="dw-inspector-context" hidden={collapsed}>{context}</div>}
             {actions && <div hidden={collapsed}>{actions}</div>}
             <div className="dw-inspector-size" role="group" aria-label="Inspector size">

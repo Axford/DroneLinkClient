@@ -228,7 +228,11 @@ export default function WorkbenchPage() {
                 <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} />
             </div>} inspector={<InspectorSessionProvider nodes={active ? observations[active] : {}} inventoryComplete={false}>
                 <NodeInspector key={selectedNode} selected={selectedNode !== undefined}
-                heading={selectedNode !== undefined && <span>Node {selectedNode} · Local{active ? ` · ${transportLabel[active]}` : ''}{node && (!connected || !path?.reachable) ? ' · Last seen' : ''}</span>}
+                identity={selectedNode === undefined ? undefined : {
+                    id: selectedNode, name: node?.name ?? (active ? lastKnown[active][selectedNode]?.name : undefined),
+                    source: { label: 'Local', transport: active ? transportLabel[active] : undefined,
+                        lastSeen: !!node && (!connected || !path?.reachable) },
+                }}
                 context={transportChoice} modules={modules} moduleActions={node && <ChannelListActions node={node} />}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
                     available={connected && !!path?.reachable} uptimeMs={path?.uptimeMs} observed={node} activity={reportFiles} />} /></InspectorSessionProvider>} />

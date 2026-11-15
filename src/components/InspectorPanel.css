@@ -5,7 +5,10 @@
 [data-bs-theme] .dw-inspector-size [aria-pressed="true"] { background: var(--dw-color-neutral-selected); color: var(--dw-color-text); }
 .inspector-panel[data-size="collapsed"] > :not(.inspector-header) { display: none; }
 .inspector-content { flex: 1; min-height: 0; overflow: auto; padding: var(--dw-space-3); scrollbar-color: var(--dw-color-border) var(--dw-color-canvas); scrollbar-width: thin; }
-.dw-inspector-heading { margin: 0; font-size: inherit; font-weight: 600; }
+.dw-inspector-identity { min-width: 0; overflow-wrap: anywhere; }
+.inspector-header .dw-inspector-heading { margin: 0; font-size: 16px; font-weight: 700; }
+.dw-inspector-title-arrow { color: var(--dw-color-node-identity); }
+.dw-inspector-source { font-size: var(--dw-font-size-meta); line-height: var(--dw-line-height-meta); color: var(--dw-color-muted); }
 .inspector-header { flex-wrap: wrap; }
 .dw-inspector-tab-strip { display: flex; flex: none; flex-wrap: wrap; align-items: end; justify-content: space-between; }
 .dw-inspector-module-actions { display: flex; gap: var(--dw-space-1); margin-inline-start: auto; padding-inline-end: var(--dw-space-2); }

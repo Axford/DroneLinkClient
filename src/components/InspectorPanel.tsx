@@ -11,7 +11,7 @@ import { ObservationNamesContext } from './parameterPresentation';
 import ChannelList, { ChannelListActions } from './ChannelList';
 import { useInspectorFocus } from './InspectorSession';
 import { DomainCommands } from '../commands/CommandControls';
-import NodeInspector from './NodeInspector';
+import NodeInspector, { type InspectorSource } from './NodeInspector';
 
 interface InspectorPanelProps {
     droneLinkState: DroneLinkStateHook;
@@ -22,11 +22,11 @@ interface InspectorPanelProps {
     files?: React.ReactNode;
     filesAvailable?: boolean;
     localModules?: React.ReactNode;
-    localHeading?: React.ReactNode;
+    localSource?: InspectorSource;
     localActions?: React.ReactNode;
 }
 
-const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId, sourceChoice, files, filesAvailable, localModules, localHeading, localActions }) => {
+const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canReset = false, liveDomain = false, selectedNodeId, sourceChoice, files, filesAvailable, localModules, localSource, localActions }) => {
     const [tools, setTools] = useState(false);
     const [resetError, setResetError] = useState<string | null>(null);
     const [resetting, setResetting] = useState(false);
@@ -43,7 +43,8 @@ const InspectorPanel: React.FC<InspectorPanelProps> = ({ droneLinkState, canRese
 
     const focusTracking = useInspectorFocus(selectedNodeId, selectedNode?.observationGeneration);
     return <NodeInspector selected={selectedNodeId !== null} context={sourceChoice} files={files} filesAvailable={filesAvailable}
-        heading={selectedNodeId !== null && (localHeading ?? `Node ${selectedNodeId} · Cloud`)}
+        identity={selectedNodeId === null ? undefined : { id: selectedNodeId, name: selectedNode?.name,
+            source: localSource ?? { label: 'Cloud' } }}
         moduleActions={selectedNode && <ChannelListActions node={selectedNode} />}
         focusTracking={focusTracking} actions={localModules ? localActions : <div className="dw-row-actions">
             <DomainCommands node={selectedNode?.id} />

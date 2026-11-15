@@ -100,6 +100,9 @@
 
 .dw-lens-panels { position: relative; }
 .dw-inspector-frame { height: 100%; }
+.dw-inspector-slot:not(.dw-map-inspector-slot) .inspector-panel[data-size="normal"] {
+  padding: var(--dw-space-3);
+}
 .dw-map-panels { position: relative; container-type: size; isolation: isolate; }
 .dw-map-panels .dw-map { background: transparent; }
 .dw-map-panels .dw-map-canvas {
@@ -132,7 +135,7 @@
   height: auto;
   max-height: 100%;
   border-radius: calc(var(--dw-radius) * 1.5);
-  background: rgba(var(--dw-color-surface-rgb), 0.76);
+  background: rgba(var(--dw-color-surface-rgb), 0.6);
   backdrop-filter: blur(var(--dw-backdrop-blur));
   box-shadow: var(--dw-shadow);
 }
@@ -153,7 +156,7 @@
 .dw-inspector-slot:has(.inspector-panel[data-size="full-window"]) .dw-inspector-frame { padding: 0; display: block; }
 .dw-inspector-slot .inspector-panel[data-size="full-window"] {
   height: 100%;
-  padding: 0;
+  padding: var(--dw-space-3);
   border-radius: 0;
   background: var(--dw-color-canvas);
   backdrop-filter: none;

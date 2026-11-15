@@ -462,7 +462,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     <NodeSelector local={local} status={nodeStatus} nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
       onLocate={locateNode} canLocate={id => canLocate(id) && (!selectionDisabled || id === selectedNodeId)} now={now} selectionDisabled={selectionDisabled} />
     <div className="dw-map-toolbar">
-      <span role="status">{!local && !token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>
+      {!local && !token ? <span role="status">Map unavailable</span> : mapError && <span role="status">Map failed</span>}
       {local && !token && <span className="dw-meta">Local fallback basemap</span>}
       {basemapError && <span role="status">{local && token ? 'Cloud basemap unavailable. Check the Workbench Mapbox token.' : 'Basemap tiles unavailable'}</span>}
       {(token || local) && positionCount > 0 && <IconButton label="Fit observed positions" icon={<ArrowsFullscreen />} disabled={mapError} onClick={fitPositions} />}

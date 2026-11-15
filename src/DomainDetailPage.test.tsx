@@ -206,6 +206,8 @@ test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected
   expect(inspector).toHaveAttribute('data-size', 'collapsed');
   fireEvent.click(await screen.findByRole('button', { name: /^Inspect node 11:/ }));
   expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'normal');
+  expect(screen.getByRole('heading', { name: 'Node 11' })).toBeVisible();
+  expect(within(screen.getByRole('region', { name: 'Node Inspector' })).getByText('Cloud', { exact: true })).toBeVisible();
   expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
   fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
   expect(screen.getByText(/Live gateway routes are unavailable for archived Domains/)).toBeVisible();

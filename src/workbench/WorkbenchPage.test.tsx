@@ -74,7 +74,8 @@ it('uses the local feed only and discards stale readings before route or stream 
             stream.send('observation', { packetBase64: name, receivedAtMs: route.lastHeardAtMs + 1 });
         });
         const inspector = screen.getByRole('region', { name: 'Node Inspector' });
-        expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
+        expect(within(inspector).getByRole('heading', { name: 'Node 11' })).toBeVisible();
+        expect(within(inspector).getByText('Local · Wi-Fi', { exact: true })).toBeVisible();
         const lenses = within(screen.getByRole('navigation', { name: 'Domain lenses' }));
         expect(lenses.getByRole('button', { name: 'Map' })).toHaveAttribute('aria-current', 'page');
         expect(lenses.queryByRole('button', { name: 'Nodes' })).not.toBeInTheDocument();
@@ -87,12 +88,12 @@ it('uses the local feed only and discards stale readings before route or stream 
         expect(parameter.querySelector('time')?.dateTime).toBe(new Date(route.lastHeardAtMs).toISOString());
 
         act(() => stream.send('route', { ...route, reachable: false }));
-        expect(screen.getByRole('heading', { name: 'Node 11 · Local · Wi-Fi · Last seen' })).toBeInTheDocument();
+        expect(screen.getByText('Local · Wi-Fi · Last seen', { exact: true })).toBeInTheDocument();
         act(() => stream.send('route', { ...route, reachable: true }));
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
         act(() => stream.send('observation', { packetBase64: value, receivedAtMs: route.lastHeardAtMs + 2 }));
         act(() => stream.onerror?.());
-        expect(screen.getByRole('heading', { name: 'Node 11 · Local · Wi-Fi · Last seen' })).toBeInTheDocument();
+        expect(screen.getByText('Local · Wi-Fi · Last seen', { exact: true })).toBeInTheDocument();
         act(() => jest.advanceTimersByTime(1000));
         const reconnected = Feed.connections[1];
         act(() => {
@@ -102,7 +103,8 @@ it('uses the local feed only and discards stale readings before route or stream 
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
         expect((global.fetch as jest.Mock).mock.calls.map(([url]) => url)).toEqual(['/api/workbench/v1/map-config']);
         fireEvent.click(within(inspector).getByRole('tab', { name: 'Files' }));
-        expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
+        expect(within(inspector).getByRole('heading', { name: 'Node 11' })).toBeVisible();
+        expect(within(inspector).getByText('Local · Wi-Fi', { exact: true })).toBeVisible();
         expect(within(inspector).queryByRole('group', { name: 'Module list controls' })).not.toBeInTheDocument();
         view.unmount();
         expect(reconnected.close).toHaveBeenCalledTimes(1);
@@ -141,7 +143,7 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
         });
         fireEvent.click(await screen.findByRole('button', { name: /Node 11 · Reachable/ }));
         expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'normal');
-        expect(screen.getByText('Node 11 · Local · Serial')).toBeInTheDocument();
+        expect(screen.getByText('Local · Serial', { exact: true })).toBeInTheDocument();
         expect(screen.getByText('91')).toBeInTheDocument();
         expect(screen.queryByText('42')).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Network' }));
@@ -157,11 +159,11 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
             stream.send('path', { ...serial, reachable: false });
             stream.send('route', { ...wifi, reachable: true });
         });
-        expect(screen.getByText('Node 11 · Local · Serial · Last seen')).toBeInTheDocument();
+        expect(screen.getByText('Local · Serial · Last seen', { exact: true })).toBeInTheDocument();
         expect(screen.getByText('Serial · Down')).toBeInTheDocument();
         expect(screen.getByText('91')).toBeInTheDocument();
         fireEvent.change(screen.getByRole('combobox', { name: 'Transport' }), { target: { value: 'auto' } });
-        expect(screen.getByText('Node 11 · Local · Wi-Fi')).toBeInTheDocument();
+        expect(screen.getByText('Local · Wi-Fi', { exact: true })).toBeInTheDocument();
         expect(screen.getByText('42')).toBeInTheDocument();
         act(() => {
             stream.send('path', { ...serial, reachable: true });

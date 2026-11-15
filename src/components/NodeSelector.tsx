@@ -49,7 +49,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
                     aria-label={routeStatus ? `${node.name || `Node ${node.id}`} · ${routeStatus}` : `Inspect node ${node.id}: ${node.name || `Node ${node.id}`}`} disabled={selectionDisabled && node.id !== selectedNodeId} aria-describedby={`${listId}-receipt-${node.id}`}
                     onClick={() => { if (onNodeSelect(node.id) !== false && narrow && !inline) setExpanded(false); }}>
                     <strong className="dw-node-name" title={nodeLabel(node)}>{nodeLabel(node)}</strong>
-                    {routeStatus && <span className="dw-meta dw-node-route-status"> · {routeStatus}</span>}
+                    {routeStatus && routeStatus !== 'Reachable' && <span className="dw-meta dw-node-route-status"> · {routeStatus}</span>}
                     <span className="dw-node-age" aria-hidden="true" title={node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}>{compactReceiptAge(node.lastHeard, now)}</span>
                     <span id={`${listId}-receipt-${node.id}`} className="visually-hidden">{node.lastHeard ? `${receipt}: ${receiptLabel(node.lastHeard, now)}` : 'No saved receipt'}</span>
                 </button>

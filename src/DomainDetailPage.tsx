@@ -263,8 +263,8 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}
                                 canReset={domain.canEdit === true && domain.status !== 'archived'}
                                 sourceChoice={workbench.paired && selectedNodeId !== null && <SourceChoice node={selectedNodeId} workbench={workbench} />}
-                                localHeading={local && selectedNodeId !== null
-                                    ? `Node ${selectedNodeId} · Local${localTransport ? ` · ${transportLabel[localTransport]}` : ' · Last seen'}` : undefined}
+                                localSource={local ? { label: 'Local', transport: localTransport ? transportLabel[localTransport] : undefined,
+                                    lastSeen: !localTransport } : undefined}
                                 localModules={local && selectedNodeId !== null ? <ConnectedLocalInspector node={selectedNodeId}
                                     workbench={workbench} state={state} canQuery={domain.canEdit} /> : undefined}
                                 localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}
