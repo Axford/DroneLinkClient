@@ -14,6 +14,7 @@ import ConfigurationOverview from './ConfigurationOverview';
 import { moduleSettingsExamples } from './moduleSettings';
 import { i2cDefaults } from './i2cDiscovery';
 import type { ResponseAddress } from './i2cDiscovery';
+import type { MotherboardSelection } from './PhysicalConfiguration';
 import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
 import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
 import type { Catalogue } from './ModuleCatalogue';
@@ -69,7 +70,8 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
     const [catalogueLoading, setCatalogueLoading] = useState(false);
     const [catalogueResult, setCatalogueResult] = useState<{ context: string; value: Catalogue }>();
     const catalogueRequest = React.useRef(0);
-    const [boardNode, setBoardNode] = useState<number>();
+    const [boardOverrides, setBoardOverrides] = useState<Record<string, MotherboardSelection>>({});
+    const [motherboardReport, setMotherboardReport] = useState<{ scope: string; version: number }>();
     const [probeSince, setProbeSince] = useState(0);
     const [selectedPin, setSelectedPin] = useState<string>();
     const [selectedModule, setSelectedModule] = useState<number>();
@@ -233,6 +235,31 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
             clearTimeout(timer);
         }
     }
+
+    const boardKey = JSON.stringify([domainId, node]);
+    const motherboardScope = JSON.stringify([boardKey, transport, available, readOnly, showingCloud, !!remote, probeSince]);
+    const canDetectMotherboard = configuration && view === 'physical' && available && !showingCloud &&
+        transport === 'wifi' && (!domainId || !!remote);
+    const motherboardVersion = canDetectMotherboard && motherboardReport?.scope === motherboardScope
+        ? motherboardReport.version : undefined;
+    const requestRef = React.useRef(request);
+    requestRef.current = request;
+    useEffect(() => {
+        setMotherboardReport(undefined);
+        if (!canDetectMotherboard) return;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        void requestRef.current<{ schemaVersion: number; node: number; version: number }>('motherboard', { signal: controller.signal })
+            .then(result => {
+                if (!controller.signal.aborted && result?.schemaVersion === 1 && result.node === node &&
+                    [0, 1, 2, 4].includes(result.version)) {
+                    setMotherboardReport({ scope: motherboardScope, version: result.version });
+                }
+            })
+            .catch(() => { /* Older firmware and unavailable routes leave board selection manual. */ })
+            .finally(() => clearTimeout(timer));
+        return () => { clearTimeout(timer); controller.abort(); };
+    }, [canDetectMotherboard, motherboardScope, node]);
 
     const diagnosticScope = JSON.stringify([node, transport, available, domainId, showingCloud, probeSince]);
     const diagnosticRequest = available && !busy && !readOnly && !showingCloud && transport === 'wifi' && (!domainId || !!remote)
@@ -552,7 +579,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                     </li>)}</ul>
                 </details>}
                 {overview && view === 'physical' && <Suspense fallback={<p role="status">Loading motherboard view…</p>}>
-                    <PhysicalConfiguration key={diagnosticScope} diagnosticsAvailable={!!diagnosticRequest} discovery={i2cDiscovery} board={boardNode === node} onBoard={selected => setBoardNode(selected ? node : undefined)}
+                    <PhysicalConfiguration key={diagnosticScope} diagnosticsAvailable={!!diagnosticRequest} discovery={i2cDiscovery}
+                        motherboardVersion={motherboardVersion} boardSelection={boardOverrides[boardKey] ?? 'auto'}
+                        onBoard={selection => setBoardOverrides(previous => ({ ...previous, [boardKey]: selection }))}
                         overview={overview} text={draftText} node={node} observed={showingCloud ? undefined : observed}
                         available={available && !showingCloud} editable={canGuide}
                         selectedChannel={selectedModule} onSelect={setSelectedModule} onChange={text => setCurrentDraft(editorText(text))}

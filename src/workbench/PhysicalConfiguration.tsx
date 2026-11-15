@@ -174,9 +174,12 @@ function ProbeSettings({ gpio, value, onApply, editable }: {
     </form>;
 }
 
-export default function PhysicalConfiguration({ board, onBoard, overview, text, node, observed, available, editable,
+export type MotherboardSelection = 'auto' | 'v4' | 'none';
+
+export default function PhysicalConfiguration({ boardSelection, motherboardVersion, onBoard, overview, text, node, observed, available, editable,
     selectedChannel, onSelect, onChange, goToLine, since, storedText, onCatalogue, selectedPin, setSelectedPin, diagnosticsAvailable, discovery, supportedTypes, catalogueLoading, onCheckCatalogue, onAcceptI2c }: {
-    board: boolean;
+    boardSelection: MotherboardSelection;
+    motherboardVersion?: number;
     diagnosticsAvailable: boolean;
     supportedTypes?: string[];
     catalogueLoading: boolean;
@@ -185,7 +188,7 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
     discovery: ReturnType<typeof useI2cDiscovery>;
     selectedPin?: string;
     setSelectedPin: (pin: string | undefined) => void;
-    onBoard: (selected: boolean) => void;
+    onBoard: (selection: MotherboardSelection) => void;
     overview: ConfigurationOverview;
     text: string;
     node: number;
@@ -368,11 +371,14 @@ export default function PhysicalConfiguration({ board, onBoard, overview, text, 
         setFailed(false);
     }
 
+    const board = boardSelection === 'v4' || (boardSelection === 'auto' && motherboardVersion === 4);
+
     return <section aria-label="Physical configuration">
         <label className="d-block mb-2">Motherboard
-            <select className="form-select" value={board ? 'v4' : ''} onChange={event => onBoard(event.target.value === 'v4')}>
-                <option value="">Select motherboard</option>
+            <select className="form-select" value={boardSelection} onChange={event => onBoard(event.target.value as MotherboardSelection)}>
+                <option value="auto">{motherboardVersion === 4 ? 'DroneLink V4 (detected)' : 'Automatic'}</option>
                 <option value="v4">DroneLink V4 (manual)</option>
+                <option value="none">Hide motherboard diagram</option>
             </select>
         </label>
         {board && <>
