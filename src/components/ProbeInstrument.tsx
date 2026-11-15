@@ -6,6 +6,10 @@ import '../workbench/physicalWiring.css';
 import { probeModeLabels, probePinName, readProbeResults } from './probeResults';
 import './ProbeInstrument.css';
 
+// Gateway receipts can lag the device's sampling cadence even on a live route.
+const minimumStaleAgeMs = 15_000;
+const missedRotations = 3;
+
 const ProbeWiringGraph = lazy(() => import('./ProbeWiringGraph'));
 
 export default function ProbeInstrument({ channel, now, disabled, motherboardVersion }: {
@@ -15,25 +19,29 @@ export default function ProbeInstrument({ channel, now, disabled, motherboardVer
     motherboardVersion?: number;
 }) {
     const { rows, refreshMs } = readProbeResults(channel);
+    const staleAfterMs = refreshMs ? Math.max(minimumStaleAgeMs, missedRotations * refreshMs) : undefined;
     const diagram = motherboardDiagram(motherboardVersion);
     const pins = rows.map(({ gpio, result, mode, description, baud, status }) => {
         const point = diagram?.endpoints.find(endpoint => endpoint.gpio === gpio);
         const connector = point?.label.split(' · ')[0];
         const name = probePinName(gpio);
         const modeLabel = mode === 3 ? `Serial · ${baud ? `${baud} baud` : 'Baud unavailable'} · 8N1` : probeModeLabels[mode - 1];
-        const stale = !disabled && mode > 0 && status !== 5 && result.lastHeard !== undefined &&
-            now - result.lastHeard > Math.max(5000, 2 * (refreshMs || 1000));
+        const stale = !disabled && mode > 0 && status !== 0 && status !== 5 && status !== 6 &&
+            staleAfterMs !== undefined && result.lastHeard !== undefined && now - result.lastHeard > staleAfterMs;
         return { gpio, mapped: !!point, card: <article className="dw-physical-device dw-probe-pin" key={gpio}
-            aria-label={name} data-state={status === 5 || status === 6 ? 'unavailable' : stale ? 'stale' : undefined}>
+            aria-label={name} data-state={status === 5 || status === 6 ? 'unavailable' : undefined}>
             <div className="dw-probe-pin-heading"><strong>{name}</strong>
-                <span className="dw-meta" title={receiptLabel(result.lastHeard, now)}>
-                    <span className="visually-hidden">Received: </span>{compactReceiptAge(result.lastHeard, now)}
+                <span className="dw-probe-pin-freshness">
+                    {stale && <span className="text-warning">Stale</span>}
+                    <span className="dw-meta" title={receiptLabel(result.lastHeard, now)}>
+                        <span className="visually-hidden">Received: </span>{compactReceiptAge(result.lastHeard, now)}
+                    </span>
                 </span>
             </div>
             {(modeLabel || connector) && <span className="dw-meta">
                 {[modeLabel, connector === name ? undefined : connector].filter(Boolean).join(' · ')}
             </span>}
-            <span>{stale && 'Stale · '}{description}</span>
+            <span>{description}</span>
             {diagram && !point && <span className="dw-meta">Connector unmapped on V{diagram.version}</span>}
         </article> };
     });
@@ -42,7 +50,7 @@ export default function ProbeInstrument({ channel, now, disabled, motherboardVer
 
     return <section aria-label="Probe pin results">
         {disabled && <p className="dw-meta mb-2">Probe disabled. Showing last received results.</p>}
-        {!disabled && !!refreshMs && <p className="dw-meta mb-2">Expected refresh per pin: about {refreshMs / 1000} s</p>}
+        {!disabled && !!refreshMs && <p className="dw-meta mb-2">Configured sampling per pin: about {refreshMs / 1000} s</p>}
         {pins.length === 0 ? <p className="dw-meta mb-0">No Probe pin results received</p> : diagram ?
             <Suspense fallback={cards}>
                 <ProbeWiringGraph key={`${diagram.version}/${wired.map(pin => pin.gpio).join(',')}`} diagram={diagram} pins={wired} />

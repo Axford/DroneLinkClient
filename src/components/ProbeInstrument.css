@@ -10,8 +10,7 @@
     box-shadow: inset 0 0 0 1px var(--dw-color-hover);
 }
 
-.dw-probe-pin[data-state="unavailable"],
-.dw-probe-pin[data-state="stale"] {
+.dw-probe-pin[data-state="unavailable"] {
     background: color-mix(in srgb, var(--dw-color-warning) 12%, var(--dw-color-raised));
     border-inline-start: 2px solid var(--dw-color-warning);
 }
@@ -23,7 +22,10 @@
     gap: var(--dw-space-2);
 }
 
-.dw-probe-pin-heading > span {
+.dw-probe-pin-freshness {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--dw-space-1);
     white-space: nowrap;
 }
 

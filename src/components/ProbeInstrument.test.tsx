@@ -28,7 +28,7 @@ test('shows observed digital, serial and analog results with pin identity in Mod
     expect(screen.getByText('1800 ADC counts · voltage estimate unavailable')).toBeVisible();
     expect(screen.getByText('Min 625 · Max 722 · Avg 673.1 ADC counts over 20 ms · estimated 400 mV average')).toBeVisible();
     expect(screen.getByText('Analog statistics unavailable')).toBeVisible();
-    expect(screen.getByText('Expected refresh per pin: about 2.5 s')).toBeVisible();
+    expect(screen.getByText('Configured sampling per pin: about 2.5 s')).toBeVisible();
 });
 
 test('switches to raw parameters with fixed GPIO names, including a cleared pin and an observed firmware label', () => {
@@ -53,4 +53,36 @@ test('switches to raw parameters with fixed GPIO names, including a cleared pin 
     expect(screen.getByRole('button', { name: 'Parameter details: GPIO 13' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Parameter details: GPIO 35' })).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Probe pin results' })).toBeNull();
+});
+
+test('keeps a Probe reading steady across late packets and flags a sustained gap', () => {
+    const props = { nodeId: 7, channelId: 3, expanded: true, systemOpen: false, showParameters: false,
+        onShowParameters: jest.fn(), onToggleExpand: jest.fn(), onToggleSystem: jest.fn() };
+    const reading = parameter(45, [0x11, 0, 0, 0, 20, 0]);
+    const card = (now: number, received: number, interval?: number) => {
+        const params: Record<number, ParameterState> = {
+            5: parameter(5, ['Probe'], 4),
+            45: { ...reading, lastHeard: received },
+        };
+        if (interval !== undefined) params[6] = parameter(6, [interval], 2);
+        return <ChannelCard {...props} now={now} channel={{ channel: 3, lastHeard: received, params }} />;
+    };
+    const view = render(card(10000, 10000, 1000));
+    const pin = () => within(screen.getByRole('article', { name: 'GPIO 35' }));
+    for (const received of [10000, 17989, 27003]) {
+        view.rerender(card(received + 7900, received, 1000));
+        expect(pin().getByText('Low · 0 transitions in 20 ms')).toBeVisible();
+        expect(pin().queryByText('Stale')).toBeNull();
+    }
+
+    view.rerender(card(43003, 27003, 1000));
+    expect(pin().getByText('Stale')).toBeVisible();
+    expect(pin().getByText('Low · 0 transitions in 20 ms')).toBeVisible();
+
+    view.rerender(card(43100, 43100, 1000));
+    expect(pin().queryByText('Stale')).toBeNull();
+
+    view.rerender(card(43003, 27003));
+    expect(pin().getByText('16s')).toBeVisible();
+    expect(pin().queryByText('Stale')).toBeNull();
 });
