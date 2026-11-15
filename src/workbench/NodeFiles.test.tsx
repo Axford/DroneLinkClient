@@ -334,3 +334,63 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         global.fetch = previousFetch;
     }
 });
+
+it('wires only verified compatible outputs and adds the publication to the same draft', async () => {
+    const original = ['node = 11', '[NMEA = 10]', '  name = GPS', '  publish = satellites ; retain this',
+        '[Nav = 12]', '  name = Pilot', '  $target = 65>7.8 ; retain source comment', ''].join('\r\n');
+    const parameter = (name: string, address: number, type: string, count: number, extra = {}) =>
+        ({ name, address, type, count, configurable: false, alwaysPublished: false, runtimeOnly: false, ...extra });
+    const catalogue = { schemaVersion: 1, node: 11, metadataStatus: 'marker-match', entries: [
+        { type: 'NMEA', support: 'supported', parameters: [
+            parameter('location', 8, 'f', 3), parameter('satellites', 9, 'f', 1),
+            parameter('packets', 17, 'u32', 3), parameter('command', 19, 'f', 3, { runtimeOnly: true }),
+        ] },
+        { type: 'Nav', support: 'supported', parameters: [
+            parameter('target', 12, 'f', 3, { sourceAddress: 13 }),
+            parameter('mode', 14, 'u8', 1, { sourceAddress: 15 }),
+        ] },
+    ] };
+    const previousFetch = global.fetch;
+    const fetchMock = jest.fn(async (url: string, _options?: RequestInit) => ({
+        ok: true,
+        json: async () => url.includes('/module-catalogue') ? catalogue : { ...stored, path: '/config.ini', text: original },
+    }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+        render(<NodeFiles node={11} transport="wifi" activity={jest.fn()} available />);
+        fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
+        const connect = await screen.findByRole('button', { name: 'Connect Pilot target' });
+        const showAll = screen.getByRole('switch', { name: 'Show all parameters' });
+        expect(showAll).not.toBeChecked();
+
+        fireEvent.click(connect);
+        expect(connect).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getAllByRole('button', { name: /^Use / }).map(button => button.getAttribute('aria-label')))
+            .toEqual(['Use GPS location']);
+        expect(screen.getByText('Will publish')).toBeVisible();
+        fireEvent.keyDown(window, { key: 'Escape' });
+        expect(screen.queryByRole('button', { name: 'Use GPS location' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Upload to node' })).toBeDisabled();
+
+        fireEvent.click(showAll);
+        fireEvent.click(screen.getByRole('button', { name: 'Connect Pilot mode' }));
+        expect(screen.getByText(/No compatible local outputs for Pilot.mode/)).toBeVisible();
+        expect(screen.queryByRole('button', { name: /^Use / })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel wiring' }));
+        fireEvent.click(showAll);
+
+        fireEvent.click(connect);
+        fireEvent.click(screen.getByRole('button', { name: 'Use GPS location' }));
+        expect(screen.getByRole('textbox', { name: 'Pilot target source' })).toHaveValue('@>10.8');
+        expect(screen.getByRole('switch', { name: 'Publish GPS location' })).toBeChecked();
+        expect(screen.queryByRole('button', { name: 'Cancel wiring' })).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Code' }));
+        expect(await screen.findByTestId('configuration-editor')).toHaveValue(
+            original.replace(/\r\n/g, '\n').replace('65>7.8', '@>10.8')
+                .replace('satellites ; retain this', 'satellites ; retain this\n  publish = location'),
+        );
+        expect(fetchMock.mock.calls.some(([, options]) => options?.method === 'PUT')).toBe(false);
+    } finally {
+        global.fetch = previousFetch;
+    }
+});

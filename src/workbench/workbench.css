@@ -250,6 +250,45 @@
     height: 58px;
     padding-inline: var(--dw-space-3);
 }
+.dw-config-typed-input[data-wiring-input] {
+    box-shadow: inset 3px 0 var(--dw-color-instrument-reading);
+}
+.dw-config-wire-start[aria-pressed="true"], .dw-config-wire-output > .btn {
+    color: var(--dw-color-instrument-reading);
+}
+.dw-config-wire-output {
+    height: 34px;
+}
+.dw-config-wire-output > .btn {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--dw-space-2);
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    text-align: start;
+    background: color-mix(in srgb, var(--dw-color-instrument-reading) 13%, var(--dw-color-raised));
+}
+.dw-config-wire-output > .btn:hover, .dw-config-wire-output > .btn:focus-visible {
+    color: var(--dw-color-instrument-reading);
+    outline: 1px solid var(--dw-color-instrument-reading);
+    outline-offset: -1px;
+}
+.dw-config-wire-output .dw-config-parameter-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dw-config-wiring-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--dw-space-2);
+    max-width: calc(100% - 30px);
+    padding: var(--dw-space-2);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-raised);
+}
 .dw-config-typed-input input, .dw-config-parameter-columns input {
     min-width: 0;
     padding: 2px 4px;

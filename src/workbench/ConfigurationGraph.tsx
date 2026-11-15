@@ -1,13 +1,13 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-    Background, Controls, Handle, MarkerType, Position, ReactFlow, useUpdateNodeInternals,
+    Background, Controls, Handle, MarkerType, Panel, Position, ReactFlow, useUpdateNodeInternals,
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps } from '@xyflow/react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Code, ExclamationTriangleFill, Pencil } from 'react-bootstrap-icons';
+import { Code, ExclamationTriangleFill, Link45deg, Pencil } from 'react-bootstrap-icons';
 import '@xyflow/react/dist/style.css';
 import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
-import { draftPublications, editDraftParameter, editDraftSource, moduleSettings, toggleDraftPublication } from './nodeConfiguration';
+import { canWireDraftOutput, draftPublications, editDraftParameter, editDraftSource, moduleSettings, toggleDraftPublication, wireDraftSubscription } from './nodeConfiguration';
 import type { ConfigurationDiagnostic, ConfigurationOverview } from './nodeConfiguration';
 import { matchedCatalogueEntry } from './ModuleCatalogue';
 import type { Catalogue } from './ModuleCatalogue';
@@ -25,6 +25,10 @@ type ModuleNode = Node<{
     visibleOutputs: string[];
     configured: Map<string, string[]>;
     publications: Set<string>;
+    wireInput?: string;
+    wireOutputs: string[];
+    startWire?: (parameter: ConfigurationParameter) => void;
+    selectWireOutput?: (parameter: ConfigurationParameter) => void;
     editSource?: (key: string, value: string) => boolean;
     editParameter?: (parameter: ConfigurationParameter, value: string) => boolean;
     publish?: (parameter: ConfigurationParameter, enabled: boolean) => boolean;
@@ -54,6 +58,7 @@ function WarningIndicator({ warnings, goToLine }: {
 
 function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
     const { module, outputs, parameters, knownInputs, legacyInputs, visibleOutputs, configured, publications,
+        wireInput, wireOutputs, startWire, selectWireOutput,
         editSource, editParameter, publish, warnings, onInput, onModule, goToLine } = data;
     const name = module.name || module.type;
     const [rejectedPublication, setRejectedPublication] = useState<string>();
@@ -87,7 +92,8 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
             const input = module.subscriptions.find(item => item.input === key);
             const inputWarnings = warnings.filter(warning => warning.line === input?.line);
             const ambiguous = module.subscriptions.filter(item => item.input === key).length > 1;
-            return <div key={key} className="dw-config-graph-port dw-config-typed-input" data-warning={inputWarnings.length > 0 || undefined}>
+            return <div key={key} className="dw-config-graph-port dw-config-typed-input" data-warning={inputWarnings.length > 0 || undefined}
+                data-wiring-input={wireInput === key || undefined}>
                 {input?.sourceChannel !== undefined && <Handle id={String(input.line)} type="target" position={Position.Left} />}
                 <div className="dw-config-graph-source">
                     <strong>{parameter.name}</strong>
@@ -98,7 +104,14 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
                         placeholder="Unbound" disabled={!editSource || ambiguous} onCommit={value => !!editSource?.(key, value)} />
                     {input && <small className="dw-meta" title={input.resolution}>{input.resolution}</small>}
                 </div>
-                <WarningIndicator warnings={inputWarnings} goToLine={goToLine} />
+                <span className="dw-config-graph-actions">
+                    <WarningIndicator warnings={inputWarnings} goToLine={goToLine} />
+                    {startWire && !parameter.runtimeOnly && !ambiguous && <button type="button" className="btn btn-sm nodrag nopan dw-config-wire-start"
+                        aria-label={`Connect ${name} ${parameter.name}`} aria-pressed={wireInput === key} title="Choose a compatible output"
+                        onClick={event => { event.stopPropagation(); startWire(parameter); }}>
+                        <Link45deg aria-hidden="true" />
+                    </button>}
+                </span>
             </div>;
         })}
         {legacyInputs.map(input => {
@@ -134,6 +147,16 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
             </div>;
             const values = configured.get(output) ?? [];
             const published = parameter?.alwaysPublished === true || publications.has(output);
+            if (parameter && wireOutputs.includes(output)) return <div className="dw-config-graph-port dw-config-wire-output" key={output}>
+                <button type="button" className="btn btn-sm nodrag nopan" aria-label={`Use ${name} ${output}`}
+                    aria-description={published ? undefined : 'Adds this output to the draft publish list'}
+                    onClick={event => { event.stopPropagation(); selectWireOutput?.(parameter); }}>
+                    <Link45deg aria-hidden="true" />
+                    <span className="dw-config-parameter-name" title={output}>{output}</span>
+                    <small>{published ? parameterShape(parameter) : 'Will publish'}</small>
+                </button>
+                {handle}
+            </div>;
             const ambiguous = values.length > 1;
             return <div className="dw-config-graph-port dw-config-parameter-columns" key={output}>
                 <span className="dw-meta">{parameter?.address ?? '—'}</span>
@@ -181,7 +204,18 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, sh
     goToLine: ModuleNode['data']['goToLine'];
 }) {
     const { modules, diagnostics } = overview;
-    const { nodes, edges, fileWarnings } = useMemo(() => {
+    const [wiring, setWiring] = useState<{ channel: number; name: string; text: string; catalogue?: Catalogue; rejected?: boolean }>();
+    const activeWiring = editable && wiring?.text === text && wiring.catalogue === catalogue ? wiring : undefined;
+    useEffect(() => {
+        if (!activeWiring) {
+            if (wiring) setWiring(undefined);
+            return;
+        }
+        const cancel = (event: KeyboardEvent) => { if (event.key === 'Escape') setWiring(undefined); };
+        window.addEventListener('keydown', cancel);
+        return () => window.removeEventListener('keydown', cancel);
+    }, [activeWiring, wiring]);
+    const { nodes, edges, fileWarnings, wiringTarget, candidateCount } = useMemo(() => {
         const warningsByModule = new Map<number, ConfigurationDiagnostic[]>();
         const fileWarnings: ConfigurationDiagnostic[] = [];
         for (const diagnostic of diagnostics) {
@@ -196,6 +230,11 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, sh
         }
         const parametersByChannel = new Map(modules.map(module =>
             [module.channel, matchedCatalogueEntry(catalogue, module.type)?.parameters]));
+        const targetModule = activeWiring && modules.find(module => module.channel === activeWiring.channel);
+        const targetParameter = targetModule && parametersByChannel.get(targetModule.channel)
+            ?.find(parameter => parameter.name === activeWiring?.name && parameter.sourceAddress !== undefined);
+        const wiringTarget = targetModule && targetParameter && { module: targetModule, parameter: targetParameter };
+        let candidateCount = 0;
         const outputs = new Map<number, Set<string>>();
         const edges: Edge[] = [];
         for (const target of modules) {
@@ -227,14 +266,20 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, sh
             const configured = moduleSettings(text, module);
             const publications = draftPublications(configured);
             const subscribedKeys = new Set(module.subscriptions.map(input => input.input));
+            const wireOutputs = wiringTarget && parameters ? parameters.filter(output =>
+                canWireDraftOutput(wiringTarget.parameter, output) &&
+                (module.channel !== wiringTarget.module.channel || output.address !== wiringTarget.parameter.address))
+                .map(output => output.name) : [];
+            candidateCount += wireOutputs.length;
+            const wireInput = wiringTarget?.module === module ? '$' + wiringTarget.parameter.name : undefined;
             const visibleOutputs = Array.from(new Set([
-                ...(parameters ?? []).filter(parameter => showAllParameters || outputPorts.includes(parameter.name))
+                ...(parameters ?? []).filter(parameter => showAllParameters || outputPorts.includes(parameter.name) || wireOutputs.includes(parameter.name))
                     .map(parameter => parameter.name),
                 ...(showAllParameters ? Array.from(publications) : []),
                 ...outputPorts,
             ]));
             const knownInputs = parameters?.filter(parameter => parameter.sourceAddress !== undefined &&
-                (showAllParameters || subscribedKeys.has('$' + parameter.name))) ?? [];
+                (showAllParameters || wireInput === '$' + parameter.name || subscribedKeys.has('$' + parameter.name))) ?? [];
             const knownKeys = new Set(knownInputs.map(parameter => '$' + parameter.name));
             const legacyInputs = module.subscriptions.filter(input => !knownKeys.has(input.input));
             const inputCount = knownInputs.length + legacyInputs.length;
@@ -257,14 +302,28 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, sh
                 selected: selected === module.channel,
                 ariaLabel: `${module.name || module.type}, channel ${module.channel}`,
                 data: { module, outputs: outputPorts, parameters, knownInputs, legacyInputs, visibleOutputs, configured, publications,
+                    wireInput, wireOutputs,
+                    startWire: editable ? parameter => setWiring(wireInput === '$' + parameter.name ? undefined :
+                        { channel: module.channel, name: parameter.name, text, catalogue }) : undefined,
+                    selectWireOutput: wiringTarget && activeWiring ? parameter => {
+                        const updated = wireDraftSubscription(text, node,
+                            { channel: wiringTarget.module.channel, parameter: wiringTarget.parameter },
+                            { channel: module.channel, parameter });
+                        if (updated === undefined) {
+                            setWiring({ ...activeWiring, rejected: true });
+                        } else {
+                            setWiring(undefined);
+                            apply(updated);
+                        }
+                    } : undefined,
                     editSource: editable ? (key, value) => apply(editDraftSource(text, node, module.channel, key, value)) : undefined,
                     editParameter: editable ? (parameter, value) => apply(editDraftParameter(text, node, module.channel, parameter, value)) : undefined,
                     publish: editable ? (parameter, enabled) => apply(toggleDraftPublication(text, node, module.channel, parameter, enabled)) : undefined,
                     warnings: warningsByModule.get(module.channel) ?? [], onInput, onModule, goToLine },
             };
         });
-        return { nodes, edges, fileWarnings };
-    }, [modules, diagnostics, catalogue, editable, showAllParameters, node, text, onChange, onInput, onModule, goToLine, selected]);
+        return { nodes, edges, fileWarnings, wiringTarget, candidateCount };
+    }, [modules, diagnostics, catalogue, editable, showAllParameters, node, text, onChange, onInput, onModule, goToLine, selected, activeWiring]);
 
     const { measuredNodes, rememberMeasurements } = useMeasuredGraphNodes(nodes);
 
@@ -279,10 +338,17 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, sh
             onNodeClick={(_, node) => onSelect(Number(node.id))}>
             <Background />
             <Controls showInteractive={false} />
-            <div className="dw-config-graph-caption dw-meta" data-warning={fileWarnings.length > 0 || undefined}>
-                Draft subscriptions · Live connections unverified
+            {wiringTarget && <Panel position="top-right" className="dw-config-wiring-panel">
+                <span role="status">{activeWiring?.rejected ? 'This connection could not be added. Review the draft in Code.' : candidateCount
+                    ? `Choose an output for ${wiringTarget.module.name || wiringTarget.module.type}.${wiringTarget.parameter.name} (${parameterShape(wiringTarget.parameter)})`
+                    : `No compatible local outputs for ${wiringTarget.module.name || wiringTarget.module.type}.${wiringTarget.parameter.name} (${parameterShape(wiringTarget.parameter)})`}
+                </span>
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setWiring(undefined)}>Cancel wiring</button>
+            </Panel>}
+            {(!wiringTarget || fileWarnings.length > 0) && <div className="dw-config-graph-caption dw-meta" data-warning={fileWarnings.length > 0 || undefined}>
+                {!wiringTarget && 'Draft subscriptions · Live connections unverified'}
                 <WarningIndicator warnings={fileWarnings} goToLine={goToLine} />
-            </div>
+            </div>}
         </ReactFlow>
     </div>;
 }

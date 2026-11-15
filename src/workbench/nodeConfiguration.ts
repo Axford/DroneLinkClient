@@ -414,6 +414,24 @@ export function toggleDraftPublication(text: string, node: number, channel: numb
     });
 }
 
+export function canWireDraftOutput(input: ConfigurationParameter, output: ConfigurationParameter) {
+    return input.sourceAddress !== undefined && !input.runtimeOnly && !output.runtimeOnly && output.type !== 'addr' &&
+        output.type === input.type && output.count === input.count &&
+        Number.isInteger(output.address) && output.address > 0 && output.address <= 63 &&
+        /^[A-Za-z][A-Za-z0-9_]{0,18}$/.test(output.name);
+}
+
+export function wireDraftSubscription(text: string, node: number,
+    target: { channel: number; parameter: ConfigurationParameter },
+    source: { channel: number; parameter: ConfigurationParameter }) {
+    if (!canWireDraftOutput(target.parameter, source.parameter) ||
+        (source.channel === target.channel && source.parameter.address === target.parameter.address)) return;
+    const connected = editDraftSource(text, node, target.channel, '$' + target.parameter.name,
+        `@>${source.channel}.${source.parameter.address}`);
+    if (connected === undefined || source.parameter.alwaysPublished) return connected;
+    return toggleDraftPublication(connected, node, source.channel, source.parameter, true);
+}
+
 export function gpsPort(text: string, module: DraftModule) {
     const values = moduleSettings(text, module).get('port')?.map(value => value.replace(/[ \t]/g, '')) ?? [];
     if (!values.length) return 'default';
