@@ -15,8 +15,8 @@ const shortTypes: Readonly<Partial<Record<string, string>>> = {
     UINT8: 'U8', ADDR: 'A', UINT32: 'U32', FLOAT: 'F', CHAR: 'C'
 };
 
-export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState; catalogName?: string }
-export default function ParameterRow({ nodeId, channelId, parameterId, parameter, catalogName }: ParameterRowProps) {
+export interface ParameterRowProps { nodeId: number; channelId: number; parameterId: number; parameter: ParameterState; catalogName?: string; displayName?: string }
+export default function ParameterRow({ nodeId, channelId, parameterId, parameter, catalogName, displayName }: ParameterRowProps) {
     const [details, setDetails] = useState(false);
     const descriptionId = useId();
     const names = useContext(ObservationNamesContext);
@@ -25,8 +25,8 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
     const target = { nodeAddress: nodeId, channel: channelId, param: parameterId };
     const presentation = presentParameter(parameter, names);
     const observedName = !parameter.unavailable?.name && parameter.name?.trim() ? parameter.name : undefined;
-    const catalogLabel = observedName ? undefined : catalogName;
-    const name = observedName ?? catalogLabel ?? `Param ${parameterId}`;
+    const catalogLabel = observedName || displayName ? undefined : catalogName;
+    const name = displayName ?? observedName ?? catalogLabel ?? `Param ${parameterId}`;
     const receivedAt = presentation.values.length ? parameter.lastHeard : undefined;
     const canPlot = plot && isNumeric(parameter.msgType) && presentation.values.length > 0;
     const canEdit = editor && editor.canOpen(target);
@@ -52,7 +52,7 @@ export default function ParameterRow({ nodeId, channelId, parameterId, parameter
                     {value.display}{value.name && <small className="dw-meta dw-address-name">{value.name}</small>}
                 </span>)}
             </span> : <span className="dw-meta">Value unavailable</span>}
-            {parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
+            {!displayName && parameter.unavailable?.name && <span className="dw-meta">Name unavailable</span>}
         </button>
         {(canPlot || canEdit) && <div className="dw-parameter-actions">
             {canPlot && <IconButton label={`Plot ${name}`} icon={<GraphUp aria-hidden="true" />}

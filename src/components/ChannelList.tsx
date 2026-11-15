@@ -5,6 +5,9 @@ import type { NodeState } from '../dronelink/DroneLinkState';
 import IconButton from './ui/IconButton';
 import { CardMotionList } from './ui/CardMotion';
 import ChannelCard from './ChannelCard';
+import { observedModuleType } from '../dronelink/moduleVisualizations';
+import { useMotherboardVersion } from '../workbench/useMotherboardVersion';
+import type { MotherboardSource } from '../workbench/useMotherboardVersion';
 import { useChannelPresentation } from './InspectorSession';
 
 export function ChannelListActions({ node }: { node: NodeState }) {
@@ -19,8 +22,13 @@ export function ChannelListActions({ node }: { node: NodeState }) {
     </>;
 }
 
-export default function ChannelList({ node, sampleLive = false }: { node: NodeState; sampleLive?: boolean }) {
+export default function ChannelList({ node, sampleLive = false, motherboard }: {
+    node: NodeState; sampleLive?: boolean; motherboard?: MotherboardSource;
+}) {
     const view = useChannelPresentation(node);
+    const showingProbe = !!motherboard && view.ids.some(id => !view.collapsed.includes(id) &&
+        !view.parameters[id] && observedModuleType(node.channels[id]) === 'Probe');
+    const version = useMotherboardVersion(node.id, showingProbe ? motherboard : undefined);
     const [now, setNow] = useState(Date.now);
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -53,7 +61,7 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
                             }} />;
                     })}
                 </div>;
-                return { key: String(id), element: <ChannelCard nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
+                return { key: String(id), element: <ChannelCard nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} motherboardVersion={version} now={now}
                     expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
                     showParameters={!!view.parameters[id]} onShowParameters={show => view.setShowParameters(id, show)}
                     systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} /> };

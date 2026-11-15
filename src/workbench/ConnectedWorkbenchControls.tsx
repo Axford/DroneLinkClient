@@ -55,10 +55,16 @@ export function ConnectedLocalInspector({ node, workbench, state, canQuery }: { 
     const [feedback, setFeedback] = useState<{ error: boolean; text: string }>();
     const transport = workbench.transport(node);
     const observed = state[node];
+    const gateway = workbench.networkSession?.gatewayId;
+    const wifi = workbench.network?.paths.wifi[node];
     return <>
             {!transport && <p>The selected local route is unavailable.</p>}
             {observed && <CommandScope.Provider value={null}>
-                <ObservationNamesContext.Provider value={state}><ChannelList node={observed} sampleLive={!!transport} /></ObservationNamesContext.Provider>
+                <ObservationNamesContext.Provider value={state}><ChannelList node={observed} sampleLive={!!transport}
+                    motherboard={canQuery && workbench.fileBackups && gateway && transport === 'wifi' && wifi?.nextHop === node ? {
+                        scope: JSON.stringify([gateway, observed.observationGeneration]),
+                        read: signal => workbench.fileRequest(node, 'motherboard', { signal }),
+                    } : undefined} /></ObservationNamesContext.Provider>
             </CommandScope.Provider>}
             {transport && !workbench.network?.observations[transport][node] &&
                 <LastKnownParameterActions node={workbench.network?.lastKnown[transport][node]} />}

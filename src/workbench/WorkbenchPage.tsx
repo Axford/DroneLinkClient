@@ -184,7 +184,15 @@ export default function WorkbenchPage() {
         {!node && active && selectedNode !== undefined && <LastKnownParameterActions node={lastKnown[active][selectedNode]} />}
         {node && active &&
             <ObservationNamesContext.Provider value={observations[active]}>
-                <ChannelList key={node.id} node={node} sampleLive={connected && !!path?.reachable} />
+                <ChannelList key={node.id} node={node} sampleLive={connected && !!path?.reachable}
+                    motherboard={connected && active === 'wifi' && path?.reachable && path.nextHop === node.id ? {
+                        scope: JSON.stringify([gateway, node.observationGeneration]),
+                        read: async signal => {
+                            const response = await fetch(`/api/workbench/v1/nodes/${node.id}/motherboard?transport=wifi`, { cache: 'no-store', signal });
+                            if (!response.ok) throw new Error('Motherboard report unavailable.');
+                            return response.json();
+                        },
+                    } : undefined} />
             </ObservationNamesContext.Provider>}
     </>;
 

@@ -1,0 +1,58 @@
+.dw-probe-pin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--dw-space-2);
+}
+
+.dw-probe-pin {
+    width: auto;
+    align-content: start;
+    box-shadow: inset 0 0 0 1px var(--dw-color-hover);
+}
+
+.dw-probe-pin[data-state="unavailable"],
+.dw-probe-pin[data-state="stale"] {
+    background: color-mix(in srgb, var(--dw-color-warning) 12%, var(--dw-color-raised));
+    border-inline-start: 2px solid var(--dw-color-warning);
+}
+
+.dw-probe-pin-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--dw-space-2);
+}
+
+.dw-probe-pin-heading > span {
+    white-space: nowrap;
+}
+
+.dw-probe-graph {
+    position: relative;
+    height: clamp(24rem, 66vh, 48rem);
+    margin-bottom: var(--dw-space-2);
+    overflow: hidden;
+    border: 1px solid var(--dw-color-hover);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-panel);
+}
+
+.dw-probe-connected-pin {
+    width: 214px;
+}
+
+.dw-probe-connected-pin > .react-flow__handle {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dw-probe-graph .react-flow__edge {
+    pointer-events: none;
+}
+
+.dw-probe-endpoint {
+    width: 10px;
+    height: 10px;
+    border-color: var(--dw-color-instrument-reading);
+    pointer-events: none;
+}

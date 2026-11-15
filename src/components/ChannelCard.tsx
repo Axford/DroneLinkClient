@@ -21,6 +21,7 @@ interface ChannelCardProps {
     generation?: number;
     now?: number;
     sampleLive?: boolean;
+    motherboardVersion?: number;
     expanded: boolean;
     onToggleExpand: () => void;
     systemOpen: boolean;
@@ -34,7 +35,7 @@ function observedInteger(reading: ParameterState | undefined, type: number = DRO
     const value = reading.values[0];
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= (type === DRONE_LINK_MSG_TYPE_UINT32_T ? 0xffffffff : 255) ? value : undefined;
 }
-export default function ChannelCard({ nodeId, channelId, channel, generation = 0, now = Date.now(), sampleLive = false, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
+export default function ChannelCard({ nodeId, channelId, channel, generation = 0, now = Date.now(), sampleLive = false, motherboardVersion, expanded, onToggleExpand, systemOpen, onToggleSystem, showParameters, onShowParameters, actions }: ChannelCardProps) {
     const bodyId = useId();
     const plugin = channelVisualization(channel);
     const settings = useVisualizationSettings();
@@ -42,6 +43,8 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
     const target = definition && { nodeAddress: nodeId, channel: channelId, moduleType: definition.moduleType };
     const thresholds = target && settings?.get(target)?.thresholds;
     const summary = plugin?.inspector?.(channel, thresholds);
+    const moduleType = observedModuleType(channel);
+    const probe = moduleType === 'Probe';
     const sampleScope = sampleLive && expanded && !showParameters ? `${nodeId}/${channelId}/${generation}` : undefined;
     const parameterCount = Object.keys(channel.params).length;
     const status = observedInteger(channel.params[DRONE_MODULE_PARAM_STATUS]);
@@ -51,10 +54,13 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
     const operatingStatus = status === 0 ? 'Disabled' : status === 1 ? 'Enabled' : status === 2 ? 'Waiting' : undefined;
     const statusText = error ? 'Error' : operatingStatus;
     const StatusIcon = error ? ExclamationCircleFill : status === 0 ? SlashCircleFill : ClockFill;
-    const moduleType = observedModuleType(channel);
     const observedName = channel.params[DRONE_MODULE_PARAM_NAME]?.unavailable?.value ? undefined : channel.name?.trim();
     const name = observedName || moduleType || channel.type || 'Unnamed';
     const receipt = receiptLabel(channel.lastHeard, now);
+    const summaryView = probe ? <>{expanded && <ProbeInstrument channel={channel} now={now}
+        disabled={status === 0} motherboardVersion={motherboardVersion} />}</> :
+        summary && <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} />;
+    const visibleSummary = !showParameters && summaryView;
     return <Card className="channel-card" data-status={statusText?.toLowerCase()}>
         <div className="dw-channel-card-heading">
             <Card.Header data-inspector-focus={`channel-${channelId}`} className="dw-channel-toggle" as="button" type="button"
@@ -76,11 +82,11 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                 </span>
             </Card.Header>
             <div className="dw-channel-actions">
-                {expanded && summary && <div className="dw-channel-view-actions" role="group" aria-label={`View for channel ${channelId}`}>
+                {expanded && (summary || probe) && <div className="dw-channel-view-actions" role="group" aria-label={`View for channel ${channelId}`}>
                     <IconButton className="dw-channel-view-switch" label={showParameters ? 'Show Summary' : 'Show Parameters'}
                         icon={showParameters ? <Speedometer2 aria-hidden="true" /> : <ListUl aria-hidden="true" />}
                         aria-controls={bodyId} data-inspector-focus={`view-${channelId}`} onClick={() => onShowParameters(!showParameters)} />
-                    <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />
+                    {summary && <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />}
                 </div>}
                 <ModuleStatusAction key={JSON.stringify([nodeId, channelId, generation, channel.type])} node={nodeId} channel={channelId} name={String(name)} status={status} />
                 {actions}
@@ -88,10 +94,9 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
             </div>
         </div>
         <div id={bodyId} className={`collapse dw-module-body${expanded ? " show" : ""}`} aria-hidden={!expanded || undefined} inert={!expanded || undefined}><div><Card.Body>
-            {moduleType === 'Probe' && <ProbeInstrument channel={channel} now={now} disabled={status === 0} />}
-            <CardView view={summary && !showParameters ? "summary" : "parameters"}>{summary && !showParameters ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
+            <CardView view={visibleSummary ? "summary" : "parameters"}>{visibleSummary || (
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} moduleType={moduleType} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
-                    <p className="dw-meta mb-0">No parameters discovered</p>}</CardView>
+                    <p className="dw-meta mb-0">No parameters discovered</p>)}</CardView>
         </Card.Body></div></div>
     </Card>;
 }

@@ -4,6 +4,11 @@ import { DRONE_LINK_MSG_TYPE_FLOAT, DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_
 export const probePins = [4, 13, 14, 15, 16, 25, 26, 32, 33, 34, 35] as const;
 export const probeModeLabels = ['Digital', 'Analog', 'Serial'] as const;
 const resultBase = 10;
+export const probePinName = (gpio: number) => `GPIO ${gpio}`;
+export function probeParameterName(parameterId: number) {
+    const gpio = probePins.find(pin => pin + resultBase === parameterId);
+    return gpio === undefined ? undefined : probePinName(gpio);
+}
 export const probeBauds = [1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400];
 const statuses = ['Waiting for sample', '', 'No transitions observed', 'Transitions seen, no bytes decoded',
     'Incomplete capture', 'Pin unavailable', 'Measurement failed'];

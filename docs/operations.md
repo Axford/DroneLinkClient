@@ -257,12 +257,9 @@ Export and verify a DroneNode metadata archive using the [firmware release workf
 
 ### Inspect Probe pin results
 
-Expand the Probe channel under **Modules**. The panel shows results per GPIO,
-including observed level and transitions, minimum, maximum and average ADC counts over 20 ms, or serial bytes in hex.
-The serial row displays the configured baud and 8N1. The receipt age is the
-time since Workbench received the result. Edit the startup settings through
-**Files**, verify Upload, then Restart separately. See the
-[Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
+Expand the Probe channel under **Modules**. The summary uses the detected DroneLink V2 or V4 motherboard diagram and draws virtual wires from known connectors to the matching GPIO cards. Detection uses the selected direct Wi-Fi route and, in connected Workbench, existing node-file read access. Pins without a mapped connector appear below the diagram. If the board cannot be detected or has no diagram, the cards remain available in a grid.
+
+Each card shows the reported mode, receipt age and the latest level and transitions, ADC statistics, or serial bytes. Use **Show Parameters** to inspect the raw values under their GPIO names, including parameters for cleared pins. Edit startup settings through **Files**, verify Upload, then Restart separately. See the [Probe result contract](../../DroneLinkDatastore/docs/contracts/workbench.md#probe-pin-results).
 
 Expand a detected I²C device card to see possible types and run **Identify device** when a reviewed signature is available. Choose a supported type and use **Add … to draft** on the card. A manual identification also works for address-based candidates without a signature. The draft gets the detected bus and address. Apply it separately with **Upload to node**.
 

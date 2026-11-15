@@ -6,7 +6,10 @@ import type { NodeState } from '../dronelink/DroneLinkState';
 import { DRONE_MODULE_PARAM_STATUS, DRONE_LINK_MSG_TYPE_UINT8_T } from '../dronelink/DroneLinkMsg';
 import { compactReceiptAge } from '../dronelink/observedPositions';
 import { probeBauds, probeModes, readProbeResults } from '../components/probeResults';
-import { boardEndpoints, boardHeight, boardWidth, physicalDevices, springPositions } from './physicalDevices';
+import { physicalDevices } from './physicalDevices';
+import { boardEndpoints, springPositions, v4Board } from './motherboardDiagrams';
+import MotherboardCard from './MotherboardCard';
+import type { BoardNode } from './MotherboardCard';
 import type { PhysicalDevice } from './physicalDevices';
 import { gpsPort, inspectNodeConfiguration, probePinSettings, setGpsPort, setPhysicalSetting } from './nodeConfiguration';
 import type { ConfigurationOverview } from './nodeConfiguration';
@@ -14,29 +17,12 @@ import { candidates, canIdentify, hex, responseKey } from './i2cDiscovery';
 import type { ResponseAddress, useI2cDiscovery } from './i2cDiscovery';
 import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
 import './physicalWiring.css';
-import boardImage from './DroneLinkV4PinOutSimple.png';
 
 const wireStyle = { stroke: 'var(--dw-color-instrument-reading)', strokeWidth: 2 };
 const observedWireStyle = { ...wireStyle, strokeDasharray: '5 4' };
 
-type BoardNode = Node<{ select: (endpoint: string) => void; selected?: string }, 'board'>;
 type Detection = 'responded' | 'missing' | 'unchecked';
 type DeviceNode = Node<{ device: PhysicalDevice; reading?: string; detection?: Detection; select: () => void }, 'device'>;
-
-function BoardCard({ data }: NodeProps<BoardNode>) {
-    return <div className="dw-physical-board" style={{ width: boardWidth, height: boardHeight }}>
-        <img src={boardImage} alt="DroneLink V4 motherboard connector diagram" draggable={false} />
-        {boardEndpoints.map(point => {
-            const style = { left: point.x, top: point.y };
-            return <React.Fragment key={point.id}>
-                <Handle type="source" position={point.x > boardWidth / 2 ? Position.Right : Position.Left}
-                    id={point.id} style={{ ...style, right: 'auto', transform: 'translate(-50%, -50%)' }} />
-                <button type="button" className="dw-physical-endpoint nodrag nopan" aria-label={point.label} title={point.label}
-                    aria-pressed={data.selected === point.id} style={style} onClick={() => data.select(point.id)} />
-            </React.Fragment>;
-        })}
-    </div>;
-}
 
 function DeviceCard({ data }: NodeProps<DeviceNode>) {
     return <button type="button" className="dw-physical-device nodrag nopan" data-detection={data.detection} onClick={data.select}>
@@ -119,7 +105,7 @@ function RevealEvidence({ device, card }: { device?: string; card?: string }) {
     return null;
 }
 
-const nodeTypes = { board: BoardCard, device: DeviceCard, ghost: GhostCard, evidence: EvidenceCard };
+const nodeTypes = { board: MotherboardCard, device: DeviceCard, ghost: GhostCard, evidence: EvidenceCard };
 const modeLabel = (mode?: string) => mode === 'digital' ? 'Digital' : mode === 'analog' ? 'Analog' :
     mode === 'analog,voltage' ? 'Analog with voltage estimate' : mode?.startsWith('serial,') ? `Serial · ${mode.split(',')[1]} baud` : 'Check mode in Code';
 
@@ -269,7 +255,7 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
     }
 
     const nodes: (BoardNode | DeviceNode | GhostNode | EvidenceNode)[] = [{ id: 'board', type: 'board', position: { x: 0, y: 0 }, data: {
-        selected: selectedPin, select: id => { setSelectedPin(id); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
+        diagram: v4Board, selected: selectedPin, select: id => { setSelectedPin(id); setSelectedGhost(undefined); setSelectedDevice(undefined); onSelect(undefined); setFailed(false); },
     } }];
     function detectionFor(device: PhysicalDevice): Detection | undefined {
         const address = device.i2cAddress;
@@ -351,7 +337,7 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
     const evidenceDevice = target ? ghost?.id ?? selected?.id : undefined;
     const evidenceCard = ghost?.id ?? (evidenceDevice ? 'i2c-evidence' : undefined);
     if (target && evidenceDevice && !ghost) {
-        nodes.push({ id: 'i2c-evidence', type: 'evidence', zIndex: 2, position: { x: 55, y: boardHeight + 26 }, data: {
+        nodes.push({ id: 'i2c-evidence', type: 'evidence', zIndex: 2, position: { x: 55, y: v4Board.height + 26 }, data: {
             content: <>
                 <strong>I²C channel {target.channel} · {hex(target.address)}</strong>
                 {detectionDetails(target, false)}
