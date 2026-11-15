@@ -20,11 +20,11 @@ type ModuleNode = Node<{
     module: Module;
     outputs: string[];
     parameters?: ConfigurationParameter[];
+    knownInputs: ConfigurationParameter[];
+    legacyInputs: Subscription[];
     visibleOutputs: string[];
     configured: Map<string, string[]>;
     publications: Set<string>;
-    expanded: boolean;
-    toggleExpanded: () => void;
     editSource?: (key: string, value: string) => boolean;
     editParameter?: (parameter: ConfigurationParameter, value: string) => boolean;
     publish?: (parameter: ConfigurationParameter, enabled: boolean) => boolean;
@@ -53,11 +53,8 @@ function WarningIndicator({ warnings, goToLine }: {
 }
 
 function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
-    const { module, outputs, parameters, visibleOutputs, configured, publications, expanded, toggleExpanded,
+    const { module, outputs, parameters, knownInputs, legacyInputs, visibleOutputs, configured, publications,
         editSource, editParameter, publish, warnings, onInput, onModule, goToLine } = data;
-    const knownInputs = parameters?.filter(parameter => parameter.sourceAddress !== undefined) ?? [];
-    const knownKeys = new Set(knownInputs.map(parameter => '$' + parameter.name));
-    const legacyInputs = module.subscriptions.filter(input => !knownKeys.has(input.input));
     const name = module.name || module.type;
     const [rejectedPublication, setRejectedPublication] = useState<string>();
     const headerWarnings = warnings.filter(warning => !module.subscriptions.some(input => input.line === warning.line));
@@ -122,13 +119,12 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
                 </span>
             </div>;
         })}
-        {parameters && <button type="button" className="btn btn-sm nodrag nopan dw-config-graph-section dw-config-parameter-toggle"
-            aria-expanded={expanded} onClick={event => { event.stopPropagation(); toggleExpanded(); }}>
-            {expanded ? '▾' : '▸'} Outputs · {parameters.length} parameters
-        </button>}
-        {parameters && visibleOutputs.length > 0 && <div className="dw-config-parameter-columns dw-config-parameter-labels" aria-hidden="true">
-            <span>ID</span><span>Name</span><span>Shape</span><span>Draft value</span><span>Pub</span>
-        </div>}
+        {parameters && visibleOutputs.length > 0 && <>
+            <div className="dw-config-graph-section">Outputs</div>
+            <div className="dw-config-parameter-columns dw-config-parameter-labels" aria-hidden="true">
+                <span>ID</span><span>Name</span><span>Shape</span><span>Draft value</span><span>Pub</span>
+            </div>
+        </>}
         {visibleOutputs.map(output => {
             const parameter = parameters?.find(item => item.name === output);
             const wired = outputs.includes(output);
@@ -170,11 +166,12 @@ function parameterShape(parameter: ConfigurationParameter) {
 
 const nodeTypes = { module: ModuleCard };
 
-export default function ConfigurationGraph({ overview, text, node, catalogue, editable, onChange, selected, onSelect, onModule, onInput, goToLine }: {
+export default function ConfigurationGraph({ overview, text, node, catalogue, showAllParameters, editable, onChange, selected, onSelect, onModule, onInput, goToLine }: {
     overview: ConfigurationOverview;
     text: string;
     node: number;
     catalogue?: Catalogue;
+    showAllParameters: boolean;
     editable: boolean;
     onChange: (text: string) => void;
     selected?: number;
@@ -184,7 +181,6 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, ed
     goToLine: ModuleNode['data']['goToLine'];
 }) {
     const { modules, diagnostics } = overview;
-    const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
     const { nodes, edges, fileWarnings } = useMemo(() => {
         const warningsByModule = new Map<number, ConfigurationDiagnostic[]>();
         const fileWarnings: ConfigurationDiagnostic[] = [];
@@ -230,22 +226,25 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, ed
             const parameters = parametersByChannel.get(module.channel);
             const configured = moduleSettings(text, module);
             const publications = draftPublications(configured);
-            const showAll = expanded.has(module.channel);
+            const subscribedKeys = new Set(module.subscriptions.map(input => input.input));
             const visibleOutputs = Array.from(new Set([
-                ...(parameters ?? []).filter(parameter => showAll || outputPorts.includes(parameter.name) ||
-                    publications.has(parameter.name) || configured.has(parameter.name)).map(parameter => parameter.name),
-                ...Array.from(publications), ...outputPorts,
+                ...(parameters ?? []).filter(parameter => showAllParameters || outputPorts.includes(parameter.name))
+                    .map(parameter => parameter.name),
+                ...(showAllParameters ? Array.from(publications) : []),
+                ...outputPorts,
             ]));
-            const knownInputs = parameters?.filter(parameter => parameter.sourceAddress !== undefined) ?? [];
+            const knownInputs = parameters?.filter(parameter => parameter.sourceAddress !== undefined &&
+                (showAllParameters || subscribedKeys.has('$' + parameter.name))) ?? [];
             const knownKeys = new Set(knownInputs.map(parameter => '$' + parameter.name));
-            const legacyInputs = module.subscriptions.filter(input => !knownKeys.has(input.input)).length;
+            const legacyInputs = module.subscriptions.filter(input => !knownKeys.has(input.input));
+            const inputCount = knownInputs.length + legacyInputs.length;
             const column = module.subscriptions.length ? 1 : outputPorts.length ? 0 :
                 edges.length ? 2 : nextY.indexOf(Math.min(...nextY));
             const y = nextY[column];
             const height = parameters
-                ? 54 + (knownInputs.length + legacyInputs > 0 ? 25 : 0) + knownInputs.length * 58 + legacyInputs * 64 +
-                    29 + (visibleOutputs.length ? 24 + visibleOutputs.length * 34 : 0)
-                : 54 + legacyInputs * 64 + (legacyInputs || visibleOutputs.length ? 0 : 26) + visibleOutputs.length * 26;
+                ? 54 + (inputCount ? 25 : 0) + knownInputs.length * 58 + legacyInputs.length * 64 +
+                    (visibleOutputs.length ? 49 + visibleOutputs.length * 34 : 0)
+                : 54 + inputCount * 64 + (inputCount || visibleOutputs.length ? 0 : 26) + visibleOutputs.length * 26;
             nextY[column] += height + 18;
             function apply(result: string | undefined) {
                 if (result === undefined) return false;
@@ -257,13 +256,7 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, ed
                 position: { x: column * 408, y },
                 selected: selected === module.channel,
                 ariaLabel: `${module.name || module.type}, channel ${module.channel}`,
-                data: { module, outputs: outputPorts, parameters, visibleOutputs, configured, publications,
-                    expanded: showAll, toggleExpanded: () => setExpanded(previous => {
-                        const next = new Set(previous);
-                        if (next.has(module.channel)) next.delete(module.channel);
-                        else next.add(module.channel);
-                        return next;
-                    }),
+                data: { module, outputs: outputPorts, parameters, knownInputs, legacyInputs, visibleOutputs, configured, publications,
                     editSource: editable ? (key, value) => apply(editDraftSource(text, node, module.channel, key, value)) : undefined,
                     editParameter: editable ? (parameter, value) => apply(editDraftParameter(text, node, module.channel, parameter, value)) : undefined,
                     publish: editable ? (parameter, enabled) => apply(toggleDraftPublication(text, node, module.channel, parameter, enabled)) : undefined,
@@ -271,7 +264,7 @@ export default function ConfigurationGraph({ overview, text, node, catalogue, ed
             };
         });
         return { nodes, edges, fileWarnings };
-    }, [modules, diagnostics, catalogue, editable, expanded, node, text, onChange, onInput, onModule, goToLine, selected]);
+    }, [modules, diagnostics, catalogue, editable, showAllParameters, node, text, onChange, onInput, onModule, goToLine, selected]);
 
     const { measuredNodes, rememberMeasurements } = useMeasuredGraphNodes(nodes);
 

@@ -9,11 +9,12 @@ const ConfigurationGraph = React.lazy(() => import('./ConfigurationGraph'));
 type Module = Overview['modules'][number];
 type Subscription = Module['subscriptions'][number];
 
-export default function ConfigurationOverview({ overview, text, node, catalogue, editable, onChange, goToLine, selectedChannel, onSelect, selectedDetails }: {
+export default function ConfigurationOverview({ overview, text, node, catalogue, showAllParameters, editable, onChange, goToLine, selectedChannel, onSelect, selectedDetails }: {
     overview: Overview;
     text: string;
     node: number;
     catalogue?: Catalogue;
+    showAllParameters: boolean;
     editable: boolean;
     onChange: (draft: string) => void;
     goToLine: (line: number) => void;
@@ -45,7 +46,7 @@ export default function ConfigurationOverview({ overview, text, node, catalogue,
 
     return <section className="dw-config-overview" aria-label="Modules and subscriptions">
         <Suspense fallback={<p role="status">Loading subscription graph…</p>}>
-            <ConfigurationGraph overview={overview} text={text} node={node} catalogue={catalogue} editable={editable}
+            <ConfigurationGraph overview={overview} text={text} node={node} catalogue={catalogue} showAllParameters={showAllParameters} editable={editable}
                 onChange={onChange} selected={selectedChannel} onSelect={onSelect}
                 onModule={openModule} onInput={editable ? editSource : undefined} goToLine={goToLine} />
         </Suspense>

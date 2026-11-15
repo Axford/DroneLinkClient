@@ -255,6 +255,7 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         { type: 'Nav', support: 'supported', parameters: [
             parameter('location', 10, 'f', 3, { sourceAddress: 11, configurable: true }),
             parameter('target', 12, 'f', 3, { sourceAddress: 13, configurable: true }),
+            parameter('heading', 20, 'f', 1, { sourceAddress: 21 }),
             parameter('moveTarget', 27, 'u32', 3, { runtimeOnly: true }),
         ] },
     ] };
@@ -278,8 +279,16 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         const view = render(<NodeFiles {...props} />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
         const target = await screen.findByRole('textbox', { name: 'Pilot target source' });
+        const showAll = screen.getByRole('switch', { name: 'Show all parameters' });
+        expect(showAll).not.toBeChecked();
+        expect(screen.getByRole('textbox', { name: 'Pilot location source' })).toHaveValue('@>10.8');
+        expect(screen.getByRole('switch', { name: 'Publish GPS location' })).toBeChecked();
+        expect(screen.queryByRole('textbox', { name: 'Pilot heading source' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('textbox', { name: 'GPS baud draft value' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('switch', { name: 'Publish GPS packets' })).not.toBeInTheDocument();
         expect(screen.getByText('13 · F×3')).toBeInTheDocument();
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /remote source cannot be verified/i })).toBeInTheDocument();
         view.rerender(<NodeFiles {...props} snapshot={snapshot} />);
         expect(screen.getByText('RaceMark > Course.target')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /remote source cannot be verified/i })).not.toBeInTheDocument();
@@ -287,6 +296,8 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         view.rerender(<NodeFiles {...props} snapshot={{}} />);
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
 
+        fireEvent.click(showAll);
+        expect(screen.getByRole('textbox', { name: 'Pilot heading source' })).toHaveValue('');
         const baud = screen.getByRole('textbox', { name: 'GPS baud draft value' });
         fireEvent.change(baud, { target: { value: 'fast' } });
         fireEvent.keyDown(baud, { key: 'Enter' });
@@ -294,12 +305,11 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         fireEvent.change(baud, { target: { value: '4800' } });
         fireEvent.keyDown(baud, { key: 'Enter' });
         fireEvent.click(screen.getByRole('switch', { name: 'Publish GPS packets' }));
-        fireEvent.click(screen.getByRole('button', { name: /Outputs · 5 parameters/i }));
         fireEvent.click(screen.getByRole('switch', { name: 'Publish GPS speed' }));
-        fireEvent.click(screen.getByRole('button', { name: /Outputs · 3 parameters/i }));
         expect(screen.getByRole('switch', { name: 'Publish Pilot moveTarget' })).toHaveAttribute('aria-disabled', 'true');
 
         fireEvent.click(screen.getByRole('button', { name: 'Code' }));
+        expect(screen.queryByRole('switch', { name: 'Show all parameters' })).not.toBeInTheDocument();
         const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         const graphEdits = original.replace('9600', '4800').replace('location, packets', 'location')
             .replace('publish = satellites ; keep this too', 'publish = satellites ; keep this too\r\n  publish = speed');
@@ -309,6 +319,10 @@ it('edits verified Logical parameters and publish declarations in the shared Cod
         expect(await screen.findByRole('textbox', { name: 'GPS baud draft value' })).toHaveValue('19200');
         const localTarget = screen.getByRole('textbox', { name: 'Pilot target source' });
         expect(localTarget).toHaveValue('@>GPS.location');
+        fireEvent.click(screen.getByRole('switch', { name: 'Show all parameters' }));
+        expect(screen.queryByRole('textbox', { name: 'GPS baud draft value' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('switch', { name: 'Publish GPS speed' })).not.toBeInTheDocument();
+        expect(localTarget).toBeInTheDocument();
         fireEvent.change(localTarget, { target: { value: '65>7.8' } });
         fireEvent.blur(localTarget);
         expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'PUT')).toHaveLength(0);

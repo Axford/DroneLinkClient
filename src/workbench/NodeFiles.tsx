@@ -65,6 +65,7 @@ export default function NodeFiles({ node, transport, available, observed, snapsh
     }, []);
     const [picker, setPicker] = useState(false);
     const [view, setView] = useState<'logical' | 'physical' | 'code'>('logical');
+    const [showAllParameters, setShowAllParameters] = useState(false);
     const [gpsConnector, setGpsConnector] = useState<1 | 2>();
     const [catalogueSearch, setCatalogueSearch] = useState('');
     const [catalogueOpen, setCatalogueOpen] = useState(false);
@@ -550,8 +551,15 @@ export default function NodeFiles({ node, transport, available, observed, snapsh
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'physical'} onClick={() => setView('physical')}>Physical</button>
                     <button type="button" className="btn btn-sm" aria-pressed={view === 'code'} onClick={() => setView('code')}>Code</button>
                   </div>
-                    {editable && <button type="button" className="btn btn-primary btn-sm" disabled={busy}
-                        onClick={() => openCatalogue()}>Add module</button>}
+                    {(view === 'logical' || editable) && <div className="d-flex flex-wrap align-items-center gap-2">
+                        {view === 'logical' && <label className="form-check form-switch small mb-0">
+                            <input type="checkbox" role="switch" className="form-check-input" checked={showAllParameters}
+                                onChange={event => setShowAllParameters(event.target.checked)} />
+                            Show all parameters
+                        </label>}
+                        {editable && <button type="button" className="btn btn-primary btn-sm" disabled={busy}
+                            onClick={() => openCatalogue()}>Add module</button>}
+                    </div>}
                 </div>}
                 {overview && editable && catalogueOpen && <ModuleCatalogue initialSearch={catalogueSearch} gpsConnector={gpsConnector} catalogue={catalogue} loading={catalogueLoading}
                     canAdd={canAddModule} onRetry={() => void loadCatalogue()} onClose={() => setCatalogueOpen(false)} onAdd={addModule} />}
@@ -581,7 +589,7 @@ export default function NodeFiles({ node, transport, available, observed, snapsh
                         onAcceptI2c={canAddModule ? addModule : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
                 </Suspense>}
                 {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText} node={node} catalogue={catalogue}
-                    editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
+                    showAllParameters={showAllParameters} editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
                     selectedChannel={selectedModule} onSelect={channel => { setSelectedModule(channel); setSelectedPin(undefined); }}
                     goToLine={openCodeAtLine}
                     selectedDetails={!catalogueOpen && canGuide && selectedModule !== undefined &&
