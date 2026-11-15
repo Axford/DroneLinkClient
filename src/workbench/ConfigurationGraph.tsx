@@ -4,7 +4,7 @@ import {
 } from '@xyflow/react';
 import type { Edge, Node, NodeProps } from '@xyflow/react';
 import { OverlayTrigger, Tooltip } from 'react-bootstrap';
-import { Code, ExclamationTriangleFill, Link45deg, Pencil } from 'react-bootstrap-icons';
+import { Code, Ethernet, ExclamationTriangleFill, Link45deg, Pencil } from 'react-bootstrap-icons';
 import '@xyflow/react/dist/style.css';
 import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
 import { canWireDraftOutput, draftPublications, editDraftParameter, editDraftSource, moduleSettings, toggleDraftPublication, wireDraftSubscription } from './nodeConfiguration';
@@ -94,6 +94,11 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
             const ambiguous = module.subscriptions.filter(item => item.input === key).length > 1;
             return <div key={key} className="dw-config-graph-port dw-config-typed-input" data-warning={inputWarnings.length > 0 || undefined}
                 data-wiring-input={wireInput === key || undefined}>
+                {startWire && !parameter.runtimeOnly && !ambiguous && <button type="button" className="nodrag nopan dw-config-wire-start"
+                    aria-label={`Connect ${name} ${parameter.name}`} aria-pressed={wireInput === key} title="Choose a compatible output"
+                    onClick={event => { event.stopPropagation(); startWire(parameter); }}>
+                    <Ethernet aria-hidden="true" />
+                </button>}
                 {input?.sourceChannel !== undefined && <Handle id={String(input.line)} type="target" position={Position.Left} />}
                 <div className="dw-config-graph-source">
                     <strong>{parameter.name}</strong>
@@ -104,14 +109,7 @@ function ModuleCard({ id, data }: NodeProps<ModuleNode>) {
                         placeholder="Unbound" disabled={!editSource || ambiguous} onCommit={value => !!editSource?.(key, value)} />
                     {input && <small className="dw-meta" title={input.resolution}>{input.resolution}</small>}
                 </div>
-                <span className="dw-config-graph-actions">
-                    <WarningIndicator warnings={inputWarnings} goToLine={goToLine} />
-                    {startWire && !parameter.runtimeOnly && !ambiguous && <button type="button" className="btn btn-sm nodrag nopan dw-config-wire-start"
-                        aria-label={`Connect ${name} ${parameter.name}`} aria-pressed={wireInput === key} title="Choose a compatible output"
-                        onClick={event => { event.stopPropagation(); startWire(parameter); }}>
-                        <Link45deg aria-hidden="true" />
-                    </button>}
-                </span>
+                <WarningIndicator warnings={inputWarnings} goToLine={goToLine} />
             </div>;
         })}
         {legacyInputs.map(input => {

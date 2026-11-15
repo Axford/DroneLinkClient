@@ -249,11 +249,40 @@
     column-gap: var(--dw-space-2);
     height: 58px;
     padding-inline: var(--dw-space-3);
+    padding-left: calc(var(--dw-space-3) + 8px);
 }
 .dw-config-typed-input[data-wiring-input] {
     box-shadow: inset 3px 0 var(--dw-color-instrument-reading);
 }
-.dw-config-wire-start[aria-pressed="true"], .dw-config-wire-output > .btn {
+.dw-config-wire-start {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--dw-color-muted);
+    border-radius: var(--dw-radius-small);
+    background: var(--dw-color-panel);
+    color: var(--dw-color-text);
+    cursor: pointer;
+}
+.dw-config-wire-start:is(:hover, :focus-visible, [aria-pressed="true"]) {
+    border-color: var(--dw-color-instrument-reading);
+    color: var(--dw-color-instrument-reading);
+}
+.dw-config-wire-start:focus-visible {
+    outline: 2px solid var(--dw-color-focus);
+    outline-offset: 2px;
+}
+.dw-config-wire-start + .react-flow__handle {
+    opacity: 0;
+}
+.dw-config-wire-output > .btn {
     color: var(--dw-color-instrument-reading);
 }
 .dw-config-wire-output {
