@@ -218,6 +218,10 @@ Right-click a point on the map or long-press it on a touchscreen to open **Set t
 
 Right-click or long-press a marker to open **Follow** for that node. Choose a source under the intended Nav channel. Its receipt age is the age of the saved location reading. If the source binding changes or disappears, reopen the menu to choose the new address. A regular tap selects the node for inspection. The **Domain commands** dialog shows the resulting request and its delivery or recovery status. A matched M2-enabled Server is required for submission. See the [central verification record](../../DroneLinkDatastore/docs/planning/ui-01-domain-workspace.md#nav-map-context-menus).
 
+## Live snail trails
+
+The Cloud and Workbench maps show a green trail for each node whose primary position moves. Trails start from the current valid fix when you open or reload the workspace and keep collecting while you use another lens. A source change or interruption leaves the earlier segment visible and starts a new one. Select a node and choose **Clear trail** on the map toolbar to clear its trail in this browser session. Cloud trails show the fixes delivered through shared updates and can skip intermediate positions.
+
 ## Standalone Workbench
 
 The standard Client release includes `/workbench/`. Verify and extract the release, then pass its `build/` directory to the [Server workbench launcher](../../DroneLinkServer/docs/operations.md#standalone-workbench). The standalone page uses the local gateway feed and shared typed channel Inspector. It can run on a workstation with internet access and needs no hosted DroneWright connection. Missing labels use numeric IDs until the node publishes names. See the [WB plan](../../DroneLinkDatastore/docs/planning/workbench.md) for acceptance.

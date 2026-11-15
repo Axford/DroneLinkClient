@@ -109,6 +109,7 @@ export const useDroneLinkState = (): DroneLinkStateHook => {
     try {
       await droneLinkStateRef.current.loadObservations(domainId, live);
       setState({ ...droneLinkStateRef.current.getState() });
+      setObservationStatus(droneLinkStateRef.current.observationStatus);
       setStats(droneLinkStateRef.current.getStats());
       setUnavailableObservationParts(droneLinkStateRef.current.unavailableObservationParts);
     } catch (err) {

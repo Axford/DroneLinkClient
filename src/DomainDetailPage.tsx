@@ -15,6 +15,7 @@ import ObservedMap from './components/ObservedMap';
 import { NodeMapSettings, NodeMapSettingsProvider } from './components/NodeMapSettings';
 import { Domain, User } from './App';
 import { accessEvent, affectsDomain, ApiError, authenticatedFetch, authenticatedFetchJson } from './utils/api';
+import { useSnailTrails } from './dronelink/snailTrails';
 import { useDroneLinkState } from './dronelink/useDroneLinkState';
 import { CommandScope } from './commands/session';
 import InspectorPanel from './components/InspectorPanel';
@@ -163,10 +164,23 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(accessEvent, accessChanged); };
     }, [domainId, refreshDomain, stopStreaming, reset]);
 
+    const { mixed, usesLocal, transport: localPath } = workbench;
+    const gatewayId = workbench.networkSession?.gatewayId;
+    const state = useMemo(() => mixed(droneLinkState.state), [mixed, droneLinkState.state]);
+    const trailScope = !loading && !error && domain?._id === domainId && domain && user
+        ? JSON.stringify([user._id, domain._id, domain.status]) : undefined;
+    const trailSource = useCallback((id: number) => {
+        if (usesLocal(id)) {
+            const transport = localPath(id);
+            return transport && JSON.stringify([gatewayId, transport]);
+        }
+        return droneLinkState.observationStatus === 'ready' || domain?.status === 'archived' ? 'cloud' : undefined;
+    }, [usesLocal, localPath, gatewayId, droneLinkState.observationStatus, domain?.status]);
+    const trails = useSnailTrails(trailScope, state, trailSource);
+
     if (loading || (domain !== null && domain._id !== domainId)) return <PageFeedback loading message="Loading observations…" />;
     if (error || !domain || !user) return <PageFeedback message={error || 'Domain not found'}><Link to="/private/">Home</Link></PageFeedback>;
 
-    const state = workbench.mixed(droneLinkState.state);
     const local = selectedNodeId !== null && workbench.usesLocal(selectedNodeId);
     const archived = domain.status === 'archived';
     const showGateway = domain.status === 'active' && window.isSecureContext;
@@ -199,7 +213,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                 workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />;
     const lensContent = lens === 'map'
         ? <ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
-            user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
+            user={user} viewState={mapView} state={state} trails={trails} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
         : <div className="dw-workbench-lens">
             {workbench.network
                 ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode}

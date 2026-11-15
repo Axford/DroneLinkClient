@@ -6,6 +6,7 @@ import { DomainLens, DomainLensPanels, DomainWorkspace, WorkspaceStatus } from '
 import PrimaryNavBar from '../PrimaryNavBar';
 import type { User } from '../App';
 import type { GlobalState } from '../dronelink/DroneLinkState';
+import { useSnailTrails } from '../dronelink/snailTrails';
 import ObservedMap from '../components/ObservedMap';
 import NodeInspector from '../components/NodeInspector';
 import NodeFiles from './NodeFiles';
@@ -144,13 +145,21 @@ export default function WorkbenchPage() {
         return true;
     }
 
+    const mapTransport = useCallback((id: number) => {
+        const preference = choiceFor(id);
+        return preference === 'auto' ? routes[id]?.transport : preference;
+    }, [choiceFor, routes]);
+    const trailSource = useCallback((id: number) => {
+        const transport = mapTransport(id);
+        if (connected && transport && paths[transport][id]?.reachable) return transport;
+    }, [mapTransport, connected, paths]);
     const localNodes = useMemo<GlobalState>(() => Object.fromEntries(nodes.map(id => {
         const route = routes[id];
-        const preference = choiceFor(id);
-        const transport = preference === 'auto' ? route?.transport : preference;
+        const transport = mapTransport(id);
         const observed = transport ? observations[transport][id] : undefined;
         return [id, observed ?? { id, channels: {}, lastHeard: route?.lastHeardAtMs ?? 0, interface: 'Local' }];
-    })), [nodes, routes, choiceFor, observations]);
+    })), [nodes, routes, mapTransport, observations]);
+    const trails = useSnailTrails('workbench', localNodes, trailSource);
     const catalogue = useMemo(() => showCharts || capturing ? signalCatalogue(localNodes) : [], [showCharts, capturing, localNodes]);
     React.useEffect(() => {
         if (!capturing) return;
@@ -230,7 +239,7 @@ export default function WorkbenchPage() {
                     inspection={inspection} setInspection={setInspection} series={series} addSignal={signal => addSignals([signal])} removeSignal={id => setSeries(previous => previous.filter(signal => signal.id !== id))}
                     separate={separate} setSeparate={(id, value) => setSeparate(previous => ({ ...previous, [id]: value }))}
                     search={search} onSearch={setSearch} />
-            </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
+            </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView} trails={trails}
                 state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy}
                 nodeStatus={id => connected ? routes[id]?.reachable ? 'Reachable' : 'Route expired' : 'Gateway disconnected'} /> : <div className="dw-workbench-lens dw-workbench-lens-network">
                 <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} />

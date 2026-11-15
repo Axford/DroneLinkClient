@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import DomainDetailPage from './DomainDetailPage';
 import mapboxgl from 'mapbox-gl';
+import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_MODULE_PARAM_TYPE } from './dronelink/DroneLinkMsg';
 jest.mock('react-resizable-panels', () => ({ Panel: ({ children }: any) => <div>{children}</div>, PanelGroup: ({ children }: any) => <div>{children}</div>, PanelResizeHandle: () => null }));
 jest.mock('mapbox-gl', () => ({ Map: jest.fn(), NavigationControl: jest.fn() }));
 jest.mock('./components/DomainCollaboration', () => () => <div>Collaboration</div>);
@@ -220,4 +221,84 @@ test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected
     expect(screen.getByText(/Node files are available to Domain Owners/)).toBeVisible();
     expect(requests.mock.calls.some(([url]) => url.includes('/cloud-files'))).toBe(false);
   }
+});
+
+test('Cloud trails grow away from the map, draw for both nodes and break on a source change', async () => {
+  jest.useFakeTimers();
+  const trailData = jest.fn();
+  const events: Record<string, () => void> = {};
+  (mapboxgl.Map as unknown as jest.Mock).mockImplementation(() => ({
+    addControl: jest.fn(), on: (event: string, callback: () => void) => { events[event] = callback; },
+    addSource: jest.fn(), addLayer: jest.fn(), getSource: (id: string) => ({ setData: id === 'dw-snail-trails' ? trailData : jest.fn() }),
+    remove: jest.fn(), getCenter: () => ({ lng: -1, lat: 51 }), getZoom: () => 17,
+  }));
+  mapboxgl.Marker = jest.fn().mockImplementation(() => ({
+    setLngLat: jest.fn().mockReturnThis(), addTo: jest.fn().mockReturnThis(), remove: jest.fn(),
+  }));
+  const reply = (data: unknown) => ({ ok: true, status: 200, json: async () => data });
+  const frame = (revision: number, lon: number, source: 'http' | 'gateway' = 'http') => {
+    const at = new Date(Date.UTC(2026, 10, 13, 10, 0, revision)).toISOString();
+    return {
+      nodes: [7, 8].map(nodeAddress => ({ nodeAddress, generation: 0, revision, droneId: `drone-${nodeAddress}` })),
+      channels: [7, 8].map(nodeAddress => {
+        const buffer = new ArrayBuffer(12);
+        const coords = new DataView(buffer);
+        coords.setFloat32(0, lon, true);
+        coords.setFloat32(4, 48 + nodeAddress, true);
+        const facet = (msgType: number, payload: string) => ({ value: {
+          msgType, payload: btoa(payload), lastReceivedAt: at,
+          origin: { kind: source, sourceAddress: nodeAddress, forwarderAddress: 254 }
+        } });
+        return { nodeAddress, generation: 0, channel: 4, revision, lastReceivedAt: at, params: {
+          [DRONE_MODULE_PARAM_TYPE]: facet(DRONE_LINK_MSG_TYPE_CHAR, 'NMEA'),
+          8: facet(DRONE_LINK_MSG_TYPE_FLOAT, String.fromCharCode(...Array.from(new Uint8Array(buffer)))),
+        } };
+      })
+    };
+  };
+  let deliver: ((value: unknown) => void) | undefined;
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url.includes('timeoutMs=25000')) return new Promise(resolve => { deliver = resolve; });
+    if (url.endsWith('/observations')) {
+      const snapshot = await sharedSnapshot().json();
+      return reply({ ...snapshot, data: { ...snapshot.data, ...frame(1, -1) } });
+    }
+    if (observationReply(url)) return observationReply(url);
+    if (url === '/api/user') return reply({ _id: 'trail-viewer' });
+    if (url === '/api/config') return reply({ data: { mapboxAccessToken: 'fixture' } });
+    return reply({ data: { _id: 'a', name: 'Alpha', status: 'active', myRole: 'viewer' } });
+  });
+
+  async function update(revision: number, lon: number, source?: 'http' | 'gateway') {
+    expect(deliver).toBeDefined();
+    const send = deliver!;
+    deliver = undefined;
+    await act(async () => send(reply({ data: { events: [frame(revision, lon, source)], cursor: String(revision) } })));
+    await act(async () => { jest.advanceTimersByTime(100); });
+  }
+
+  const view = render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  const lenses = within(await screen.findByRole('navigation', { name: 'Domain lenses' }));
+  await screen.findByRole('button', { name: 'Fit observed positions' });
+  act(() => events['style.load']());
+  const lines = () => trailData.mock.calls.at(-1)?.[0].features;
+  expect(lines()).toEqual([]);
+  fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
+  await update(2, -2);
+  await update(3, -3, 'gateway');
+  await update(4, -4, 'gateway');
+  fireEvent.click(lenses.getByRole('button', { name: 'Map' }));
+  act(() => events['style.load']());
+  expect(lines().filter((line: any) => line.properties.nodeId === 7).map((line: any) => line.geometry.coordinates))
+    .toEqual([[[-1, 55], [-2, 55]], [[-3, 55], [-4, 55]]]);
+  expect(lines().filter((line: any) => line.properties.nodeId === 8)).toHaveLength(2);
+  fireEvent.click(screen.getByRole('button', { name: /^Inspect node 7:/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Clear trail for node 7' }));
+  expect(lines().map((line: any) => line.properties.nodeId)).toEqual([8, 8]);
+
+  view.unmount();
+  render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
+  await screen.findByRole('button', { name: /^Inspect node 7:/ });
+  act(() => events['style.load']());
+  expect(lines()).toEqual([]);
 });

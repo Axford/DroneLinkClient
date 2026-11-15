@@ -1,5 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import App from '../App';
+import { encodeLinkPacket } from '@dronelink/protocol';
+import { DRONE_LINK_MSG_TYPE_CHAR, DRONE_LINK_MSG_TYPE_FLOAT, DRONE_MODULE_PARAM_TYPE } from '../dronelink/DroneLinkMsg';
+
+const mockStyleLoads: Array<() => void> = [];
+const mockTrailData = jest.fn();
 
 jest.mock('../DomainDetailPage', () => () => null);
 jest.mock('../HomePage', () => () => null);
@@ -7,13 +12,23 @@ jest.mock('../InvitePage', () => () => null);
 jest.mock('maplibre-gl', () => ({
     Map: class {
         on() {}
-        once() {}
+        once(event: string, callback: () => void) {
+            if (event === 'style.load') mockStyleLoads.push(callback);
+        }
         addControl() {}
+        addSource() {}
+        addLayer() {}
+        getSource(id: string) { return { setData: id === 'dw-snail-trails' ? mockTrailData : jest.fn() }; }
         remove() {}
         getCenter() { return { lat: 0, lng: 0 }; }
         getZoom() { return 1; }
     },
     NavigationControl: jest.fn(),
+    Marker: class {
+        setLngLat() { return this; }
+        addTo() { return this; }
+        remove() {}
+    },
 }));
 jest.mock('react-resizable-panels', () => ({
     Panel: 'div', PanelGroup: 'div', PanelResizeHandle: 'div',
@@ -177,5 +192,70 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
         global.fetch = previousFetch;
         localStorage.removeItem(key);
         window.history.replaceState({}, '', '/');
+    }
+});
+
+it('collects both local trails through lens and transport changes', async () => {
+    Feed.connections = [];
+    mockTrailData.mockClear();
+    mockStyleLoads.length = 0;
+    const previousSource = global.EventSource;
+    const previousFetch = global.fetch;
+    global.EventSource = Feed as unknown as typeof EventSource;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ mapboxAccessToken: null }) });
+    window.history.replaceState({}, '', '/workbench/');
+    const view = render(<App />);
+    try {
+        const stream = Feed.connections[0];
+        const routes = [11, 12].map(node => ({ ...route, node, nextHop: node, transport: 'wifi' }));
+        const serial = { ...routes[0], transport: 'serial' };
+        act(() => stream.send('snapshot', { routes, paths: [...routes, serial], interfaces: [] }));
+        const publish = (node: number, transport: string, param: number, msgType: number, payload: Uint8Array, offset: number) => {
+            const bytes = encodeLinkPacket({
+                source: node, node, channel: 4, param, priority: 0,
+                msgType, msgLength: payload.length, writable: false,
+            }, payload);
+            stream.send('observation', {
+                packetBase64: btoa(String.fromCharCode(...Array.from(bytes))), transport, receivedAtMs: route.lastHeardAtMs + offset,
+            });
+        };
+        const gps = (node: number, transport: string, lon: number, tick: number) => {
+            const payload = new Uint8Array(12);
+            const coords = new DataView(payload.buffer);
+            coords.setFloat32(0, lon, true);
+            coords.setFloat32(4, node + 40, true);
+            act(() => {
+                publish(node, transport, DRONE_MODULE_PARAM_TYPE, DRONE_LINK_MSG_TYPE_CHAR,
+                    Uint8Array.of(78, 77, 69, 65), tick);
+                publish(node, transport, 8, DRONE_LINK_MSG_TYPE_FLOAT, payload, tick);
+            });
+        };
+        const lenses = within(await screen.findByRole('navigation', { name: 'Domain lenses' }));
+        await screen.findByText('Local fallback basemap');
+        act(() => mockStyleLoads.at(-1)!());
+        gps(11, 'wifi', -1, 1);
+        gps(12, 'wifi', -1, 1);
+        fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
+        gps(11, 'wifi', -2, 2);
+        gps(12, 'wifi', -2, 2);
+        act(() => stream.send('route', { ...serial, reachable: true }));
+        gps(11, 'serial', -3, 3);
+        gps(11, 'serial', -4, 4);
+        fireEvent.click(lenses.getByRole('button', { name: 'Map' }));
+        await screen.findByRole('button', { name: 'Fit observed positions' });
+        act(() => mockStyleLoads.at(-1)!());
+        const lines = () => mockTrailData.mock.calls.at(-1)?.[0].features;
+        const node11 = lines().filter((line: any) => line.properties.nodeId === 11);
+        expect(node11.map((line: any) => line.geometry.coordinates)).toEqual([
+            [[-1, 51], [-2, 51]], [[-3, 51], [-4, 51]],
+        ]);
+        expect(lines().filter((line: any) => line.properties.nodeId === 12)).toHaveLength(1);
+        fireEvent.click(screen.getByRole('button', { name: /Node 11 · Reachable/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'Clear trail for node 11' }));
+        expect(lines().map((line: any) => line.properties.nodeId)).toEqual([12]);
+    } finally {
+        view.unmount();
+        global.EventSource = previousSource;
+        global.fetch = previousFetch;
     }
 });

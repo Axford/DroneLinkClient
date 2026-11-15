@@ -11,6 +11,7 @@ import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
 import { routeLine, useRoutePreview } from '../dronelink/routePreview';
+import { emptyTrails, type TrailLines, type useSnailTrails } from '../dronelink/snailTrails';
 import { windLines } from '../dronelink/windLines';
 import { observedNavigation } from '../dronelink/navigationLegs';
 import { observedTargetMove } from '../dronelink/mapContextActions';
@@ -29,6 +30,7 @@ export interface ObservedMapProps {
   nodeStatus?: (nodeId: number) => string;
   user: User | null;
   state: GlobalState;
+  trails?: ReturnType<typeof useSnailTrails>;
   viewState?: React.MutableRefObject<User['mapState']>;
   selectedNodeId: number | null;
   onNodeSelect: (nodeId: number) => void | boolean;
@@ -64,6 +66,7 @@ const localMapStyle: maplibregl.StyleSpecification = {
   ],
 };
 
+const trailLayerId = 'dw-snail-trails';
 const windLayerId = 'dw-wind-lines';
 const routeLayerId = 'dw-route-preview';
 const legLayerId = 'dw-navigation-legs';
@@ -103,10 +106,12 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
   return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
 }
 
-export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled, nodeStatus }: ObservedMapProps) {
+export default function ObservedMap({ token, domainId, user, state, trails, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled, nodeStatus }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<ObservationMap | null>(null);
+  const [trailSource, setTrailSource] = useState<ObservationSource>();
+  const drawnTrails = useRef<{ source: ObservationSource; lines: TrailLines } | undefined>(undefined);
   const [windSource, setWindSource] = useState<ObservationSource>();
   const [routeSource, setRouteSource] = useState<ObservationSource>();
   const route = useRoutePreview(domainId, selectedNodeId === null ? undefined : state[selectedNodeId]);
@@ -167,6 +172,19 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
       map.current = current; setMapReady(true);
       const activeMap = current;
       const addOverlays = () => {
+        activeMap.addSource(trailLayerId, { type: 'geojson', lineMetrics: true, data: emptyTrails });
+        const trailColor = getComputedStyle(mapContainer).getPropertyValue('--dw-color-navigation-heading').trim() || '#45d483';
+        activeMap.addLayer({
+          id: trailLayerId, source: trailLayerId, type: 'line',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-width': 2,
+            'line-opacity': 0.65,
+            'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'transparent', 1, trailColor],
+            ...(!useLocalBasemap && { 'line-emissive-strength': 1 })
+          }
+        });
+        setTrailSource(geoJSONSource(activeMap, trailLayerId));
         activeMap.addSource(windLayerId, { type: 'geojson', data: windLines([]) });
         activeMap.addLayer({
           id: windLayerId, source: windLayerId, type: 'line',
@@ -256,9 +274,24 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
       ownedWaypointMarkers.forEach(marker => marker.remove()); ownedWaypointMarkers.clear();
       draggingWaypoint.current = undefined;
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
-      current?.remove(); map.current = null; setMapReady(false); setWindSource(undefined); setLegSource(undefined); setRouteSource(undefined);
+      current?.remove(); map.current = null; setMapReady(false); setTrailSource(undefined); setWindSource(undefined); setLegSource(undefined); setRouteSource(undefined);
     };
   }, [token, user, viewState, local]);
+
+  const trailLines = trails?.lines ?? emptyTrails;
+  useEffect(() => {
+    if (!trailSource) {
+      drawnTrails.current = undefined;
+      return;
+    }
+    const lines = mapError ? emptyTrails : trailLines;
+    const previous = drawnTrails.current;
+    if (previous?.source === trailSource && previous.lines.features.length === lines.features.length &&
+        lines.features.every((line, i) => line.properties.nodeId === previous.lines.features[i].properties.nodeId &&
+          line.geometry.coordinates === previous.lines.features[i].geometry.coordinates)) return;
+    trailSource.setData(lines);
+    drawnTrails.current = { source: trailSource, lines };
+  }, [trailSource, trailLines, mapError]);
 
   useEffect(() => {
     windSource?.setData(windLines(mapError ? [] : positions));
@@ -471,6 +504,9 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
           ` · Backup captured ${new Date(route.capturedAt).toLocaleString()}` : ''}` : undefined}>{routeMessage[route.status]}</span>}
       {(route.status === 'mismatch' || route.status === 'unavailable') &&
         <button type="button" className="btn btn-sm btn-outline-secondary" onClick={route.refresh}>Check backup</button>}
+      {trails && selectedNodeId !== null && trailLines.features.some(line => line.properties.nodeId === selectedNodeId) &&
+        <button type="button" className="btn btn-sm btn-outline-secondary"
+          aria-label={`Clear trail for node ${selectedNodeId}`} onClick={() => trails.clear(selectedNodeId)}>Clear trail</button>}
       <IconButton label="Map details" icon={<InfoCircle />} onClick={() => setDetails(true)} />
     </div>
     <MapContextMenu pane={pane} canvas={container} enabled={mapReady && !mapError} state={state} positions={positions}
@@ -481,6 +517,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
     <SettingsDialog title="Map details" show={details} onHide={() => setDetails(false)}><SurfacePanel>
       <p>Positions are saved observations; receipt time does not establish a current GPS fix or device connectivity.</p>
       <p>The green chevron at the node position shows its last-known heading. Heading and position can have different sources and receipt times.</p>
+      <p>Green trails show primary positions seen during this workspace session. Select a node to clear its trail.</p>
       <p>A blue line extends 10 metres from the node in the last-known wind bearing from its wing sensor.</p>
       <p>The yellow diamond and ring show the observed target and its radius. The dashed corridor extends one target radius to either side of the leg. The grey square marks the previous waypoint. Use Node settings to show its radius.</p>
       <p>The ring shows the last-known secondary GPS position. Select either marker to inspect its node. Locate centres on the primary position, and Fit includes both positions.</p>
