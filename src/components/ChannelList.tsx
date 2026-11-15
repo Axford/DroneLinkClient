@@ -3,6 +3,7 @@ import { Card } from 'react-bootstrap';
 import { ArrowDown, ArrowDownUp, ArrowUp, ArrowsExpand, ArrowsCollapse } from 'react-bootstrap-icons';
 import type { NodeState } from '../dronelink/DroneLinkState';
 import IconButton from './ui/IconButton';
+import { CardMotionList } from './ui/CardMotion';
 import ChannelCard from './ChannelCard';
 import { useChannelPresentation } from './InspectorSession';
 
@@ -37,7 +38,7 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
     return <div>
         <span role="status" className="visually-hidden">{announcement}</span>
         <div className="dw-channel-grid">
-            {view.ids.map((id, index) => {
+            <CardMotionList items={view.ids.map((id, index) => {
                 const channel = node.channels[id];
                 const name = channel.name || `Channel ${id}`;
                 const actions = view.reordering && <div className="dw-channel-reorder" role="group" aria-label={`Reorder ${name}, channel ${id}`}>
@@ -52,11 +53,11 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
                             }} />;
                     })}
                 </div>;
-                return <ChannelCard key={JSON.stringify([id, channel.type])} nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
+                return { key: JSON.stringify([id, channel.type]), element: <ChannelCard nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
                     expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
                     showParameters={!!view.parameters[id]} onShowParameters={show => view.setShowParameters(id, show)}
-                    systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} />;
-            })}
+                    systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} /> };
+            })} />
         </div>
     </div>;
 }

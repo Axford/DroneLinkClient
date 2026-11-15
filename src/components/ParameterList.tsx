@@ -1,5 +1,6 @@
 import React from 'react';
 import { ParameterState } from '../dronelink/DroneLinkState';
+import { CardMotionList } from './ui/CardMotion';
 import ParameterRow from './ParameterRow';
 import parameterNames from '../dronelink/parameterNames.json';
 
@@ -10,10 +11,10 @@ export default function ParameterList({ nodeId, channelId, parameters, moduleTyp
         ? modules[moduleType] : modules.Drone;
     const entries = Object.entries(parameters).sort(([a], [b]) => Number(a) - Number(b));
     const rows = (system: boolean) => entries.filter(([id]) => (Number(id) < 8) === system).map(([id, parameter]) =>
-        <ParameterRow key={id} nodeId={nodeId} channelId={channelId} parameterId={Number(id)} parameter={parameter} catalogName={catalog[Number(id)]} />);
+        ({ key: id, element: <ParameterRow nodeId={nodeId} channelId={channelId} parameterId={Number(id)} parameter={parameter} catalogName={catalog[Number(id)]} /> }));
     const systemCount = entries.filter(([id]) => Number(id) < 8).length;
     return <>
-        <div className="dw-parameter-grid">{rows(false)}</div>
-        {systemCount > 0 && <details className="dw-system-parameters" open={systemOpen}><summary data-inspector-focus={`system-${channelId}`} onClick={event => { event.preventDefault(); onToggleSystem(!systemOpen); }}>System parameters ({systemCount})</summary><div className="dw-parameter-grid">{rows(true)}</div></details>}
+        <div className="dw-parameter-grid"><CardMotionList items={rows(false)} /></div>
+        <CardMotionList items={systemCount > 0 ? [{ key: "system", element: <details className="dw-system-parameters" open={systemOpen}><summary data-inspector-focus={`system-${channelId}`} onClick={event => { event.preventDefault(); onToggleSystem(!systemOpen); }}>System parameters ({systemCount})</summary><div className="dw-parameter-grid"><CardMotionList items={rows(true)} /></div></details> }] : []} />
     </>;
 }

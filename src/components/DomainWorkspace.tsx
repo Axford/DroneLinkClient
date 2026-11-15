@@ -1,3 +1,4 @@
+import { FloatingInspector } from './ui/useFloatingInspectorMotion';
 import React, { useId, useRef } from 'react';
 import { Dropdown } from 'react-bootstrap';
 import { ChevronDown } from 'react-bootstrap-icons';
@@ -66,7 +67,7 @@ export function DomainLensPanels({ lens, inspector, overMap = false }: {
         <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
         <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}
             className={`dw-inspector-slot ${overMap ? 'dw-map-inspector-slot' : ''}`}>
-            <div className="dw-inspector-frame">{inspector}</div>
+            <div className="dw-inspector-frame"><FloatingInspector.Provider value={overMap}>{inspector}</FloatingInspector.Provider></div>
         </Panel>
     </PanelGroup>;
 }

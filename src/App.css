@@ -125,6 +125,8 @@
   align-items: flex-start;
 }
 .dw-map-inspector-slot .inspector-panel {
+  position: relative;
+  transform-origin: top left;
   pointer-events: auto;
   width: 100%;
   height: auto;
@@ -179,3 +181,5 @@
 .dw-map-panels:has(.inspector-panel[data-size="collapsed"]) .dw-node-list {
   right: calc(var(--dw-space-3) + 3 * var(--dw-control-size) + var(--dw-space-4));
 }
+
+.dw-inspector-outgoing { position: absolute; z-index: 3; overflow: clip; transform-origin: top left; pointer-events: none; }

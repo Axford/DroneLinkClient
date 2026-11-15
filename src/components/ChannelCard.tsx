@@ -1,9 +1,10 @@
 import React, { useId } from 'react';
-import { Card, Collapse } from 'react-bootstrap';
+import { Card } from 'react-bootstrap';
 import { ChevronDown, ChevronRight, ClockFill, ExclamationCircleFill, ListUl, SlashCircleFill, Speedometer2 } from 'react-bootstrap-icons';
 import { ChannelState, ParameterState } from '../dronelink/DroneLinkState';
 import { DRONE_LINK_MSG_TYPE_UINT8_T, DRONE_LINK_MSG_TYPE_UINT32_T, DRONE_MODULE_PARAM_ERROR, DRONE_MODULE_PARAM_NAME, DRONE_MODULE_PARAM_STATUS, DRONE_MODULE_PARAM_RESETCOUNT } from '../dronelink/DroneLinkMsg';
 import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions';
+import { CardView } from './ui/CardMotion';
 import IconButton from './ui/IconButton';
 import ModuleStatusAction from './ModuleStatusAction';
 import ParameterList from './ParameterList';
@@ -86,11 +87,11 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                 {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
             </div>
         </div>
-        <Collapse in={expanded}><div id={bodyId}><Card.Body>
+        <div id={bodyId} className={`collapse dw-module-body${expanded ? " show" : ""}`} aria-hidden={!expanded || undefined} inert={!expanded || undefined}><div><Card.Body>
             {moduleType === 'Probe' && <ProbeInstrument channel={channel} now={now} disabled={status === 0} />}
-            {summary && !showParameters ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
+            <CardView view={summary && !showParameters ? "summary" : "parameters"}>{summary && !showParameters ? <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} /> :
                 parameterCount ? <ParameterList nodeId={nodeId} channelId={channelId} parameters={channel.params} moduleType={moduleType} systemOpen={systemOpen} onToggleSystem={onToggleSystem} /> :
-                    <p className="dw-meta mb-0">No parameters discovered</p>}
-        </Card.Body></div></Collapse>
+                    <p className="dw-meta mb-0">No parameters discovered</p>}</CardView>
+        </Card.Body></div></div>
     </Card>;
 }

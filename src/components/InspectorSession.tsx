@@ -99,10 +99,10 @@ export function useChannelPresentation(node: NodeState) {
 export function useInspectorFocus(nodeId: number | null, generation?: number) {
     const session = useContext(InspectorSession);
     const focus = session?.focus;
-    const root = useRef<HTMLDivElement>(null);
+    const root = useRef<HTMLElement>(null);
     const opener = useRef<string | undefined>(undefined);
     const portalFocus = useRef<HTMLElement | null>(null);
-    const onFocusCapture = (event: React.FocusEvent<HTMLDivElement>) => {
+    const onFocusCapture = (event: React.FocusEvent<HTMLElement>) => {
         if (event.currentTarget.contains(event.target)) {
             opener.current = event.target.dataset.inspectorFocus;
             portalFocus.current = null;
@@ -117,7 +117,7 @@ export function useInspectorFocus(nodeId: number | null, generation?: number) {
         if (focus) focus.current = null;
         if (bookmark?.nodeId === nodeId && bookmark.generation === generation) {
             Array.from(element?.querySelectorAll<HTMLElement>('[data-inspector-focus]') ?? [])
-                .find(control => control.dataset.inspectorFocus === bookmark.control)?.focus();
+                .find(control => !control.closest("[inert]") && control.dataset.inspectorFocus === bookmark.control)?.focus();
         }
         return () => {
             if (!focus || !document.activeElement) return;

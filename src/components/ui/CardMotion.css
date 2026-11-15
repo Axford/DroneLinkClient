@@ -1,0 +1,55 @@
+.dw-motion-card {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    min-width: 0;
+    overflow: clip;
+    overflow-clip-margin: 3px;
+    opacity: 1;
+    transition: grid-template-rows var(--dw-card-motion-duration) var(--dw-card-motion-easing),
+        opacity var(--dw-card-motion-duration) var(--dw-card-motion-easing);
+}
+.dw-motion-card > * { min-height: 0; }
+.dw-motion-card[data-motion-exit] {
+    grid-template-rows: minmax(0, 0fr);
+    overflow: clip;
+    opacity: 0;
+    pointer-events: none;
+}
+.dw-motion-view-frame { position: relative; }
+.dw-motion-view {
+    opacity: 1;
+    transition: opacity var(--dw-card-motion-duration) var(--dw-card-motion-easing);
+}
+.dw-motion-view[data-motion-exit] {
+    position: absolute;
+    inset: 0 0 auto;
+    opacity: 0;
+    pointer-events: none;
+}
+@starting-style {
+    .dw-motion-card { grid-template-rows: minmax(0, 0fr); opacity: 0; }
+    .dw-motion-view { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dw-motion-card, .dw-motion-view { transition-duration: 0ms; }
+}
+@supports (interpolate-size: allow-keywords) {
+    .dw-system-parameters { interpolate-size: allow-keywords; }
+    .dw-system-parameters::details-content {
+        block-size: 0;
+        opacity: 0;
+        overflow: clip;
+        transition: block-size var(--dw-card-motion-duration) var(--dw-card-motion-easing),
+            opacity var(--dw-card-motion-duration) var(--dw-card-motion-easing),
+            content-visibility var(--dw-card-motion-duration) var(--dw-card-motion-easing) allow-discrete;
+    }
+    .dw-system-parameters[open]::details-content { block-size: auto; opacity: 1; }
+    @media (prefers-reduced-motion: reduce) {
+        .dw-system-parameters::details-content { transition-duration: 0ms; }
+    }
+}
+
+/* The view supplies the entry motion during a Summary/Parameters switch. */
+.dw-motion-view-frame:has(> .dw-motion-view[data-motion-exit]) > .dw-motion-view:not([data-motion-exit]) .dw-motion-card {
+    transition: none;
+}

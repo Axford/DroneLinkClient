@@ -4,6 +4,7 @@ import { NodeState } from '../dronelink/DroneLinkState';
 import { compactReceiptAge, receiptLabel } from '../dronelink/observedPositions';
 import { moduleSummaries } from '../dronelink/moduleVisualizations';
 import { SummaryChips } from './NodeSummary';
+import { CardMotionList } from './ui/CardMotion';
 import IconButton from './ui/IconButton';
 import SettingsDialog from './ui/SettingsDialog';
 import useNarrowLayout from './ui/useNarrowLayout';
@@ -38,11 +39,12 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
     const selectedLabel = selected ? nodeLabel(selected) : 'Choose a node';
 
     const label = local ? "Local nodes" : "Observed nodes";
+    const showItems = inline || narrow || expanded;
     const items = <ul id={listId} className="dw-node-items">
-        {[...nodes].sort((a, b) => a.id - b.id).map(node => {
+        <CardMotionList as="li" items={(showItems ? [...nodes] : []).sort((a, b) => a.id - b.id).map(node => {
             const receipt = node.interface === 'Local' ? 'Gateway receipt' : 'Server receipt';
             const routeStatus = status?.(node.id);
-            return <li key={node.id} data-selected={node.id === selectedNodeId}>
+            return { key: String(node.id), selected: node.id === selectedNodeId, element: <div className="dw-node-overlay-card">
                 <button type="button" className="dw-node-select" aria-pressed={node.id === selectedNodeId}
                     aria-label={routeStatus ? `${node.name || `Node ${node.id}`} · ${routeStatus}` : `Inspect node ${node.id}: ${node.name || `Node ${node.id}`}`} disabled={selectionDisabled && node.id !== selectedNodeId} aria-describedby={`${listId}-receipt-${node.id}`}
                     onClick={() => { if (onNodeSelect(node.id) !== false && narrow && !inline) setExpanded(false); }}>
@@ -54,8 +56,8 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
                 {onLocate && <IconButton label={`Locate node ${node.id}`} icon={<GeoAlt />} disabled={!canLocate?.(node.id)}
                     onClick={() => { onLocate(node.id); if (narrow) setExpanded(false); }} />}
             <SummaryChips nodeId={node.id} summaries={moduleSummaries(node, settings?.get)} now={now} />
-        </li>; })}
-        {nodes.length === 0 && <li className="dw-meta dw-node-list-empty">{local ? "Waiting for local routes." : "No observed nodes"}</li>}
+        </div> }; })} />
+        {showItems && nodes.length === 0 && <li className="dw-meta dw-node-list-empty">{local ? "Waiting for local routes." : "No observed nodes"}</li>}
     </ul>;
     const toggle = <IconButton label={expanded ? 'Collapse node list' : 'Expand node list'} icon={expanded ? <ChevronUp /> : <ChevronDown />}
         aria-expanded={expanded} aria-controls={expanded ? listId : undefined} aria-haspopup={narrow ? 'dialog' : undefined}
@@ -66,7 +68,7 @@ export default function NodeSelector({ nodes, selectedNodeId, onNodeSelect, onLo
         {inline ? items : narrow ? <header className="dw-node-list-header">
             <div><strong>Nodes · {nodes.length}</strong><div className="dw-meta">{selectedLabel}</div></div>{toggle}
         </header> : <div className="dw-node-list-toggle">{toggle}</div>}
-        {!inline && !narrow && expanded && items}
+        {!inline && !narrow && items}
         {!inline && narrow && <SettingsDialog title={label} show={expanded} onHide={() => setExpanded(false)}>{items}</SettingsDialog>}
     </section>;
 }

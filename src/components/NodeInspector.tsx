@@ -1,6 +1,7 @@
 import React, { useId, useState } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
 import { ArrowsFullscreen, LayoutSidebarReverse, DashLg } from 'react-bootstrap-icons';
+import { useFloatingInspectorMotion } from './ui/useFloatingInspectorMotion';
 import IconButton from './ui/IconButton';
 import './InspectorPanel.css';
 
@@ -21,14 +22,18 @@ export default function NodeInspector({ selected, heading, actions, context, mod
     modules: React.ReactNode;
     files?: React.ReactNode;
     filesAvailable?: boolean;
-    focusTracking?: React.HTMLAttributes<HTMLDivElement>;
+    focusTracking?: React.HTMLAttributes<HTMLElement> & { ref: React.RefObject<HTMLElement | null> };
 }) {
     const id = useId();
     const [view, setView] = useState<InspectorView>('modules');
     const [size, setSize] = useState<InspectorSize>('normal');
     const collapsed = size === 'collapsed';
     const active = files && filesAvailable ? view : 'modules';
-    return <section aria-label="Node Inspector" className="inspector-panel text-white" data-size={size} {...focusTracking}>
+    const motion = useFloatingInspectorMotion(size, active);
+    return <section aria-label="Node Inspector" className="inspector-panel text-white" data-size={size} {...focusTracking} ref={element => {
+        motion.ref.current = element;
+        if (focusTracking) focusTracking.ref.current = element;
+    }}>
         <header className="inspector-header">
             {heading && !collapsed && <h2 className="dw-inspector-heading">{heading}</h2>}
             {context && <div className="dw-inspector-context" hidden={collapsed}>{context}</div>}
@@ -36,7 +41,7 @@ export default function NodeInspector({ selected, heading, actions, context, mod
             <div className="dw-inspector-size" role="group" aria-label="Inspector size">
                 {inspectorSizes.map(({ id, label, Icon }) =>
                     <IconButton key={id} type="button" label={label} icon={<Icon aria-hidden="true" />}
-                        aria-pressed={size === id} onClick={() => setSize(id)} />)}
+                        aria-pressed={size === id} onClick={() => { if (size !== id) { motion.begin(id); setSize(id); } }} />)}
             </div>
         </header>
         {selected || files ? <Tab.Container id={id} activeKey={active} onSelect={key => setView(key === 'files' ? 'files' : 'modules')} transition={false}>

@@ -94,7 +94,7 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
     gap: var(--dw-space-1);
 }
-.dw-parameter-grid > .dw-parameter { position: relative; min-width: 0; }
+.dw-parameter-grid .dw-parameter { position: relative; min-width: 0; }
 .dw-parameter-tile {
     display: block;
     width: 100%;
@@ -349,3 +349,21 @@
 
 .dw-inspector-tab-strip.dw-workspace-tabs,
 .dw-inspector-tab-strip > .dw-workspace-tabs { padding-inline: 0; }
+
+.channel-card > .dw-module-body.collapse {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    opacity: 1;
+    transition: grid-template-rows var(--dw-card-motion-duration) var(--dw-card-motion-easing),
+        opacity var(--dw-card-motion-duration) var(--dw-card-motion-easing),
+        visibility var(--dw-card-motion-duration) var(--dw-card-motion-easing);
+}
+.dw-module-body > div { min-height: 0; overflow: clip; overflow-clip-margin: 3px; }
+.channel-card > .dw-module-body:not(.show) {
+    grid-template-rows: minmax(0, 0fr);
+    opacity: 0;
+    visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+    .channel-card > .dw-module-body.collapse { transition-duration: 0ms; }
+}

@@ -1,6 +1,8 @@
 /* DroneWright shared tokens. Owned by Client; shipped unchanged in release assets. */
 :root {
   color-scheme: dark;
+  --dw-card-motion-duration: 500ms;
+  --dw-card-motion-easing: ease-out;
   --dw-color-canvas: #171b20;
   --dw-color-surface-rgb: 33, 38, 45;
   --dw-color-surface: rgb(var(--dw-color-surface-rgb));
