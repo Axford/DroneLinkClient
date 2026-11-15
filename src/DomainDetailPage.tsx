@@ -201,7 +201,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         ? <ObservedMap key={domain._id} domainId={domain._id} token={mapboxToken}
             user={user} viewState={mapView} state={state} selectedNodeId={selectedNodeId} onNodeSelect={selectNode} selectionDisabled={filesBusy} />
         : <div className="dw-workbench-lens">
-            {lens === 'network' && (workbench.network
+            {workbench.network
                 ? <WorkbenchNetwork key={workbench.networkSession?.key} feed={workbench.network} selectedNode={selectedNodeId ?? undefined} select={selectNode}
                     selectionDisabled={filesBusy} inspectedTransport={local ? localTransport : undefined}
                     traceRoute={editableDomain && local && localTransport && selectedNodeId !== null
@@ -211,7 +211,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                         workbench.network.paths.wifi[selectedNodeId].nextHop === selectedNodeId
                         ? signal => workbench.readNetwork<NodeNetworkSnapshot>(selectedNodeId, signal) : undefined} />
                 : <p>{archived ? 'Live gateway routes are unavailable for archived Domains. Select a node to inspect retained observations.'
-                    : 'Pair a local gateway to see live routes.'}</p>)}
+                    : 'Pair a local gateway to see live routes.'}</p>}
             <NodeSelector inline nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={selectNode}
                 selectionDisabled={filesBusy} now={Date.now()} />
         </div>;

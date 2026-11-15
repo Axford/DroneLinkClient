@@ -4,6 +4,17 @@ import App from '../App';
 jest.mock('../DomainDetailPage', () => () => null);
 jest.mock('../HomePage', () => () => null);
 jest.mock('../InvitePage', () => () => null);
+jest.mock('maplibre-gl', () => ({
+    Map: class {
+        on() {}
+        once() {}
+        addControl() {}
+        remove() {}
+        getCenter() { return { lat: 0, lng: 0 }; }
+        getZoom() { return 1; }
+    },
+    NavigationControl: jest.fn(),
+}));
 jest.mock('react-resizable-panels', () => ({
     Panel: 'div', PanelGroup: 'div', PanelResizeHandle: 'div',
 }));
@@ -39,20 +50,22 @@ const route = { node: 11, nextHop: 11, lastHeardAtMs: 1710000000000 };
 const value = btoa(String.fromCharCode(11, 11, 5, 0x88, 0, 42));
 const name = btoa(String.fromCharCode(11, 11, 5, 8, 0x50, 86));
 
-it('uses the local feed only and discards stale readings before route or stream recovery', () => {
+it('uses the local feed only and discards stale readings before route or stream recovery', async () => {
     Feed.connections = [];
     jest.useFakeTimers();
     const previousSource = global.EventSource;
     const previousFetch = global.fetch;
     global.EventSource = Feed as unknown as typeof EventSource;
-    global.fetch = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ mapboxAccessToken: null }) });
     window.history.replaceState({}, '', '/workbench/');
     const view = render(<App />);
     try {
         const stream = Feed.connections[0];
         expect(stream.url).toBe('/api/workbench/v1/events?diagnostics=1');
         act(() => stream.send('snapshot', { routes: [route] }));
-        fireEvent.click(screen.getByRole('button', { name: /Node 11 · Reachable/ }));
+        expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'collapsed');
+        fireEvent.click(await screen.findByRole('button', { name: /Node 11 · Reachable/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
 
         act(() => {
@@ -62,7 +75,9 @@ it('uses the local feed only and discards stale readings before route or stream 
         });
         const inspector = screen.getByRole('region', { name: 'Node Inspector' });
         expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
-        expect(within(screen.getByRole('region', { name: 'Local nodes' })).queryByRole('button', { name: /node list/i })).not.toBeInTheDocument();
+        const lenses = within(screen.getByRole('navigation', { name: 'Domain lenses' }));
+        expect(lenses.getByRole('button', { name: 'Map' })).toHaveAttribute('aria-current', 'page');
+        expect(lenses.queryByRole('button', { name: 'Nodes' })).not.toBeInTheDocument();
         expect(within(inspector).getByRole('group', { name: 'Module list controls' })).toContainElement(
             within(inspector).getByRole('button', { name: 'Collapse All' }));
         const parameter = screen.getByRole('article', { name: 'Parameter 11>5.8' });
@@ -85,7 +100,7 @@ it('uses the local feed only and discards stale readings before route or stream 
             stream.send('observation', { packetBase64: value, receivedAtMs: route.lastHeardAtMs + 3 });
         });
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
-        expect(global.fetch).not.toHaveBeenCalled();
+        expect((global.fetch as jest.Mock).mock.calls.map(([url]) => url)).toEqual(['/api/workbench/v1/map-config']);
         fireEvent.click(within(inspector).getByRole('tab', { name: 'Files' }));
         expect(within(inspector).getByRole('heading', { name: 'Node 11 · Local · Wi-Fi' })).toBeVisible();
         expect(within(inspector).queryByRole('group', { name: 'Module list controls' })).not.toBeInTheDocument();
@@ -100,9 +115,11 @@ it('uses the local feed only and discards stale readings before route or stream 
     }
 });
 
-it('keeps a manual per-node path pinned and switches Auto as the gateway route changes', () => {
+it('keeps a manual per-node path pinned and switches Auto as the gateway route changes', async () => {
     Feed.connections = [];
     const previousSource = global.EventSource;
+    const previousFetch = global.fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: false });
     global.EventSource = Feed as unknown as typeof EventSource;
     window.history.replaceState({}, '', '/workbench/');
     const view = render(<App />);
@@ -122,7 +139,8 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
             for (let index = 0; index < 200; index++) stream.send('diagnostic', { text: `Line ${index}`, receivedAtMs: route.lastHeardAtMs });
             stream.send('diagnostic', { text: '<device message>', receivedAtMs: route.lastHeardAtMs });
         });
-        fireEvent.click(screen.getByRole('button', { name: /Node 11 · Reachable/ }));
+        fireEvent.click(await screen.findByRole('button', { name: /Node 11 · Reachable/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
         expect(screen.getByText('Node 11 · Local · Serial')).toBeInTheDocument();
         expect(screen.getByText('91')).toBeInTheDocument();
         expect(screen.queryByText('42')).not.toBeInTheDocument();
@@ -154,6 +172,7 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
     } finally {
         view.unmount();
         global.EventSource = previousSource;
+        global.fetch = previousFetch;
         localStorage.removeItem(key);
         window.history.replaceState({}, '', '/');
     }

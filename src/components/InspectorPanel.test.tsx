@@ -26,6 +26,7 @@ test('Viewer can inspect singleton identity and binding provenance without comma
   const reset = jest.fn().mockResolvedValue(undefined); jest.spyOn(window, 'confirm').mockReturnValue(true);
   const props = { domainId: 'fleet', droneLinkState: { ...hook, resetNodeObservations: reset }, selectedNodeId: 7, onNodeSelect: jest.fn() };
   const view = render(<Fixture {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
   fireEvent.click(screen.getByRole('button', { name: 'Node details' }));
   expect(screen.getByText(/Drone: drone-seven/)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Close Node details' }));
@@ -54,6 +55,7 @@ test('Viewer can inspect singleton identity and binding provenance without comma
 
 test('degraded snapshot warning reports current unavailable parts',()=>{
  render(<Fixture droneLinkState={{...hook,unavailableObservationParts:2}} selectedNodeId={7} />);
+ fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
  expect(screen.getByRole('alert')).toHaveTextContent('2 observation parts are unavailable because packet validation failed.');
 });
 
@@ -67,6 +69,7 @@ test('Viewer can inspect observed voltage and bound position with independent pr
     } }
   } };
   render(<Fixture droneLinkState={{ ...hook, state: { 7: node } }} selectedNodeId={7} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
   expect(screen.getByText('Cell 3.13 V').closest('[data-severity]')).toHaveAttribute('data-severity', 'neutral');
   expect(screen.getByRole('group', { name: 'Position · 51.00000°, -1.00000°' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Node details' }));

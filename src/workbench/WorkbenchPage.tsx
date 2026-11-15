@@ -8,7 +8,6 @@ import type { User } from '../App';
 import type { GlobalState } from '../dronelink/DroneLinkState';
 import ObservedMap from '../components/ObservedMap';
 import NodeInspector from '../components/NodeInspector';
-import NodeSelector from '../components/NodeSelector';
 import NodeFiles from './NodeFiles';
 import ChannelList, { ChannelListActions } from '../components/ChannelList';
 import { InspectorSessionProvider } from '../components/InspectorSession';
@@ -79,7 +78,7 @@ export default function WorkbenchPage() {
     const feed = useWorkbenchFeed(undefined, captureFeed);
     const { status, routes, paths, observations, lastKnown, interfaces } = feed;
     const [mapToken, setMapToken] = useState<string | null>();
-    const [lens, setLens] = useState<DomainLens>('nodes');
+    const [lens, setLens] = useState<DomainLens>('map');
     const mapView = React.useRef<User['mapState']>(undefined);
     const [selectedNode, selectNode] = useState<number>();
     const [files, setFiles] = useState({ busy: false, dirty: false });
@@ -170,9 +169,6 @@ export default function WorkbenchPage() {
         setShowCharts(true);
     }
     const [search, setSearch] = useState('');
-    const selector = <NodeSelector inline local nodes={Object.values(localNodes)}
-        selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} now={Date.now()}
-        status={id => connected ? routes[id]?.reachable ? 'Reachable' : 'Route expired' : 'Gateway disconnected'} />;
     const transportChoice = selectedNode !== undefined && showTransport && <label className="dw-workbench-transport">Transport
         <select className="form-select" value={choice} disabled={files.busy} onChange={event => setChoice(event.target.value as Selection)}>
             <option value="auto">Auto</option>
@@ -227,8 +223,9 @@ export default function WorkbenchPage() {
                     separate={separate} setSeparate={(id, value) => setSeparate(previous => ({ ...previous, [id]: value }))}
                     search={search} onSearch={setSearch} />
             </Suspense> : lens === 'map' ? mapToken === undefined ? <p role="status">Loading map…</p> : <ObservedMap local token={mapToken} user={null} viewState={mapView}
-                state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy} /> : <div className={`dw-workbench-lens dw-workbench-lens-${lens}`}>
-                {lens === 'network' ? <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} /> : selector}
+                state={localNodes} selectedNodeId={selectedNode ?? null} onNodeSelect={select} selectionDisabled={files.busy}
+                nodeStatus={id => connected ? routes[id]?.reachable ? 'Reachable' : 'Route expired' : 'Gateway disconnected'} /> : <div className="dw-workbench-lens dw-workbench-lens-network">
+                <WorkbenchNetwork feed={feed} selectedNode={selectedNode} select={select} selectionDisabled={files.busy} nodeTransport={choice === 'auto' ? undefined : choice} inspectedTransport={active || undefined} readNode={readNode} traceRoute={traceRoute} />
             </div>} inspector={<InspectorSessionProvider nodes={active ? observations[active] : {}} inventoryComplete={false}>
                 <NodeInspector key={selectedNode} selected={selectedNode !== undefined}
                 heading={selectedNode !== undefined && <span>Node {selectedNode} · Local{active ? ` · ${transportLabel[active]}` : ''}{node && (!connected || !path?.reachable) ? ' · Last seen' : ''}</span>}

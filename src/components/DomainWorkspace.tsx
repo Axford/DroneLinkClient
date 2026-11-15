@@ -1,12 +1,13 @@
 import { FloatingInspector } from './ui/useFloatingInspectorMotion';
-import React, { useId, useRef } from 'react';
+import React, { useId, useRef, useState } from 'react';
+import { InspectorSizePreference, type InspectorSize } from './NodeInspector';
 import { Dropdown } from 'react-bootstrap';
 import { ChevronDown } from 'react-bootstrap-icons';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import useNarrowLayout from './ui/useNarrowLayout';
 import { useCompactPortraitNav } from '../PrimaryNavBar';
 
-const lenses = [{ id: 'nodes', label: 'Nodes' }, { id: 'map', label: 'Map' }, { id: 'network', label: 'Network' }] as const;
+const lenses = [{ id: 'map', label: 'Map' }, { id: 'network', label: 'Network' }] as const;
 export type DomainLens = typeof lenses[number]['id'];
 
 export function DomainWorkspace({ name, status, notices, activeLens, onLensChange, lensAction, children }: {
@@ -61,13 +62,16 @@ export function DomainLensPanels({ lens, inspector, overMap = false }: {
     overMap?: boolean;
 }) {
     const narrow = useNarrowLayout();
+    const inspectorSize = useState<InspectorSize>('collapsed');
     if (!inspector) return <div className="dw-lens-only">{lens}</div>;
     return <PanelGroup className={`dw-lens-panels ${overMap ? 'dw-map-panels' : ''}`} direction={narrow ? 'vertical' : 'horizontal'}>
         <Panel style={overMap ? { overflow: 'visible' } : undefined} defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>{lens}</Panel>
         <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
         <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}
             className={`dw-inspector-slot ${overMap ? 'dw-map-inspector-slot' : ''}`}>
-            <div className="dw-inspector-frame"><FloatingInspector.Provider value={overMap}>{inspector}</FloatingInspector.Provider></div>
+            <div className="dw-inspector-frame"><FloatingInspector.Provider value={overMap}>
+                <InspectorSizePreference.Provider value={inspectorSize}>{inspector}</InspectorSizePreference.Provider>
+            </FloatingInspector.Provider></div>
         </Panel>
     </PanelGroup>;
 }

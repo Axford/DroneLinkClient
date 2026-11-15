@@ -200,10 +200,13 @@ test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected
   global.fetch = requests as unknown as typeof fetch;
   render(<MemoryRouter initialEntries={['/private/domain/a']}><Harness /></MemoryRouter>);
   const lenses = within(await screen.findByRole('navigation', { name: 'Domain lenses' }));
-  for (const name of ['Nodes', 'Map', 'Network']) expect(lenses.getByRole('button', { name })).toBeVisible();
+  expect(lenses.getByRole('button', { name: 'Map' })).toHaveAttribute('aria-current', 'page');
+  expect(lenses.queryByRole('button', { name: 'Nodes' })).not.toBeInTheDocument();
+  const inspector = screen.getByRole('region', { name: 'Node Inspector' });
+  expect(inspector).toHaveAttribute('data-size', 'collapsed');
+  fireEvent.click(await screen.findByRole('button', { name: /^Inspect node 11:/ }));
+  fireEvent.click(within(inspector).getByRole('button', { name: 'Normal inspector' }));
   expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
-  fireEvent.click(lenses.getByRole('button', { name: 'Nodes' }));
-  fireEvent.click(screen.getByRole('button', { name: /^Inspect node 11:/ }));
   fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
   expect(screen.getByText(/Live gateway routes are unavailable for archived Domains/)).toBeVisible();
   expect(screen.getByRole('button', { name: /^Inspect node 11:/ })).toHaveAttribute('aria-pressed', 'true');

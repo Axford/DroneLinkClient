@@ -14,6 +14,9 @@ test('Inspector size is independent of the active tab and preserves the file dra
     const full = controls.getByRole('button', { name: 'Full-window inspector' });
     const normal = controls.getByRole('button', { name: 'Normal inspector' });
     const collapse = controls.getByRole('button', { name: 'Collapse inspector' });
+    expect(collapse).toHaveAttribute('aria-pressed', 'true');
+    expect(inspector).toHaveAttribute('data-size', 'collapsed');
+    fireEvent.click(normal);
     const files = screen.getByRole('tab', { name: 'Files' });
     const modules = screen.getByRole('tab', { name: 'Modules' });
 

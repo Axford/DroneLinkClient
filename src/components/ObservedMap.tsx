@@ -26,6 +26,7 @@ export interface ObservedMapProps {
   domainId?: string;
   local?: boolean;
   selectionDisabled?: boolean;
+  nodeStatus?: (nodeId: number) => string;
   user: User | null;
   state: GlobalState;
   viewState?: React.MutableRefObject<User['mapState']>;
@@ -102,7 +103,7 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
   return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
 }
 
-export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled }: ObservedMapProps) {
+export default function ObservedMap({ token, domainId, user, state, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled, nodeStatus }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<ObservationMap | null>(null);
@@ -458,7 +459,7 @@ export default function ObservedMap({ token, domainId, user, state, viewState, s
 
   return <div className="dw-map" ref={pane}>
     <div ref={container} aria-label="Observed Drone map" className="dw-map-canvas" />
-    <NodeSelector nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
+    <NodeSelector local={local} status={nodeStatus} nodes={Object.values(state)} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect}
       onLocate={locateNode} canLocate={id => canLocate(id) && (!selectionDisabled || id === selectedNodeId)} now={now} selectionDisabled={selectionDisabled} />
     <div className="dw-map-toolbar">
       <span role="status">{!local && !token ? 'Map unavailable' : mapError ? 'Map failed' : `${positionCount} last-known positions`}</span>

@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { createContext, useContext, useId, useState } from 'react';
 import { Nav, Tab } from 'react-bootstrap';
 import { ArrowsFullscreen, LayoutSidebarReverse, DashLg } from 'react-bootstrap-icons';
 import { useFloatingInspectorMotion } from './ui/useFloatingInspectorMotion';
@@ -11,7 +11,8 @@ const inspectorSizes = [
     { id: 'normal', label: 'Normal inspector', Icon: LayoutSidebarReverse },
     { id: 'collapsed', label: 'Collapse inspector', Icon: DashLg },
 ] as const;
-type InspectorSize = typeof inspectorSizes[number]['id'];
+export type InspectorSize = typeof inspectorSizes[number]['id'];
+export const InspectorSizePreference = createContext<[InspectorSize, (size: InspectorSize) => void] | null>(null);
 
 export default function NodeInspector({ selected, heading, actions, context, moduleActions, modules, files, filesAvailable = true, focusTracking }: {
     selected: boolean;
@@ -26,7 +27,8 @@ export default function NodeInspector({ selected, heading, actions, context, mod
 }) {
     const id = useId();
     const [view, setView] = useState<InspectorView>('modules');
-    const [size, setSize] = useState<InspectorSize>('normal');
+    const standaloneSize = useState<InspectorSize>('collapsed');
+    const [size, setSize] = useContext(InspectorSizePreference) ?? standaloneSize;
     const collapsed = size === 'collapsed';
     const active = files && filesAvailable ? view : 'modules';
     const motion = useFloatingInspectorMotion(size, active);
