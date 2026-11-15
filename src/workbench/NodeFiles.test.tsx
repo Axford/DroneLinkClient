@@ -168,7 +168,7 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         const view = render(<NodeFiles {...props} available />);
         fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
         expect(await screen.findByRole('button', { name: 'Logical' })).toHaveAttribute('aria-pressed', 'true');
-        expect(screen.getAllByText('Local: GPS Main (channel 10)')).toHaveLength(2);
+        expect(await screen.findAllByText('Local: GPS Main (channel 10)')).toHaveLength(2);
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
         expect(screen.getByText('Local source module missing')).toBeInTheDocument();
         expect(screen.getByText('Local source module name is ambiguous')).toBeInTheDocument();
@@ -186,7 +186,7 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         expect(editor).toHaveValue(edited.replace(/\r\n/g, '\n'));
         fireEvent.change(editor, { target: { value: editor.value.replace('@>10.8', '@>GPSMain.location') } });
         fireEvent.click(screen.getByRole('button', { name: 'Logical' }));
-        expect(screen.getByText('@>GPSMain.location')).toBeVisible();
+        expect(await screen.findByText('@>GPSMain.location')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
         fireEvent.change(screen.getByRole('textbox', { name: 'Source for $location' }), { target: { value: '@>10.8' } });
         fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));

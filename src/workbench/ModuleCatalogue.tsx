@@ -51,14 +51,6 @@ export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loadin
         <input id={id} className="form-control mb-2" type="search" autoFocus value={search}
             onChange={event => setSearch(event.target.value)} />
         {loading ? <p role="status">Checking the selected node…</p> : <>
-            <p className="dw-meta">
-                {catalogue?.supportKnown ? `Node build ${catalogue.build} reported its supported types at the last check.` : 'Module support on this node is unknown.'}
-                {' '}{catalogue?.metadataStatus === 'marker-match' ? 'Catalogue and node build markers match.'
-                    : catalogue?.metadataStatus === 'different-build' ? 'Catalogue metadata is from a different build.'
-                    : catalogue?.metadataStatus === 'unverified' ? 'Catalogue metadata has not been matched to this node.'
-                    : 'Release metadata is unavailable.'}
-            </p>
-            {catalogue?.metadataStatus === 'unavailable' && <p className="dw-meta">Templates include built-in examples and any available catalogue settings.</p>}
             <button type="button" className="btn btn-outline-secondary mb-2" onClick={onRetry}>Refresh catalogue</button>
             {gpsConnector && <p className="dw-meta">A GPS added from this connector will use Serial {gpsConnector}.</p>}
             {!canAdd && <p className="dw-meta">A free channel and a structurally valid draft are required to add a module.</p>}
@@ -67,15 +59,15 @@ export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loadin
                 {entries?.map(entry => {
                     const type = entry.type;
                     const label = moduleLabel(type);
-                    return <li key={type} className="dw-config-module">
-                        <div><strong>{label === type ? type : `${label} · ${type}`}</strong>{entry.category && ` · ${entry.category}`}</div>
-                        <div className="dw-meta">{entry.description}</div>
-                        <div className="dw-toolbar">
-                            <span className="dw-meta">{entry.support === 'supported' ? 'Supported by this node' :
-                                entry.support === 'unsupported' ? 'Not reported by this node' : 'Support unknown'}</span>
-                            {entry.support === 'supported' && <button type="button" className="btn btn-outline-secondary"
-                                disabled={!canAdd} onClick={() => onAdd(type)}>Add {label}</button>}
+                    return <li key={type} className="dw-config-module dw-catalogue-card">
+                        <div><strong>{label === type ? type : `${label} · ${type}`}</strong>
+                            <div className="dw-meta">{entry.description || 'Description unavailable.'}</div>
+                            {entry.support !== 'supported' && <div className="dw-meta">
+                                {entry.support === 'unsupported' ? 'Not reported by this node' : 'Support unknown'}
+                            </div>}
                         </div>
+                        {entry.support === 'supported' && <button type="button" className="btn btn-outline-secondary dw-icon-button"
+                            aria-label={`Add ${label}`} title={`Add ${label}`} disabled={!canAdd} onClick={() => onAdd(type)}>+</button>}
                     </li>;
                 })}
             </ul>

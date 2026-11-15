@@ -17,7 +17,7 @@ import type { ResponseAddress } from './i2cDiscovery';
 import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
 import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
 import type { Catalogue } from './ModuleCatalogue';
-import { Transport, transportLabel } from './useWorkbenchFeed';
+import { Transport } from './useWorkbenchFeed';
 
 const PhysicalConfiguration = React.lazy(() => import('./PhysicalConfiguration'));
 const ConfigurationEditor = React.lazy(() => import('./ConfigurationEditor'));
@@ -494,7 +494,6 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         <div className="dw-file-workspace">
             <header className="dw-toolbar dw-file-header">
                 {compact && <IconButton label="Browse files" icon={<Folder2Open />} aria-haspopup="dialog" onClick={() => setPicker(true)} />}
-                <span className="dw-meta">Node {node}{transport ? ` · ${transportLabel[transport]}` : ''}</span>
                 {current && <strong><code>{current.path}</code></strong>}
                 {(showingCloud ? cloudDirty : dirty) && <span className="dw-meta">Unsaved draft</span>}
                 <div className="dw-toolbar dw-file-actions">
@@ -566,7 +565,8 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
                     selectedChannel={selectedModule} onSelect={channel => { setSelectedModule(channel); setSelectedPin(undefined); }}
                     goToLine={openCodeAtLine}
-                    selectedDetails={canGuide && selectedModule !== undefined ? <GuidedModule key={selectedModule}
+                    selectedDetails={!catalogueOpen && canGuide && selectedModule !== undefined &&
+                        overview.modules.some(module => module.channel === selectedModule && ['NMEA', 'Nav'].includes(module.type)) ? <GuidedModule key={selectedModule}
                         catalogue={catalogue} overview={overview} channel={selectedModule} node={node} text={draftText}
                         onCheck={openCatalogue}
                         onChange={text => setCurrentDraft(editorText(text))} /> : undefined} />}

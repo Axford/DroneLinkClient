@@ -54,15 +54,14 @@
 .dw-config-overview { margin-block: var(--dw-space-3); }
 .dw-config-overview summary { cursor: pointer; font-weight: 600; }
 .dw-config-overview > p { margin-block: var(--dw-space-2); }
-.dw-config-module, .dw-config-source {
+.dw-config-module {
     padding: var(--dw-space-2);
     background: var(--dw-color-raised);
     border-radius: var(--dw-radius-small);
 }
 .dw-config-module + .dw-config-module { margin-top: var(--dw-space-2); }
-.dw-config-subscription { padding-block: var(--dw-space-1); overflow-wrap: anywhere; }
 .dw-config-source { display: grid; gap: var(--dw-space-1); }
-.dw-config-subscription > .dw-toolbar > .btn-outline-secondary { margin-inline-start: auto; }
+.dw-catalogue-card { display: flex; justify-content: space-between; align-items: center; gap: var(--dw-space-3); }
 
 .dw-file-explorer {
     display: grid;
@@ -97,7 +96,9 @@
     justify-content: space-between;
     gap: var(--dw-space-2);
     margin-bottom: var(--dw-space-2);
+    border-bottom: var(--dw-space-1) solid var(--dw-color-primary);
 }
+.dw-config-views .dw-file-sources { border-bottom: 0; flex-wrap: wrap; }
 .dw-config-graph {
     position: relative;
     height: clamp(16rem, 42vh, 28rem);
@@ -107,8 +108,9 @@
     margin-bottom: var(--dw-space-3);
     background: var(--dw-color-panel);
 }
+.dw-logical-graph { height: max(60dvh, calc(100dvh - 23rem)); min-height: 18rem; }
 .dw-config-graph-module {
-    width: 200px;
+    width: 274px;
     background: var(--dw-color-raised);
     border: 1px solid var(--dw-color-hover);
     border-radius: var(--dw-radius-small);
@@ -117,21 +119,44 @@
     outline: 2px solid var(--dw-color-primary);
 }
 .react-flow__node:focus-visible .dw-config-graph-module { outline: 2px solid var(--dw-color-focus); }
-.dw-config-graph-title { padding: var(--dw-space-2) var(--dw-space-3); }
-.dw-config-graph-title :is(strong, small) {
+.dw-config-graph-title, .dw-config-graph-input {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--dw-space-1);
+    padding-inline: var(--dw-space-3);
+}
+.dw-config-graph-title { height: 52px; }
+.dw-config-graph-title > div, .dw-config-graph-source { min-width: 0; }
+.dw-config-graph-title :is(div > button, small), .dw-config-graph-source > * {
     display: block;
+    max-width: 100%;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-.dw-config-graph-port {
-    position: relative;
-    height: 32px;
-    border-top: 1px solid var(--dw-color-hover);
+.dw-config-graph-port, .dw-config-graph-empty { position: relative; border-top: 1px solid var(--dw-color-hover); }
+.dw-config-graph-input { height: 64px; }
+.dw-config-graph-output, .dw-config-graph-empty {
+    height: 26px;
+    padding-inline: var(--dw-space-3);
 }
-.dw-config-graph-port .btn { width: 100%; height: 100%; text-align: start; }
-.dw-config-graph-output { padding: var(--dw-space-1) var(--dw-space-3); text-align: end; }
-.dw-config-graph-output, .dw-config-graph-port .btn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dw-config-graph-output > span {
+    display: block;
+    text-align: end;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dw-config-graph-caption {
+    position: absolute;
+    top: var(--dw-space-2);
+    left: var(--dw-space-2);
+    padding: var(--dw-space-1) var(--dw-space-2);
+    background: var(--dw-color-panel);
+    border-radius: var(--dw-radius-small);
+    pointer-events: none;
+}
 .dw-config-module[data-selected="true"] { box-shadow: inset 3px 0 var(--dw-color-primary); }
 
 .dw-network-graph {
