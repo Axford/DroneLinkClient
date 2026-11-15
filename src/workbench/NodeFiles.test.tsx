@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import NodeFiles from './NodeFiles';
 
 jest.mock('./ConfigurationEditor', () => ({
@@ -25,6 +25,32 @@ afterAll(() => {
 });
 
 const stored = { path: '/sample.txt', text: 'First line\r\n', revision: 'a'.repeat(64), editable: true };
+
+it('releases the file controls and allows a retry when the local gateway response stalls', async () => {
+    const previousFetch = global.fetch;
+    const activity = jest.fn();
+    jest.useFakeTimers();
+    global.fetch = jest.fn()
+        .mockImplementationOnce((_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+            options.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+        }))
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ ...stored, path: '/config.ini', text: 'node = 11\n' }) });
+    try {
+        render(<NodeFiles node={11} transport="wifi" available activity={activity} />);
+        const openConfiguration = screen.getByRole('button', { name: 'Open node configuration' });
+        fireEvent.click(openConfiguration);
+        expect(openConfiguration).toBeDisabled();
+        await act(async () => { jest.advanceTimersByTime(135_000); });
+        expect(screen.getByRole('alert')).toHaveTextContent('The node file request timed out. Try again.');
+        expect(openConfiguration).toBeEnabled();
+        expect(activity).toHaveBeenLastCalledWith(false, false);
+        await act(async () => { fireEvent.click(openConfiguration); });
+        expect(screen.getByRole('button', { name: 'Logical' })).toBeVisible();
+    } finally {
+        global.fetch = previousFetch;
+        jest.useRealTimers();
+    }
+});
 
 it('opens a stored file, keeps a rejected draft, preserves line endings, and sends Restart separately', async () => {
     const previousFetch = global.fetch;

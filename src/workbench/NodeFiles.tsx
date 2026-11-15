@@ -22,6 +22,8 @@ import { Transport, transportLabel } from './useWorkbenchFeed';
 const PhysicalConfiguration = React.lazy(() => import('./PhysicalConfiguration'));
 const ConfigurationEditor = React.lazy(() => import('./ConfigurationEditor'));
 const catalogueLifetimeMs = 60_000;
+// Give the gateway time to report its own 120-second mesh transfer deadline.
+const standaloneFileReadTimeoutMs = 135_000;
 const noDiagnostics: ReturnType<typeof inspectNodeConfiguration>['diagnostics'] = [];
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
 const timestampFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -210,12 +212,26 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
         if (remote) return remote<T>(endpoint, options, selectedPath);
         const query = new URLSearchParams({ transport: transport! });
         if (selectedPath !== undefined) query.set('path', selectedPath);
-        const response = await fetch(`/api/workbench/v1/nodes/${node}/${endpoint}?${query}`, {
-            ...options, cache: 'no-store', headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.error || (response.status === 404 ? 'This gateway does not provide node file operations.' : 'The node request failed.'));
-        return body as T;
+        const fileRead = !options && (endpoint === 'file' || endpoint === 'files');
+        const deadline = fileRead ? new AbortController() : undefined;
+        const timer = deadline && setTimeout(() => deadline.abort(), standaloneFileReadTimeoutMs);
+        try {
+            const response = await fetch(`/api/workbench/v1/nodes/${node}/${endpoint}?${query}`, {
+                ...options, signal: deadline?.signal ?? options?.signal,
+                cache: 'no-store', headers: options?.body ? { 'Content-Type': 'application/json' } : undefined,
+            });
+            const body = await response.json().catch(error => {
+                if (deadline?.signal.aborted) throw error;
+                return {};
+            });
+            if (!response.ok) throw new Error(body.error || (response.status === 404 ? 'This gateway does not provide node file operations.' : 'The node request failed.'));
+            return body as T;
+        } catch (error) {
+            if (deadline?.signal.aborted) throw new Error('The node file request timed out. Try again.');
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     const diagnosticScope = JSON.stringify([node, transport, available, domainId, showingCloud, probeSince]);
@@ -464,6 +480,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                 {directory.truncated && <p className="dw-meta">Showing the first 64 entries.</p>}
             </>}
         </div>}
+        {picker && busy && <p role="status" className="dw-file-tree">Working…</p>}
         {picker && feedback?.error && <p role="alert" className="dw-file-tree">{feedback.text}</p>}
     </aside>;
     const editorLabel = `${showingCloud ? 'Cloud file' : 'Stored file'} ${current?.path ?? ''}`;
@@ -502,7 +519,7 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
             {readOnly && <p className="dw-meta">Archived Domain · Cloud files are read-only.</p>}
             {uptimeMs !== undefined && !showingCloud && <p className="dw-meta">{available ? 'Runtime' : 'Last seen runtime'} · Uptime <output aria-label="Last reported runtime uptime">{Math.floor(uptimeMs / 1000)} s</output></p>}
             {!available && !showingCloud && <p className="dw-meta">The selected route is unavailable.</p>}
-            {busy && <p role="status">Working…</p>}
+            {busy && !picker && <p role="status">Working…</p>}
             {connected && !showingCloud && <p role="status" className="dw-meta">
                 {backupStatus?.pending ? `Cloud backup pending (${backupStatus.pending})${backupStatus.retrying ? ' · retrying' : ''}`
                     : stored?.backup === 'not-queued' || backupStatus?.unavailable ? 'Cloud backup could not be queued. Reopen the file to retry.'

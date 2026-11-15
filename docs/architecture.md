@@ -282,6 +282,8 @@ The Cloud Inspector exposes Files with a prompt when a node or file access is un
 
 The shared Inspector size selector switches between a full-window view, the normal resizable panel and a collapsed toolbar. Size is independent of the active tab. The Inspector remains mounted across size changes so file drafts and tab selection survive. Files uses its picker when the available panel width is narrow.
 
+Standalone directory and file reads have a browser deadline beyond the gateway's mesh transfer budget. The file picker shows the pending status and surfaces a timeout so the operator can retry. See the [Workbench file contract](../../DroneLinkDatastore/docs/contracts/workbench.md#standalone-node-file-operations).
+
 The root configuration draft opens in the Logical graph within Files. React Flow renders module cards, subscription ports and the viewport from the existing draft parser. Code and Logical share the Files draft, and source edits patch the declared address in place. Graph edges show references to local modules declared in the file. Parameter compatibility and remote sources remain unverified.
 
 ### Standalone Live charts
