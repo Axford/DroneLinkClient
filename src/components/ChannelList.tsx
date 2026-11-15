@@ -22,18 +22,21 @@ export function ChannelListActions({ node }: { node: NodeState }) {
     </>;
 }
 
-export default function ChannelList({ node, sampleLive = false, motherboard }: {
-    node: NodeState; sampleLive?: boolean; motherboard?: MotherboardSource;
+export default function ChannelList({ node, sampleLive = false, motherboard, historicalTime }: {
+    node: NodeState; sampleLive?: boolean; motherboard?: MotherboardSource; historicalTime?: number;
 }) {
     const view = useChannelPresentation(node);
     const showingProbe = !!motherboard && view.ids.some(id => !view.collapsed.includes(id) &&
         !view.parameters[id] && observedModuleType(node.channels[id]) === 'Probe');
     const version = useMotherboardVersion(node.id, showingProbe ? motherboard : undefined);
-    const [now, setNow] = useState(Date.now);
+    const [wallTime, setNow] = useState(Date.now);
+    const now = historicalTime ?? wallTime;
+    const replay = historicalTime !== undefined;
     useEffect(() => {
+        if (replay) return;
         const timer = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [replay]);
     const [announcement, setAnnouncement] = useState('');
     const movedControl = useRef<HTMLButtonElement | null>(null);
     useLayoutEffect(() => {

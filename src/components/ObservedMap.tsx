@@ -26,6 +26,7 @@ export interface ObservedMapProps {
   token: string | null;
   domainId?: string;
   local?: boolean;
+  historicalTime?: number;
   selectionDisabled?: boolean;
   nodeStatus?: (nodeId: number) => string;
   user: User | null;
@@ -106,7 +107,7 @@ function bearingDescription(nodeId: number, label: string, { degrees, binding }:
   return ` · ${label} ${degrees}° · Binding ${nodeId}>${binding.channelId}.${binding.parameterId} (${binding.path}, priority ${binding.priority}) · ${binding.reading.source || 'Unknown source'} · Received ${receiptLabel(binding.reading.lastHeard, now)}`;
 }
 
-export default function ObservedMap({ token, domainId, user, state, trails, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled, nodeStatus }: ObservedMapProps) {
+export default function ObservedMap({ token, domainId, user, state, trails, viewState, selectedNodeId, onNodeSelect, local = false, selectionDisabled, nodeStatus, historicalTime }: ObservedMapProps) {
   const pane = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<ObservationMap | null>(null);
@@ -134,7 +135,9 @@ export default function ObservedMap({ token, domainId, user, state, trails, view
   const scope = useCommandScope();
   const { attempt } = useCommandJournal(scope);
   const [cameraRevision, setCameraRevision] = useState(0);
-  const [now, setNow] = useState(Date.now());
+  const [wallTime, setNow] = useState(Date.now());
+  const now = historicalTime ?? wallTime;
+  const replay = historicalTime !== undefined;
   const positions = React.useMemo(() => observedPositions(state), [state]);
   const secondaryPositions = React.useMemo(() => observedPositions(state, 'location2'), [state]);
   const showPreviousRadius = useNodeMapSettings()?.showPreviousRadius;
@@ -143,9 +146,10 @@ export default function ObservedMap({ token, domainId, user, state, trails, view
   dragState.current = { state, navigation, scope, attempt, mapError };
 
   useEffect(() => {
+    if (replay) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [replay]);
 
   useEffect(() => {
     const mapContainer = container.current;
@@ -237,7 +241,7 @@ export default function ObservedMap({ token, domainId, user, state, trails, view
       const onMoveStart = () => setCameraRevision(revision => revision + 1);
       const onMoveEnd = () => {
         if (viewState) { const center = current!.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current!.getZoom() }; }
-        if (local) return;
+        if (local || replay) return;
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
           if (!current) return;
@@ -276,7 +280,7 @@ export default function ObservedMap({ token, domainId, user, state, trails, view
       if (current && viewState) { const center = current.getCenter(); viewState.current = { lng: center.lng, lat: center.lat, zoom: current.getZoom() }; }
       current?.remove(); map.current = null; setMapReady(false); setTrailSource(undefined); setWindSource(undefined); setLegSource(undefined); setRouteSource(undefined);
     };
-  }, [token, user, viewState, local]);
+  }, [token, user, viewState, local, replay]);
 
   const trailLines = trails?.lines ?? emptyTrails;
   useEffect(() => {

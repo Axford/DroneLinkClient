@@ -5,6 +5,7 @@ import type { RouteTraceResult } from './workbench/RouteTrace';
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
+import LiveBookmarkButton from './replay/LiveBookmarkButton';
 import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
 import { DomainLens, DomainLensPanels, DomainWorkspace, WorkspaceStatus } from './components/DomainWorkspace';
@@ -259,6 +260,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     shortLabel={shortStatus}
                     warning={archived || sharedUpdates === 'retrying' || !!workbench.error || (workbench.paired && workbench.status === 'reconnecting')}>
                     {!archived && <p>Shared updates: {sharedUpdates}</p>}
+                    {editableDomain && <LiveBookmarkButton key={domain._id} domainId={domain._id} />}
                     {archived && <p>Archived domain · Read-only retained history. Live updates are stopped.</p>}
                     <p className="dw-meta">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'} · {droneLinkState.stats.received} parameters</p>
                     {showGateway && <>

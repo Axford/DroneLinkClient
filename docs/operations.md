@@ -284,3 +284,11 @@ Open **Live charts** in standalone Workbench, or choose **Plot** on a numeric In
 **Freeze view** preserves the inspectable interval while capture continues. Adjust the view bounds, move the shared time cursor, and choose **Pin time** to measure elapsed time. The values beside each series identify the actual gateway receipt and transport. A route or connection break starts a new line segment when observations resume. **Stop capture** retains the run and any frozen inspection. **Show final window** leaves the frozen inspection and opens the final rolling window. Receipt time includes transport and gateway delay.
 
 The [Workbench plan](../../DroneLinkDatastore/docs/planning/workbench.md#standalone-live-charts) records validation and scope.
+
+### Cloud Replay
+
+On signed-in Home, choose **Cloud Replay** for a Domain. Pick a date and time, open a shared bookmark or select **Latest activity**. Replay pauses at the selected time and suggests a range. Set the range, play or pause, choose a rate, or use the forward jumps. The map, recorded channels and plots share the playhead. Select a node and use a numeric parameter's Plot action to chart the loaded portions of the range.
+
+The first visit to an older point may need preparation. The Server keeps preparing after navigation. Dragging uses the Client cache where data is available. A seek to an unloaded range fetches after release. **Refresh history** refreshes the cached data and reopens the same time. Open Replay from the archived Domain list to inspect retained records.
+
+Editors, Owners and Platform Admins can add a note at the playhead or bookmark the latest retained telemetry from Cloud Live. They can change the capture interval in Replay for active Domains. Viewers can open shared bookmarks.

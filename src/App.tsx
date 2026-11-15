@@ -130,6 +130,8 @@ function AppContent() {
   </WorkspaceShell>;
 }
 
+const CloudReplay = React.lazy(() => import('./replay/CloudReplay'));
+
 function App() {
   return (
     <ToastProvider>
@@ -137,6 +139,7 @@ function App() {
         <Routes>
           <Route path="/workbench/" element={<WorkbenchPage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/private/domain/:domainId/replay" element={<React.Suspense fallback={<p role="status">Opening Cloud Replay…</p>}><CloudReplay /></React.Suspense>} />
           <Route path="/private/domain/:domainId" element={<DomainDetailPage />} />
           <Route path="/*" element={<AppContent />} />
         </Routes>

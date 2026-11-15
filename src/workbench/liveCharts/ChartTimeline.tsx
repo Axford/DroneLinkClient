@@ -17,9 +17,10 @@ export function timeLabel(time: number) {
     return `${date.toLocaleTimeString(undefined, { hour12: false })}.${String(date.getMilliseconds()).padStart(3, '0')}`;
 }
 
+type TimelineSample = Pick<ChartSample, 'time' | 'value' | 'segment' | 'type'>;
 type Point = [number, number | null];
 
-function chartPoints(samples: ChartSample[]): Point[] {
+function chartPoints(samples: TimelineSample[]): Point[] {
     const points: Point[] = [];
     samples.forEach((sample, index) => {
         const previous = samples[index - 1];
@@ -29,13 +30,14 @@ function chartPoints(samples: ChartSample[]): Point[] {
     return points;
 }
 
-export interface TimelineSeries { signal: Signal; samples: ChartSample[]; color: string }
+export interface TimelineSeries { signal: Signal; samples: TimelineSample[]; color: string }
 
-export default function ChartTimeline({ groups, range, cursor, pinned, onCursor, onPin }: {
+export default function ChartTimeline({ groups, range, cursor, pinned, onCursor, onPin, showDates = false }: {
     groups: TimelineSeries[][];
     range: TimeRange;
     cursor?: number;
     pinned?: number;
+    showDates?: boolean;
     onCursor: (time: number) => void;
     onPin: (time: number) => void;
 }) {
@@ -46,7 +48,9 @@ export default function ChartTimeline({ groups, range, cursor, pinned, onCursor,
         grid: groups.map((_, index) => ({ left, right, top: top + index * step, height })),
         xAxis: groups.map((_, gridIndex) => ({
             type: 'time', gridIndex, min: range[0], max: Math.max(range[0] + 1, range[1]),
-            axisLabel: { color: '#aebacd', hideOverlap: true, formatter: (time: number) => timeLabel(time).split('.')[0] },
+            axisLabel: { color: '#aebacd', hideOverlap: true, formatter: (time: number) => showDates && range[1] - range[0] >= 86400000
+                ? new Date(time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+                : timeLabel(time).split('.')[0] },
             axisLine: { lineStyle: { color: '#556176' } },
             splitLine: { show: true, lineStyle: { color: '#334057' } },
         })),
@@ -64,7 +68,7 @@ export default function ChartTimeline({ groups, range, cursor, pinned, onCursor,
             lineStyle: { color, width: 1.7 }, itemStyle: { color },
             data: chartPoints(samples),
         }))),
-    }), [groups, range]);
+    }), [groups, range, showDates]);
     function timeAt(event: React.MouseEvent<HTMLDivElement>) {
         const bounds = event.currentTarget.getBoundingClientRect();
         const position = event.clientX - bounds.left - left;

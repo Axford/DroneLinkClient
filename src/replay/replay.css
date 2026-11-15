@@ -1,0 +1,13 @@
+.dw-replay { padding: 1rem; }
+.dw-replay-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-bottom: .75rem; }
+.dw-replay-toolbar h1 { margin: 0; font-size: 1.25rem; }
+.dw-replay-playhead { display: grid; gap: .25rem; margin-bottom: .75rem; }
+.dw-replay-playhead input { width: 100%; }
+.dw-replay-views { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: .75rem; min-height: 28rem; }
+.dw-replay-views > section { max-height: 32rem; overflow: auto; }
+.dw-replay > section { margin-block: 1rem; }
+.dw-replay > section h2 { font-size: 1.1rem; }
+@media (max-width: 720px) {
+  .dw-replay-views { grid-template-columns: minmax(0, 1fr); }
+  .dw-replay-views .dw-map { min-height: 20rem; }
+}
