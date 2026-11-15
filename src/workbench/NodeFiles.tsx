@@ -38,7 +38,6 @@ interface Props {
     node: number;
     transport?: Transport;
     available: boolean;
-    uptimeMs?: number;
     observed?: NodeState;
     domainId?: string;
     readOnly?: boolean;
@@ -48,7 +47,7 @@ interface Props {
 
 function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 
-export default function NodeFiles({ node, transport, available, uptimeMs, observed, activity, domainId, readOnly = false, connected }: Props) {
+export default function NodeFiles({ node, transport, available, observed, activity, domainId, readOnly = false, connected }: Props) {
     const codeEditor = React.useRef<Ace.Editor | null>(null);
     const narrow = useNarrowLayout();
     const explorerRef = React.useRef<HTMLElement>(null);
@@ -113,7 +112,9 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
     const overview = React.useMemo(() => configuration ? inspectNodeConfiguration(draftText, node) : undefined,
         [configuration, draftText, node]);
     const diagnostics = overview?.diagnostics ?? noDiagnostics;
-    const configurationError = diagnostics.some(item => item.severity === 'error');
+    const errors = diagnostics.filter(item => item.severity === 'error');
+    const configurationError = errors.length > 0;
+    const visibleDiagnostics = view === 'code' ? diagnostics : errors;
 
     const catalogueContext = JSON.stringify([node, transport, available, domainId, !!remote, readOnly, source, current?.path]);
     const activeCatalogueContext = React.useRef(catalogueContext);
@@ -543,7 +544,6 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                 </div>
             </header>
             {readOnly && <p className="dw-meta">Archived Domain · Cloud files are read-only.</p>}
-            {uptimeMs !== undefined && !showingCloud && <p className="dw-meta">{available ? 'Runtime' : 'Last seen runtime'} · Uptime <output aria-label="Last reported runtime uptime">{Math.floor(uptimeMs / 1000)} s</output></p>}
             {!available && !showingCloud && <p className="dw-meta">The selected route is unavailable.</p>}
             {busy && !picker && <p role="status">Working…</p>}
             {connected && !showingCloud && <p role="status" className="dw-meta">
@@ -570,11 +570,11 @@ export default function NodeFiles({ node, transport, available, uptimeMs, observ
                     editorRef={codeEditor} label={editorLabel} text={currentDraft} onChange={setCurrentDraft}
                     readOnly={!editable || busy} diagnostics={diagnostics} catalogue={configuration ? catalogue : undefined} /></Suspense> : plainEditor}
                 </div>
-                {configuration && <details className="dw-file-checks">
+                {configuration && (view === 'code' || configurationError) && <details className="dw-file-checks">
                     <summary>{configurationError ? readOnly ? 'Configuration errors found.' : 'Fix configuration errors before uploading.' :
                         diagnostics.length ? `${diagnostics.length} configuration warning(s).` : 'No structural issues found.'}</summary>
                     <p className="dw-meta">Checks cover file structure, interval and subscription addresses. Module settings and live bindings are unverified.</p>
-                    <ul className="list-unstyled mb-0">{diagnostics.map(({ line, severity, message }, index) => <li key={index}>
+                    <ul className="list-unstyled mb-0">{visibleDiagnostics.map(({ line, severity, message }, index) => <li key={index}>
                         <button type="button" className="btn btn-link text-start" onClick={() => openCodeAtLine(line)}>Line {line}: {severity} — {message}</button>
                     </li>)}</ul>
                 </details>}

@@ -42,7 +42,7 @@ export default function ConfigurationOverview({ overview, text, editable, onChan
 
     return <section className="dw-config-overview" aria-label="Modules and subscriptions">
         <Suspense fallback={<p role="status">Loading subscription graph…</p>}>
-            <ConfigurationGraph modules={overview.modules} selected={selectedChannel} onSelect={onSelect}
+            <ConfigurationGraph overview={overview} selected={selectedChannel} onSelect={onSelect}
                 onModule={openModule} onInput={editable ? editSource : undefined} goToLine={goToLine} />
         </Suspense>
         <SettingsDialog compact title="Module settings" show={settingsChannel !== undefined && settingsChannel === selectedChannel && !!selectedDetails}

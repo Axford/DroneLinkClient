@@ -67,6 +67,8 @@
     margin-inline-end: var(--dw-space-1);
 }
 
+.dw-physical-graph .react-flow__edge { pointer-events: none; }
+
 .dw-physical-graph {
     height: clamp(27rem, 62vh, 52rem);
 }

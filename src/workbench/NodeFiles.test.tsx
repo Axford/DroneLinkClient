@@ -172,6 +172,13 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
         expect(screen.getByText('Local source module missing')).toBeInTheDocument();
         expect(screen.getByText('Local source module name is ambiguous')).toBeInTheDocument();
+        const warning = screen.getByRole('button', { name: /configuration warning.*remote source cannot be verified/i });
+        expect(warning.closest('.dw-config-graph-input')).toHaveAttribute('data-warning', 'true');
+        expect(screen.getByText('@>GPSMain.location').closest('.dw-config-graph-input')).not.toHaveAttribute('data-warning');
+        expect(screen.queryByText(/configuration warning\(s\)/)).not.toBeInTheDocument();
+        fireEvent.focus(warning);
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('This remote source cannot be verified from the node’s file.');
+        fireEvent.blur(warning);
         fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
         const source = screen.getByRole('textbox', { name: 'Source for $location' });
         for (const value of ['invalid ; comment', '+255>1.8', '3>+256.8', '3>1.-1', '@other>10.8']) {
@@ -184,6 +191,10 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         fireEvent.click(screen.getByRole('button', { name: 'Code' }));
         const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
         expect(editor).toHaveValue(edited.replace(/\r\n/g, '\n'));
+        expect(screen.getByText('3 configuration warning(s).')).toBeVisible();
+        fireEvent.click(screen.getByRole('button', { name: 'Physical' }));
+        expect(screen.queryByText(/configuration warning\(s\)/)).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Code' }));
         fireEvent.change(editor, { target: { value: editor.value.replace('@>10.8', '@>GPSMain.location') } });
         fireEvent.click(screen.getByRole('button', { name: 'Logical' }));
         expect(await screen.findByText('@>GPSMain.location')).toBeInTheDocument();

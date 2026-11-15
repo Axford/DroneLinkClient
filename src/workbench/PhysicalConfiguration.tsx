@@ -16,6 +16,9 @@ import { useMeasuredGraphNodes } from './useMeasuredGraphNodes';
 import './physicalWiring.css';
 import boardImage from './DroneLinkV4PinOutSimple.png';
 
+const wireStyle = { stroke: 'var(--dw-color-instrument-reading)', strokeWidth: 2 };
+const observedWireStyle = { ...wireStyle, strokeDasharray: '5 4' };
+
 type BoardNode = Node<{ select: (endpoint: string) => void; selected?: string }, 'board'>;
 type Detection = 'responded' | 'missing' | 'unchecked';
 type DeviceNode = Node<{ device: PhysicalDevice; reading?: string; detection?: Detection; select: () => void }, 'device'>;
@@ -289,13 +292,13 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
         const position = positions.get(device.id)!;
         const right = position.x > 0;
         const detection = detectionFor(device);
-        nodes.push({ id: device.id, type: 'device', position, selected: selected?.id === device.id, data: {
+        nodes.push({ id: device.id, type: 'device', position, zIndex: 2, selected: selected?.id === device.id, data: {
             device, detection, reading: readings.get(device.id) ?? deviceEvidence(device, detection), select: () => chooseDevice(device),
         } });
         return Array.from(new Set(device.connections)).filter(id => boardEndpoints.some(endpoint => endpoint.id === id))
             .map(id => ({ id: `${id}-${device.id}`, source: 'board', sourceHandle: id, target: device.id,
                 targetHandle: right ? 'left' : 'right', ariaLabel: `${boardEndpoints.find(endpoint => endpoint.id === id)!.label} to ${device.label}`,
-                style: { stroke: device.gpio === undefined ? 'var(--dw-color-primary)' : 'var(--dw-color-text)', strokeWidth: 2 } }));
+                style: wireStyle }));
     });
 
     function detectionDetails(address: ResponseAddress, includeAssignment: boolean) {
@@ -332,7 +335,7 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
         const match = discovery.results[responseKey(item)]?.match;
         const names = candidates(item.address);
         const expanded = ghost?.id === item.id;
-        nodes.push({ id: item.id, type: 'ghost', position: positions.get(item.id)!, selected: expanded, data: {
+        nodes.push({ id: item.id, type: 'ghost', zIndex: 2, position: positions.get(item.id)!, selected: expanded, data: {
             label: `Detected ${hex(item.address)} · I²C ${item.channel}`,
             detail: match ? `Signature matches ${match}` : names.length ? `Possible: ${names.join(', ')}` : 'Unknown device',
             select: () => expanded ? setSelectedGhost(undefined) : chooseGhost(item.id),
@@ -342,13 +345,13 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
         } });
         edges.push({ id: item.id, source: 'board', sourceHandle: item.connections[0], target: item.id, targetHandle: 'left',
             ariaLabel: `I²C channel ${item.channel} to detected ${hex(item.address)}`,
-            style: { stroke: 'var(--dw-color-text)', strokeWidth: 2, strokeDasharray: '5 4' } });
+            style: observedWireStyle });
     }
 
     const evidenceDevice = target ? ghost?.id ?? selected?.id : undefined;
     const evidenceCard = ghost?.id ?? (evidenceDevice ? 'i2c-evidence' : undefined);
     if (target && evidenceDevice && !ghost) {
-        nodes.push({ id: 'i2c-evidence', type: 'evidence', position: { x: 55, y: boardHeight + 26 }, data: {
+        nodes.push({ id: 'i2c-evidence', type: 'evidence', zIndex: 2, position: { x: 55, y: boardHeight + 26 }, data: {
             content: <>
                 <strong>I²C channel {target.channel} · {hex(target.address)}</strong>
                 {detectionDetails(target, false)}
@@ -356,7 +359,7 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
         } });
         edges.push({ id: 'i2c-evidence-link', source: 'board', sourceHandle: `i${target.channel}`, target: 'i2c-evidence',
             targetHandle: 'evidence', ariaLabel: `I²C channel ${target.channel} register evidence`,
-            style: { stroke: 'var(--dw-color-success)', strokeDasharray: '5 4' } });
+            style: observedWireStyle });
     }
 
     const { measuredNodes, rememberMeasurements } = useMeasuredGraphNodes(nodes);
@@ -384,6 +387,7 @@ export default function PhysicalConfiguration({ boardSelection, motherboardVersi
         {board && <>
             <div className="dw-config-graph dw-physical-graph" role="region" aria-label="Physical wiring graph">
                 <ReactFlow nodes={measuredNodes} edges={edges} onNodesChange={rememberMeasurements} nodeTypes={nodeTypes} colorMode="dark" fitView minZoom={0.08}
+                    zIndexMode="manual" defaultEdgeOptions={{ zIndex: 1 }}
                     nodesDraggable={false} nodesConnectable={false} edgesReconnectable={false} deleteKeyCode={null}>
                     <Background /><Controls showInteractive={false} />
                     <Panel position="bottom-right" className="dw-physical-key" aria-label="Wiring legend">Draft wiring</Panel>

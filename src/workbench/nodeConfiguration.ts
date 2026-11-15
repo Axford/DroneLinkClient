@@ -4,6 +4,7 @@ import { probeModes } from '../components/probeResults';
 export interface ConfigurationDiagnostic {
     line: number;
     severity: 'error' | 'warning';
+    moduleChannel?: number;
     message: string;
 }
 
@@ -82,8 +83,8 @@ function parseSource(source: string): SubscriptionAddress | undefined {
 
 export function inspectNodeConfiguration(text: string, selectedNode: number) {
     const diagnostics: ConfigurationDiagnostic[] = [];
-    const report = (line: number, severity: ConfigurationDiagnostic['severity'], message: string) =>
-        diagnostics.push({ line, severity, message });
+    const report = (line: number, severity: ConfigurationDiagnostic['severity'], message: string, moduleChannel?: number) =>
+        diagnostics.push({ line, severity, message, ...(moduleChannel === undefined ? {} : { moduleChannel }) });
     const modules = new Map<number, DraftModule>();
     const duplicateChannels = new Set<number>();
     let module: DraftModule | undefined;
@@ -131,7 +132,7 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
                     'This address differs from the selected node. Restart may make the node appear under another address.');
             }
         } else if (inSections && name === 'node') {
-            report(line, 'warning', 'The firmware reads the node address before the first module.');
+            report(line, 'warning', 'The firmware reads the node address before the first module.', module?.channel);
         } else if (module && name === 'interval' && (!/^\+?\d+$/.test(value) || Number(value) > 2147483647)) {
             report(line, 'error', 'Module interval must be a whole number of milliseconds from 0 to 2147483647.');
         } else if (module && name === 'name') {
@@ -163,12 +164,12 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
                 subscription.resolution = source ? `Local: ${source.name || source.type} (channel ${source.channel})` :
                     ambiguous ? (numeric ? 'Local source channel is ambiguous' : 'Local source module name is ambiguous') : 'Local source module missing';
                 if (!source) report(subscription.line, 'warning', ambiguous ?
-                    'More than one declaration matches this local source.' : 'The source module is not declared in this configuration.');
+                    'More than one declaration matches this local source.' : 'The source module is not declared in this configuration.', module.channel);
             } else {
                 subscription.resolution = 'Remote source — unverified';
                 report(subscription.line, 'warning', !/^\d+$/.test(channel) || !/^\d+$/.test(parameter) ?
                     'Use numeric channel and parameter IDs for a remote subscription.' :
-                    'This remote source cannot be verified from the node’s file.');
+                    'This remote source cannot be verified from the node’s file.', module.channel);
             }
         }
     }

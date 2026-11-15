@@ -220,3 +220,12 @@
 .dw-trace-hops li { padding: var(--dw-space-1) var(--dw-space-2); border-radius: var(--dw-radius-small); background: var(--dw-color-raised); }
 
 .dw-trace-status { cursor: pointer; }
+
+.dw-config-graph-actions { display: flex; align-items: center; }
+.dw-config-graph-module [data-warning], .dw-config-graph-caption[data-warning] {
+    background: color-mix(in srgb, var(--dw-color-warning) 20%, var(--dw-color-raised));
+}
+.dw-config-warning.btn {
+    color: var(--dw-color-warning);
+    pointer-events: auto;
+}
