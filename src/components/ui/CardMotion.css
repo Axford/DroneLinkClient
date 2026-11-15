@@ -53,3 +53,8 @@
 .dw-motion-view-frame:has(> .dw-motion-view[data-motion-exit]) > .dw-motion-view:not([data-motion-exit]) .dw-motion-card {
     transition: none;
 }
+
+/* An expanding Inspector animates its contents as a group at their measured height. */
+[data-inspector-opening] :is(.dw-motion-card, .dw-motion-view) {
+    transition: none;
+}

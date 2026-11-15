@@ -158,7 +158,13 @@
   background: var(--dw-color-canvas);
   backdrop-filter: none;
 }
-.dw-lens-panels:has(.inspector-panel[data-size="full-window"]) > :first-child { visibility: hidden; }
+.dw-lens-panels:has(.inspector-panel[data-size=full-window]):not(:has([data-inspector-resizing])) > :first-child { visibility: hidden; }
+.dw-map-inspector-slot:has(.inspector-panel[data-size="full-window"]) { background: transparent; }
+.dw-map-inspector-slot .inspector-panel[data-inspector-resizing] {
+  position: fixed;
+  max-height: none;
+}
+.dw-inspector-slot:has([data-inspector-resizing]) { z-index: 4; }
 .dw-lens-panels:has(.inspector-panel[data-size="collapsed"]) > .dw-panel-resize { display: none; }
 .dw-inspector-slot:has(.inspector-panel[data-size="collapsed"]) {
   position: absolute;

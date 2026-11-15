@@ -82,9 +82,9 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
                         aria-controls={bodyId} data-inspector-focus={`view-${channelId}`} onClick={() => onShowParameters(!showParameters)} />
                     <ChannelSummaryDetails nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} onShowParameters={() => onShowParameters(true)} />
                 </div>}
-                <ModuleStatusAction key={`${nodeId}:${channelId}:${generation}`} node={nodeId} channel={channelId} name={String(name)} status={status} />
+                <ModuleStatusAction key={JSON.stringify([nodeId, channelId, generation, channel.type])} node={nodeId} channel={channelId} name={String(name)} status={status} />
                 {actions}
-                {definition && target && settings?.canEdit && <ChannelVisualizationSettings target={target} definition={definition} generation={generation} />}
+                {definition && target && settings?.canEdit && <ChannelVisualizationSettings key={definition.moduleType} target={target} definition={definition} generation={generation} />}
             </div>
         </div>
         <div id={bodyId} className={`collapse dw-module-body${expanded ? " show" : ""}`} aria-hidden={!expanded || undefined} inert={!expanded || undefined}><div><Card.Body>

@@ -258,7 +258,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     {showGateway && <GatewayConnection workbench={workbench} open={gatewayOpen} onClose={() => setGatewayOpen(false)} />}
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
-                        <DomainLensPanels overMap={lens === 'map'} lens={lensContent}
+                        <DomainLensPanels nodeSelected={selectedNodeId !== null} overMap={lens === 'map'} lens={lensContent}
                             inspector={<InspectorPanel key={`${domain._id}:${selectedNodeId}`} selectedNodeId={selectedNodeId}
                                 droneLinkState={{ ...droneLinkState, state }} liveDomain={domain.status === 'active'}
                                 canReset={domain.canEdit === true && domain.status !== 'archived'}

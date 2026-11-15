@@ -205,7 +205,7 @@ test.each(['editor', 'viewer'])('archived %s can switch lenses with the selected
   const inspector = screen.getByRole('region', { name: 'Node Inspector' });
   expect(inspector).toHaveAttribute('data-size', 'collapsed');
   fireEvent.click(await screen.findByRole('button', { name: /^Inspect node 11:/ }));
-  fireEvent.click(within(inspector).getByRole('button', { name: 'Normal inspector' }));
+  expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'normal');
   expect(screen.getByRole('tab', { name: 'Files' })).toBeVisible();
   fireEvent.click(lenses.getByRole('button', { name: 'Network' }));
   expect(screen.getByText(/Live gateway routes are unavailable for archived Domains/)).toBeVisible();

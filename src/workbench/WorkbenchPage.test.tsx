@@ -65,7 +65,7 @@ it('uses the local feed only and discards stale readings before route or stream 
         act(() => stream.send('snapshot', { routes: [route] }));
         expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'collapsed');
         fireEvent.click(await screen.findByRole('button', { name: /Node 11 · Reachable/ }));
-        fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
+        expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'normal');
         expect(screen.getByText('Waiting for publications.')).toBeInTheDocument();
 
         act(() => {
@@ -140,7 +140,7 @@ it('keeps a manual per-node path pinned and switches Auto as the gateway route c
             stream.send('diagnostic', { text: '<device message>', receivedAtMs: route.lastHeardAtMs });
         });
         fireEvent.click(await screen.findByRole('button', { name: /Node 11 · Reachable/ }));
-        fireEvent.click(screen.getByRole('button', { name: 'Normal inspector' }));
+        expect(screen.getByRole('region', { name: 'Node Inspector' })).toHaveAttribute('data-size', 'normal');
         expect(screen.getByText('Node 11 · Local · Serial')).toBeInTheDocument();
         expect(screen.getByText('91')).toBeInTheDocument();
         expect(screen.queryByText('42')).not.toBeInTheDocument();

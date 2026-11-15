@@ -214,7 +214,7 @@ export default function WorkbenchPage() {
                 shortLabel={connected ? 'Connected' : status === 'connecting' ? 'Connecting' : 'Reconnecting'}
                 warning={status === 'reconnecting'} />}>
             <SignalPlotContext.Provider value={plot}>
-            <DomainLensPanels overMap={!showCharts && lens === 'map'} lens={showCharts ? <Suspense fallback={<p role="status">Loading live charts…</p>}>
+            <DomainLensPanels nodeSelected={selectedNode !== undefined} overMap={!showCharts && lens === 'map'} lens={showCharts ? <Suspense fallback={<p role="status">Loading live charts…</p>}>
                 <LiveCharts capture={capture} connected={connected} onCapturing={running => {
                         if (running) retainedSignals.current = new Map(catalogue.slice(0, 4096).map(signal => [signal.id, signal]));
                         setCapturing(running);

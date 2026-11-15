@@ -53,7 +53,7 @@ export default function ChannelList({ node, sampleLive = false }: { node: NodeSt
                             }} />;
                     })}
                 </div>;
-                return { key: JSON.stringify([id, channel.type]), element: <ChannelCard nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
+                return { key: String(id), element: <ChannelCard nodeId={node.id} channelId={id} channel={channel} generation={node.observationGeneration} sampleLive={sampleLive} now={now}
                     expanded={!view.collapsed.includes(id)} onToggleExpand={() => view.toggleChannel(id)}
                     showParameters={!!view.parameters[id]} onShowParameters={show => view.setShowParameters(id, show)}
                     systemOpen={view.systemOpen.includes(id)} onToggleSystem={open => view.setSystemOpen(id, open)} actions={actions} /> };

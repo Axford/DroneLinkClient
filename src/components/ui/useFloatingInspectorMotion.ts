@@ -12,8 +12,9 @@ export const FloatingInspector = createContext(false);
 export function useFloatingInspectorMotion(size: string, view: string) {
     const floating = useContext(FloatingInspector);
     const ref = useRef<HTMLElement>(null);
-    const start = useRef<DOMRect | undefined>(undefined);
+    const start = useRef<{ bounds: DOMRect; collapsed: boolean } | undefined>(undefined);
     const last = useRef<DOMRect | undefined>(undefined);
+    const lastSize = useRef(size);
     const animation = useRef<Animation | undefined>(undefined);
     const startOpacity = useRef(0);
     const snapshot = useRef<HTMLElement | undefined>(undefined);
@@ -21,7 +22,8 @@ export function useFloatingInspectorMotion(size: string, view: string) {
     function begin(nextSize: string) {
         const panel = ref.current;
         if (!floating || !panel || !motionAllowed()) return;
-        start.current = panel.getBoundingClientRect();
+        const bounds = panel.getBoundingClientRect();
+        start.current = { bounds, collapsed: size === 'collapsed' };
         startOpacity.current = snapshot.current?.isConnected ? Number(getComputedStyle(snapshot.current).opacity) : 0;
         snapshot.current?.remove();
         snapshot.current = undefined;
@@ -33,9 +35,10 @@ export function useFloatingInspectorMotion(size: string, view: string) {
         outgoing.style.width = `${panel.offsetWidth}px`;
         for (const element of visualContents(panel)) {
             const clone = element.cloneNode(true) as HTMLElement;
-            const bounds = element.getBoundingClientRect();
-            Object.assign(clone.style, { position: 'absolute', left: `${bounds.left - start.current.left}px`,
-                top: `${bounds.top - start.current.top}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
+            const contentBounds = element.getBoundingClientRect();
+            Object.assign(clone.style, { position: 'absolute', left: `${contentBounds.left - bounds.left}px`,
+                top: `${contentBounds.top - bounds.top}px`, width: `${contentBounds.width}px`, height: `${contentBounds.height}px`,
+                opacity: getComputedStyle(element).opacity });
             const copies = clone.querySelectorAll('*');
             [element, ...Array.from(element.querySelectorAll('*'))].forEach((current, index) => {
                 const copy = index === 0 ? clone : copies[index - 1];
@@ -53,27 +56,37 @@ export function useFloatingInspectorMotion(size: string, view: string) {
     useLayoutEffect(() => {
         const panel = ref.current;
         if (!floating || !panel || !motionAllowed()) return;
-        const from = start.current;
+        const resize = start.current ?? (lastSize.current !== size && last.current
+            ? { bounds: last.current, collapsed: lastSize.current === 'collapsed' }
+            : undefined);
+        lastSize.current = size;
         start.current = undefined;
+        const from = resize?.bounds ?? (panel.hasAttribute('data-inspector-resizing') ? panel.getBoundingClientRect() : undefined);
         animation.current?.cancel();
+        animation.current = undefined;
+        panel.removeAttribute('data-inspector-resizing');
+        const opening = !!resize?.collapsed && size !== 'collapsed';
+        panel.toggleAttribute('data-inspector-opening', opening);
         const to = panel.getBoundingClientRect();
         const priorLayout = last.current;
         last.current = to;
 
         function animateGeometry(before: DOMRect, after: DOMRect) {
             if (!after.width || !after.height) return;
-            const dx = before.left - after.left;
-            const dy = before.top - after.top;
-            const sx = before.width / after.width;
-            const sy = before.height / after.height;
-            const next = animateCardMotion(panel!, [
-                { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
-                { transform: 'none' },
-            ]);
+            const frame = ({ left, top, width, height }: DOMRect) => ({
+                left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px`,
+            });
+            panel!.setAttribute('data-inspector-resizing', '');
+            const next = animateCardMotion(panel!, [frame(before), frame(after)]);
+            // Keep the final bounds until the panel is back in normal layout.
+            next.effect?.updateTiming({ fill: 'both' });
             animation.current = next;
             next.onfinish = () => {
                 if (animation.current !== next) return;
                 animation.current = undefined;
+                panel!.removeAttribute('data-inspector-resizing');
+                panel!.removeAttribute('data-inspector-opening');
+                next.cancel();
                 last.current = panel!.getBoundingClientRect();
             };
         }
@@ -92,11 +105,9 @@ export function useFloatingInspectorMotion(size: string, view: string) {
                     element.scrollTo(left, top);
                     delete element.dataset.motionScroll;
                 });
-                const fade = animateCardMotion(outgoing, [{ opacity: 1, transform: 'none' }, { opacity: 0,
-                    transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width}, ${to.height / from.height})`
-                }]);
+                const fade = animateCardMotion(outgoing, [{ opacity: 1 }, { opacity: 0 }]);
                 fade.onfinish = () => { outgoing.remove(); if (snapshot.current === outgoing) snapshot.current = undefined; };
-            } else if (size === 'normal') {
+            } else if (opening) {
                 for (const element of visualContents(panel))
                     animateCardMotion(element, [{ opacity: startOpacity.current }, { opacity: 1 }]);
             }
@@ -135,11 +146,16 @@ export function useFloatingInspectorMotion(size: string, view: string) {
         return () => { observer.disconnect(); structure.disconnect(); };
     }, [floating, size, view]);
 
-    useLayoutEffect(() => () => {
-        animation.current?.cancel();
-        animation.current = undefined;
-        last.current = undefined;
-        snapshot.current?.remove();
+    useLayoutEffect(() => {
+        const panel = ref.current;
+        return () => {
+            animation.current?.cancel();
+            animation.current = undefined;
+            panel?.removeAttribute('data-inspector-resizing');
+            panel?.removeAttribute('data-inspector-opening');
+            last.current = undefined;
+            snapshot.current?.remove();
+        };
     }, [floating]);
 
     return { ref, begin };
