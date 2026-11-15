@@ -192,9 +192,9 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         ? <div className="inspector-content">{selectedNodeId === null
             ? 'Select a node to browse its files.'
             : 'Node files are available to Domain Owners, Editors and Platform Admins.'}</div>
-        : <NodeFiles key={archived ? 'archived' : 'active'} node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
+        : <NodeFiles key={`${domain._id}:${archived ? 'archived' : 'active'}`} node={selectedNodeId} activity={recordFileActivity} domainId={domain._id}
             readOnly={archived} available={!archived && workbench.fileBackups && local && !!workbench.transport(selectedNodeId)}
-            transport={archived ? undefined : localTransport} observed={archived ? undefined : localObservation}
+            transport={archived ? undefined : localTransport} observed={archived ? undefined : localObservation} snapshot={state}
             connected={!archived && workbench.fileBackups ? { request: (endpoint, options, path) =>
                 workbench.fileRequest(selectedNodeId, endpoint, options, path) } : undefined} />;
     const lensContent = lens === 'map'

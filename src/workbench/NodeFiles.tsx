@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useI2cDiscovery } from './i2cDiscovery';
-import type { NodeState } from '../dronelink/DroneLinkState';
+import type { GlobalState, NodeState } from '../dronelink/DroneLinkState';
 import type { Ace } from 'ace-builds';
 import { Folder2Open, ThreeDots } from 'react-bootstrap-icons';
 import { Dropdown } from 'react-bootstrap';
@@ -15,7 +15,7 @@ import { moduleSettingsExamples } from './moduleSettings';
 import { i2cDefaults } from './i2cDiscovery';
 import type { ResponseAddress } from './i2cDiscovery';
 import type { MotherboardSelection } from './PhysicalConfiguration';
-import { appendStarter, inspectNodeConfiguration } from './nodeConfiguration';
+import { appendStarter, inspectNodeConfiguration, resolveRemoteConfigurationSources } from './nodeConfiguration';
 import { GuidedModule, ModuleCatalogue } from './ModuleCatalogue';
 import type { Catalogue } from './ModuleCatalogue';
 import { Transport } from './useWorkbenchFeed';
@@ -39,6 +39,7 @@ interface Props {
     transport?: Transport;
     available: boolean;
     observed?: NodeState;
+    snapshot?: GlobalState;
     domainId?: string;
     readOnly?: boolean;
     connected?: { request: <T>(endpoint: string, options?: RequestInit, path?: string) => Promise<T> };
@@ -47,7 +48,7 @@ interface Props {
 
 function editorText(text: string) { return text.replace(/\r\n/g, '\n'); }
 
-export default function NodeFiles({ node, transport, available, observed, activity, domainId, readOnly = false, connected }: Props) {
+export default function NodeFiles({ node, transport, available, observed, snapshot, activity, domainId, readOnly = false, connected }: Props) {
     const codeEditor = React.useRef<Ace.Editor | null>(null);
     const narrow = useNarrowLayout();
     const explorerRef = React.useRef<HTMLElement>(null);
@@ -109,8 +110,10 @@ export default function NodeFiles({ node, transport, available, observed, activi
     const editable = !readOnly && (showingCloud ? !!cloudFile : !!stored?.editable);
     const cloudText = cloudFile?.text.includes('\r\n') ? cloudDraft.replace(/\n/g, '\r\n') : cloudDraft;
     const draftText = showingCloud ? cloudText : uploadText;
-    const overview = React.useMemo(() => configuration ? inspectNodeConfiguration(draftText, node) : undefined,
+    const draftOverview = React.useMemo(() => configuration ? inspectNodeConfiguration(draftText, node) : undefined,
         [configuration, draftText, node]);
+    const overview = React.useMemo(() => draftOverview && resolveRemoteConfigurationSources(draftOverview, snapshot),
+        [draftOverview, snapshot]);
     const diagnostics = overview?.diagnostics ?? noDiagnostics;
     const errors = diagnostics.filter(item => item.severity === 'error');
     const configurationError = errors.length > 0;
@@ -133,14 +136,17 @@ export default function NodeFiles({ node, transport, available, observed, activi
     const loadCatalogueRef = React.useRef(loadCatalogue);
     loadCatalogueRef.current = loadCatalogue;
     useEffect(() => {
-        if (configuration && editable && (view === 'code' || view === 'physical')) void loadCatalogueRef.current(false);
+        if (configuration && editable) void loadCatalogueRef.current(false);
     }, [catalogueContext, configuration, editable, view]);
 
     useEffect(() => {
         if (!catalogueResult) return;
-        const timer = setTimeout(() => setCatalogueResult(undefined), catalogueLifetimeMs);
+        const timer = setTimeout(() => {
+            if (view === 'logical') void loadCatalogueRef.current();
+            else setCatalogueResult(undefined);
+        }, catalogueLifetimeMs);
         return () => clearTimeout(timer);
-    }, [catalogueResult]);
+    }, [catalogueResult, view]);
 
     useEffect(() => {
         setView('logical');
@@ -285,7 +291,6 @@ export default function NodeFiles({ node, transport, available, observed, activi
     async function loadCatalogue(force = true) {
         if (!force && (catalogue || catalogueLoading)) return;
         const id = ++catalogueRequest.current;
-        setCatalogueResult(undefined);
         if (!available || !transport || (domainId && !remote)) { setCatalogueLoading(false); return; }
         setCatalogueLoading(true);
         try {
@@ -294,7 +299,9 @@ export default function NodeFiles({ node, transport, available, observed, activi
                 id === catalogueRequest.current && activeCatalogueContext.current === catalogueContext) {
                 setCatalogueResult({ context: catalogueContext, value: result });
             }
-        } catch { /* Older gateways and unavailable routes leave support unknown. */ }
+        } catch {
+            if (id === catalogueRequest.current) setCatalogueResult(undefined);
+        }
         finally {
             if (id === catalogueRequest.current) setCatalogueLoading(false);
         }
@@ -590,7 +597,7 @@ export default function NodeFiles({ node, transport, available, observed, activi
                         onCheckCatalogue={() => void loadCatalogue()} catalogueLoading={catalogueLoading}
                         onAcceptI2c={canAddModule ? addModule : undefined} since={probeSince} storedText={showingCloud ? undefined : stored?.text} />
                 </Suspense>}
-                {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText}
+                {overview && view === 'logical' && <ConfigurationOverview key={`${source}:${current?.path}:${current?.revision}`} overview={overview} text={draftText} node={node} catalogue={catalogue}
                     editable={editable && !busy && !configurationError} onChange={text => setCurrentDraft(editorText(text))}
                     selectedChannel={selectedModule} onSelect={channel => { setSelectedModule(channel); setSelectedPin(undefined); }}
                     goToLine={openCodeAtLine}

@@ -284,7 +284,7 @@ The shared Inspector size selector switches between a full-window view, the norm
 
 Standalone directory and file reads have a browser deadline beyond the gateway's mesh transfer budget. The file picker shows the pending status and surfaces a timeout so the operator can retry. See the [Workbench file contract](../../DroneLinkDatastore/docs/contracts/workbench.md#standalone-node-file-operations).
 
-The root configuration draft opens in the Logical graph within Files. React Flow renders module cards, subscription ports and the viewport from the existing draft parser. Cards show the declared source and resolution for each input and link directly to Code. Source edits and guided settings open from the cards. Code and Logical share the Files draft, and source edits patch the declared address in place. Graph edges show references to local modules declared in the file. Parameter compatibility and remote sources remain unverified.
+The root configuration draft opens in the Logical graph within Files. React Flow renders module cards, subscription ports and the viewport from the existing draft parser. Cards show the declared source and resolution for each input and link directly to Code. Source edits and guided settings open from the cards. Code and Logical share the Files draft, and source edits patch the declared address in place. Graph edges show references to local modules declared in the file. Matching catalogue metadata supplies Logical parameter controls. Remote labels are projected from the active domain or standalone observation snapshot, while the draft retains the exact address. Name resolution does not establish runtime delivery or parameter compatibility.
 
 ### Standalone Live charts
 

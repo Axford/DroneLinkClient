@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import NodeFiles from './NodeFiles';
+import type { GlobalState } from '../dronelink/DroneLinkState';
 
 jest.mock('./ConfigurationEditor', () => ({
     __esModule: true,
@@ -160,9 +161,13 @@ it('traces draft subscriptions and replaces only one source before a separate ve
     const edited = original.replace('@>GPSMain.location', '@>10.8');
     const previousFetch = global.fetch;
     const config = { ...stored, path: '/config.ini', text: original };
-    const fetchMock = jest.fn().mockResolvedValueOnce({ ok: true, json: async () => config })
-        .mockResolvedValueOnce({ ok: true, json: async () => ({ ...config, text: edited }) });
-    global.fetch = fetchMock;
+    const fetchMock = jest.fn((url: string, options?: RequestInit) => Promise.resolve({
+        ok: true,
+        json: async () => url.includes('/module-catalogue') ? { schemaVersion: 1, node: 11, entries: [] } :
+            options?.method === 'PUT' ? { ...config, text: edited } : config,
+    }));
+    const fileCalls = () => fetchMock.mock.calls.filter(([url]) => !url.includes('/module-catalogue'));
+    global.fetch = fetchMock as unknown as typeof fetch;
     try {
         const props = { node: 11, transport: 'wifi' as const, activity: jest.fn() };
         const view = render(<NodeFiles {...props} available />);
@@ -201,14 +206,14 @@ it('traces draft subscriptions and replaces only one source before a separate ve
         fireEvent.click(screen.getByRole('button', { name: 'Edit source for $location on channel 12' }));
         fireEvent.change(screen.getByRole('textbox', { name: 'Source for $location' }), { target: { value: '@>10.8' } });
         fireEvent.click(screen.getByRole('button', { name: 'Update draft' }));
-        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fileCalls()).toHaveLength(1);
         const upload = screen.getByRole('button', { name: 'Upload to node' });
         expect(upload).toBeDisabled();
         view.rerender(<NodeFiles {...props} available />);
         fireEvent.click(upload);
         expect(await screen.findByText(/Stored file verified by readback/)).toBeInTheDocument();
-        expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ path: '/config.ini', revision: config.revision, text: edited });
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(JSON.parse(fileCalls()[1][1]!.body as string)).toEqual({ path: '/config.ini', revision: config.revision, text: edited });
+        expect(fileCalls()).toHaveLength(2);
     } finally {
         global.fetch = previousFetch;
     }
@@ -234,4 +239,84 @@ it('opens archived Cloud files read-only without node or save actions', async ()
             '/api/domains/archive/nodes/11/cloud-files?path=%2Fconfig.ini',
         ]);
     } finally { global.fetch = previous; }
+});
+
+it('edits verified Logical parameters and publish declarations in the shared Code draft and resolves current-domain sources', async () => {
+    const original = ['node = 11', '[NMEA = 10]', '  name = GPS', '  baud = 9600 ; retain this',
+        '  publish = location, packets', '  publish = satellites ; keep this too', '[Nav = 12]', '  name = Pilot',
+        '  $target = 65>7.8 ; remote', '  $location = @>10.8', ''].join('\r\n');
+    const parameter = (name: string, address: number, type: string, count: number, extra = {}) =>
+        ({ name, address, type, count, configurable: false, alwaysPublished: false, runtimeOnly: false, ...extra });
+    const catalogue = { schemaVersion: 1, node: 11, metadataStatus: 'marker-match', entries: [
+        { type: 'NMEA', support: 'supported', parameters: [
+            parameter('location', 8, 'f', 3), parameter('satellites', 9, 'f', 1), parameter('speed', 11, 'f', 1),
+            parameter('baud', 14, 'u32', 1, { configurable: true }), parameter('packets', 17, 'u32', 3),
+        ] },
+        { type: 'Nav', support: 'supported', parameters: [
+            parameter('location', 10, 'f', 3, { sourceAddress: 11, configurable: true }),
+            parameter('target', 12, 'f', 3, { sourceAddress: 13, configurable: true }),
+            parameter('moveTarget', 27, 'u32', 3, { runtimeOnly: true }),
+        ] },
+    ] };
+    const snapshot: GlobalState = {
+        65: { id: 65, name: 'RaceMark', lastHeard: 1, channels: {
+            7: { channel: 7, lastHeard: 1, name: 'Course', params: {
+                8: { param: 8, name: 'target', msgType: 0, bytesPerValue: 4, numValues: 3, values: [1, 2, 3], writable: false },
+            } },
+        } },
+    };
+    const previousFetch = global.fetch;
+    const config = { ...stored, path: '/config.ini', text: original };
+    const fetchMock = jest.fn(async (url: string, options?: RequestInit) => ({
+        ok: true,
+        json: async () => url.includes('/module-catalogue') ? catalogue :
+            options?.method === 'PUT' ? { ...config, ...JSON.parse(options.body as string) } : config,
+    }));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+        const props = { node: 11, transport: 'wifi' as const, activity: jest.fn(), available: true };
+        const view = render(<NodeFiles {...props} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Open node configuration' }));
+        const target = await screen.findByRole('textbox', { name: 'Pilot target source' });
+        expect(screen.getByText('13 · F×3')).toBeInTheDocument();
+        expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
+        view.rerender(<NodeFiles {...props} snapshot={snapshot} />);
+        expect(screen.getByText('RaceMark > Course.target')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /remote source cannot be verified/i })).not.toBeInTheDocument();
+        expect(target).toHaveValue('65>7.8');
+        view.rerender(<NodeFiles {...props} snapshot={{}} />);
+        expect(screen.getByText('Remote source — unverified')).toBeInTheDocument();
+
+        const baud = screen.getByRole('textbox', { name: 'GPS baud draft value' });
+        fireEvent.change(baud, { target: { value: 'fast' } });
+        fireEvent.keyDown(baud, { key: 'Enter' });
+        expect(baud).toHaveAttribute('aria-invalid', 'true');
+        fireEvent.change(baud, { target: { value: '4800' } });
+        fireEvent.keyDown(baud, { key: 'Enter' });
+        fireEvent.click(screen.getByRole('switch', { name: 'Publish GPS packets' }));
+        fireEvent.click(screen.getByRole('button', { name: /Outputs · 5 parameters/i }));
+        fireEvent.click(screen.getByRole('switch', { name: 'Publish GPS speed' }));
+        fireEvent.click(screen.getByRole('button', { name: /Outputs · 3 parameters/i }));
+        expect(screen.getByRole('switch', { name: 'Publish Pilot moveTarget' })).toHaveAttribute('aria-disabled', 'true');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Code' }));
+        const editor = await screen.findByTestId<HTMLTextAreaElement>('configuration-editor');
+        const graphEdits = original.replace('9600', '4800').replace('location, packets', 'location')
+            .replace('publish = satellites ; keep this too', 'publish = satellites ; keep this too\r\n  publish = speed');
+        expect(editor).toHaveValue(graphEdits.replace(/\r\n/g, '\n'));
+        fireEvent.change(editor, { target: { value: editor.value.replace('4800', '19200').replace('65>7.8', '@>GPS.location') } });
+        fireEvent.click(screen.getByRole('button', { name: 'Logical' }));
+        expect(await screen.findByRole('textbox', { name: 'GPS baud draft value' })).toHaveValue('19200');
+        const localTarget = screen.getByRole('textbox', { name: 'Pilot target source' });
+        expect(localTarget).toHaveValue('@>GPS.location');
+        fireEvent.change(localTarget, { target: { value: '65>7.8' } });
+        fireEvent.blur(localTarget);
+        expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'PUT')).toHaveLength(0);
+        fireEvent.click(screen.getByRole('button', { name: 'Upload to node' }));
+        expect(await screen.findByText(/Stored file verified by readback/)).toBeInTheDocument();
+        const upload = fetchMock.mock.calls.find(([, options]) => options?.method === 'PUT');
+        expect(JSON.parse(upload![1]!.body as string).text).toBe(graphEdits.replace('4800', '19200'));
+    } finally {
+        global.fetch = previousFetch;
+    }
 });

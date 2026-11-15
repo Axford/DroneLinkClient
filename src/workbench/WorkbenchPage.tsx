@@ -235,7 +235,7 @@ export default function WorkbenchPage() {
                 }}
                 context={transportChoice} modules={modules} moduleActions={node && <ChannelListActions node={node} />}
                 files={selectedNode !== undefined && <NodeFiles node={selectedNode} transport={active}
-                    available={connected && !!path?.reachable} observed={node} activity={reportFiles} />} /></InspectorSessionProvider>} />
+                    available={connected && !!path?.reachable} observed={node} snapshot={localNodes} activity={reportFiles} />} /></InspectorSessionProvider>} />
             </SignalPlotContext.Provider>
         </DomainWorkspace></ParameterEditorProvider>
     </main></div>;

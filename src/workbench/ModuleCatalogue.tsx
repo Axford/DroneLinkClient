@@ -1,7 +1,7 @@
 import React, { useId, useState } from 'react';
 import SettingsDialog from '../components/ui/SettingsDialog';
 import type { ConfigurationOverview } from './nodeConfiguration';
-import type { ModuleSetting } from './moduleSettings';
+import type { ConfigurationParameter, ModuleSetting } from './moduleSettings';
 import { connectGpsLocation, gpsPort, setGpsPort } from './nodeConfiguration';
 
 interface Parameter { name: string; address: number; type: string; count: number }
@@ -11,6 +11,7 @@ interface Entry {
     category: string;
     support: 'supported' | 'unsupported' | 'unknown';
     settings?: ModuleSetting[];
+    parameters?: ConfigurationParameter[];
     serialPort?: Parameter;
     locationOutput?: Parameter;
     locationInput?: Parameter;
@@ -26,7 +27,7 @@ export interface Catalogue {
 const moduleLabel = (type: string) => type === 'NMEA' ? 'GPS' : type === 'Nav' ? 'Pilot' : type;
 const supported = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.entries.find(entry => entry.type === type && entry.support === 'supported');
-const matched = (catalogue: Catalogue | undefined, type: string) =>
+export const matchedCatalogueEntry = (catalogue: Catalogue | undefined, type: string) =>
     catalogue?.metadataStatus === 'marker-match' ? supported(catalogue, type) : undefined;
 
 export function ModuleCatalogue({ initialSearch, gpsConnector, catalogue, loading, canAdd, onRetry, onClose, onAdd }: {
@@ -87,8 +88,8 @@ export function GuidedModule({ catalogue, overview, channel, node, text, onCheck
     const id = useId();
     const [source, setSource] = useState('');
     const [preview, setPreview] = useState<{ original: string; catalogue?: Catalogue; edit: NonNullable<ReturnType<typeof connectGpsLocation>> }>();
-    const gps = matched(catalogue, 'NMEA');
-    const nav = matched(catalogue, 'Nav');
+    const gps = matchedCatalogueEntry(catalogue, 'NMEA');
+    const nav = matchedCatalogueEntry(catalogue, 'Nav');
     const selected = overview.modules.find(module => module.channel === channel);
     if (!selected || (selected.type !== 'NMEA' && selected.type !== 'Nav')) return null;
     const output = gps?.locationOutput;

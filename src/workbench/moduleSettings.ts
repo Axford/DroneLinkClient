@@ -2,6 +2,19 @@ import { probeModes, probePins } from '../components/probeResults';
 
 export interface ModuleSetting { name: string; value: string }
 
+export interface ConfigurationParameter {
+    address: number;
+    name: string;
+    type: 'u8' | 'u32' | 'f' | 'c' | 'addr';
+    count: number;
+    sourceAddress?: number;
+    configurable: boolean;
+    alwaysPublished: boolean;
+    runtimeOnly: boolean;
+    defaultValue?: string;
+}
+
+
 const common: Record<string, string> = { name: '"Module"', status: '1', interval: '1000', publish: 'status, name' };
 const examples: Record<string, Record<string, string>> = {
     NMEA: { port: '1, 255', baud: '9600', fix: '0, 0, 0', correction: '0, 0, 0', $correction: '@>GPS.location' },

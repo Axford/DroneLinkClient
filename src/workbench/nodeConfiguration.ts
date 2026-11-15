@@ -1,4 +1,5 @@
-import type { ModuleSetting } from './moduleSettings';
+import type { GlobalState } from '../dronelink/DroneLinkState';
+import type { ConfigurationParameter, ModuleSetting } from './moduleSettings';
 import { probeModes } from '../components/probeResults';
 
 export interface ConfigurationDiagnostic {
@@ -16,6 +17,7 @@ interface DraftSubscription {
     valueEnd: number;
     resolution: string;
     sourceChannel?: number;
+    remote?: boolean;
     address: SubscriptionAddress;
 }
 
@@ -166,6 +168,7 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
                 if (!source) report(subscription.line, 'warning', ambiguous ?
                     'More than one declaration matches this local source.' : 'The source module is not declared in this configuration.', module.channel);
             } else {
+                subscription.remote = true;
                 subscription.resolution = 'Remote source — unverified';
                 report(subscription.line, 'warning', !/^\d+$/.test(channel) || !/^\d+$/.test(parameter) ?
                     'Use numeric channel and parameter IDs for a remote subscription.' :
@@ -178,15 +181,41 @@ export function inspectNodeConfiguration(text: string, selectedNode: number) {
 
 export type ConfigurationOverview = ReturnType<typeof inspectNodeConfiguration>;
 
-export function updateSubscriptionSource(text: string, subscription: DraftSubscription, input: string) {
-    const source = input.trim();
-    if (!/^[^\s;"[\]=>.]+>[^\s;"[\]=>.]+\.[^\s;"[\]=>.]+$/u.test(source) ||
-        source === subscription.source) return;
+export function resolveRemoteConfigurationSources(overview: ConfigurationOverview, snapshot?: GlobalState): ConfigurationOverview {
+    if (!snapshot) return overview;
+    const resolvedLines = new Set<number>();
+    const modules = overview.modules.map(module => {
+        const subscriptions = module.subscriptions.map(input => {
+            if (!input.remote) return input;
+            const { node, channel, parameter } = input.address;
+            if (!decimal(node, 254) || !decimal(channel, 254) || !decimal(parameter, 63)) return input;
+            const observedNode = snapshot[Number(node)];
+            const observedChannel = observedNode?.channels[Number(channel)];
+            const observedParameter = observedChannel?.params[Number(parameter)];
+            if (!observedNode?.name?.trim() || !observedChannel?.name?.trim() ||
+                !observedParameter?.name?.trim() || observedParameter.unavailable?.name) return input;
+            resolvedLines.add(input.line);
+            return { ...input, resolution: `${observedNode.name} > ${observedChannel.name}.${observedParameter.name}` };
+        });
+        return subscriptions.some((input, index) => input !== module.subscriptions[index]) ? { ...module, subscriptions } : module;
+    });
+    return resolvedLines.size ? { modules, diagnostics: overview.diagnostics.filter(item => !resolvedLines.has(item.line)) } : overview;
+}
+
+
+function safeSubscriptionSource(source: string) {
+    if (!/^[^\s;"[\]=>.]+>[^\s;"[\]=>.]+\.[^\s;"[\]=>.]+$/u.test(source)) return false;
     const address = parseSource(source);
     // The firmware uses atoi and treats a leading @ as local. Do not
     // introduce signed numbers that can wrap or ambiguous @ aliases.
     if (!address || [address.node, address.channel, address.parameter].some(part => /^[+-]\d/.test(part)) ||
-        (address.node.startsWith('@') && address.node !== '@')) return;
+        (address.node.startsWith('@') && address.node !== '@')) return false;
+    return true;
+}
+
+export function updateSubscriptionSource(text: string, subscription: DraftSubscription, input: string) {
+    const source = input.trim();
+    if (!safeSubscriptionSource(source) || source === subscription.source) return;
     const lines = text.split('\n');
     const index = subscription.line - 1;
     const raw = lines[index];
@@ -273,6 +302,116 @@ export function moduleSettings(text: string, module: DraftModule) {
         settings.set(line.name, values);
     }
     return settings;
+}
+
+function draftModuleEdit(text: string, node: number, channel: number, edit: (module: DraftModule) => string | undefined) {
+    const overview = inspectNodeConfiguration(text, node);
+    if (overview.diagnostics.some(item => item.severity === 'error')) return;
+    const module = overview.modules.find(item => item.channel === channel);
+    if (!module) return;
+    const result = edit(module);
+    if (result !== undefined && bytes(result) <= maxNodeFileBytes &&
+        !inspectNodeConfiguration(result, node).diagnostics.some(item => item.severity === 'error')) return result;
+}
+
+function removeModuleAssignments(text: string, module: DraftModule, key: string) {
+    const newline = ending(text);
+    const lines = text.split(newline);
+    const matches = [];
+    for (let index = module.line; index < lines.length; index++) {
+        const line = splitLine(lines[index], false);
+        if (line.section) break;
+        if (line.valid && line.name === key) matches.push(index);
+    }
+    if (matches.length > 1) return;
+    for (const index of matches) {
+        const raw = lines[index];
+        const comment = raw.slice(splitLine(raw, false).valueEnd).match(/;.*$/)?.[0];
+        lines.splice(index, 1, ...(comment ? [indentation(raw) + comment] : []));
+    }
+    return lines.join(newline);
+}
+
+function validParameterValue(parameter: ConfigurationParameter, value: string) {
+    if (parameter.type === 'c') {
+        const literal = value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+        if (!literal || bytes(literal.replace(/[ \t]/g, '')) > parameter.count || /[",\r\n\0]/.test(literal)) return;
+        return `"${literal}"`;
+    }
+    if (parameter.type === 'addr') return safeSubscriptionSource(value) ? value : undefined;
+    const parts = value.split(',').map(part => part.trim());
+    if (parts.length > Math.min(parameter.count, parameter.type === 'u8' ? 16 : 4)) return;
+    const valid = parts.every(part => {
+        if (part.length > 19) return false;
+        if (parameter.type === 'f') return /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(part) &&
+            Number.isFinite(Math.fround(Number(part)));
+        return /^\d+$/.test(part) && Number(part) <= (parameter.type === 'u8' ? 255 : 2147483647);
+    });
+    return valid ? parts.join(', ') : undefined;
+}
+
+export function editDraftParameter(text: string, node: number, channel: number, parameter: ConfigurationParameter, input: string) {
+    if (!parameter.configurable || parameter.runtimeOnly || !/^[A-Za-z][A-Za-z0-9_]{0,18}$/.test(parameter.name)) return;
+    return draftModuleEdit(text, node, channel, module => {
+        const value = input.trim();
+        if (!value) return removeModuleAssignments(text, module, parameter.name);
+        const configured = validParameterValue(parameter, value);
+        if (configured !== undefined) return patchModuleLine(text, module, parameter.name, configured, () => configured)?.text;
+    });
+}
+
+export function editDraftSource(text: string, node: number, channel: number, key: string, input: string) {
+    if (!/^\$[A-Za-z][A-Za-z0-9_]{0,17}$/.test(key)) return;
+    return draftModuleEdit(text, node, channel, module => {
+        const source = input.trim();
+        if (!source) return removeModuleAssignments(text, module, key);
+        if (!safeSubscriptionSource(source)) return;
+        return patchModuleLine(text, module, key, source)?.text;
+    });
+}
+
+export function draftPublications(settings: Map<string, string[]>) {
+    return new Set((settings.get('publish') ?? []).flatMap(value => value.split(',').map(name => name.trim()).filter(Boolean)));
+}
+
+export function toggleDraftPublication(text: string, node: number, channel: number, parameter: ConfigurationParameter, enabled: boolean) {
+    const { name } = parameter;
+    if (parameter.alwaysPublished || parameter.runtimeOnly || !/^[A-Za-z][A-Za-z0-9_]{0,18}$/.test(name)) return;
+    return draftModuleEdit(text, node, channel, module => {
+        const newline = ending(text);
+        const lines = text.split(newline);
+        const matches = [];
+        for (let index = module.line; index < lines.length; index++) {
+            const line = splitLine(lines[index], false);
+            if (line.section) break;
+            if (line.valid && line.name === 'publish') matches.push({ index, ...line });
+        }
+        const names = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean);
+        if (enabled) {
+            if (matches.some(line => names(line.value).includes(name))) return text;
+            // A separate declaration keeps the firmware's per-line length bounded and preserves existing lists.
+            const last = matches.at(-1);
+            if (!last) return patchModuleLine(text, module, 'publish', name)?.text;
+            lines.splice(last.index + 1, 0, `${indentation(lines[last.index])}publish = ${name}`);
+        } else {
+            for (const line of matches.reverse()) {
+                if (!names(line.value).includes(name)) continue;
+                const raw = lines[line.index];
+                const list = raw.slice(line.valueStart, line.valueEnd);
+                const quoted = list.startsWith('"') && list.endsWith('"');
+                const tokens = (quoted ? list.slice(1, -1) : list).split(',');
+                const kept = tokens.filter(token => token.trim() !== name);
+                if (kept.some(token => token.trim())) {
+                    const next = kept.join(',').trim();
+                    lines[line.index] = raw.slice(0, line.valueStart) + (quoted ? `"${next}"` : next) + raw.slice(line.valueEnd);
+                } else {
+                    const comment = raw.slice(line.valueEnd).match(/;.*$/)?.[0];
+                    lines.splice(line.index, 1, ...(comment ? [indentation(raw) + comment] : []));
+                }
+            }
+        }
+        return lines.join(newline);
+    });
 }
 
 export function gpsPort(text: string, module: DraftModule) {

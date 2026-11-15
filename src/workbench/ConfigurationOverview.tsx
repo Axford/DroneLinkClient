@@ -1,5 +1,6 @@
 import React, { Suspense, useId, useState } from 'react';
 import SettingsDialog from '../components/ui/SettingsDialog';
+import type { Catalogue } from './ModuleCatalogue';
 import type { ConfigurationOverview as Overview } from './nodeConfiguration';
 import { updateSubscriptionSource } from './nodeConfiguration';
 
@@ -8,9 +9,11 @@ const ConfigurationGraph = React.lazy(() => import('./ConfigurationGraph'));
 type Module = Overview['modules'][number];
 type Subscription = Module['subscriptions'][number];
 
-export default function ConfigurationOverview({ overview, text, editable, onChange, goToLine, selectedChannel, onSelect, selectedDetails }: {
+export default function ConfigurationOverview({ overview, text, node, catalogue, editable, onChange, goToLine, selectedChannel, onSelect, selectedDetails }: {
     overview: Overview;
     text: string;
+    node: number;
+    catalogue?: Catalogue;
     editable: boolean;
     onChange: (draft: string) => void;
     goToLine: (line: number) => void;
@@ -42,7 +45,8 @@ export default function ConfigurationOverview({ overview, text, editable, onChan
 
     return <section className="dw-config-overview" aria-label="Modules and subscriptions">
         <Suspense fallback={<p role="status">Loading subscription graph…</p>}>
-            <ConfigurationGraph overview={overview} selected={selectedChannel} onSelect={onSelect}
+            <ConfigurationGraph overview={overview} text={text} node={node} catalogue={catalogue} editable={editable}
+                onChange={onChange} selected={selectedChannel} onSelect={onSelect}
                 onModule={openModule} onInput={editable ? editSource : undefined} goToLine={goToLine} />
         </Suspense>
         <SettingsDialog compact title="Module settings" show={settingsChannel !== undefined && settingsChannel === selectedChannel && !!selectedDetails}
