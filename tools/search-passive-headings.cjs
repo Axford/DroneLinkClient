@@ -11,8 +11,10 @@ require.extensions['.ts'] = (module, filename) => {
   module._compile(outputText, filename);
 };
 
-const { prepareSailingBoat, jointAngle } = require('../src/dreamer/sailing/sailingModel.ts');
-const { createPassiveSearch, headingDifference, passiveHeadingSettings: settings } = require('../src/dreamer/sailing/passiveHeading.ts');
+const { prepareSailingBoat } = require('../src/dreamer/sailing/sailingModel.ts');
+const { createPassiveSearch, passiveHeadingSettings: settings } = require('../src/dreamer/sailing/passiveHeading.ts');
+
+const { passiveTrials, collectCandidates, headingBins } = require('../src/dreamer/sailing/passiveStudy.ts');
 
 function setup(file) {
   const snapshot = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -38,23 +40,7 @@ async function run(input, output) {
   const file = path.resolve(input);
   const { snapshot, search } = setup(file);
   fs.mkdirSync(output);
-  const [first, second] = search.sails;
-  const coarse = [-75,-45,-15,0,15,45,75];
-  const angles = ({ joint }) => [...new Set([joint.minimum, ...coarse.map(a => jointAngle(joint,a)), joint.maximum])].sort((a,b) => a-b);
-  const starts = [0,60,120,180,240,300].map(offset => ({
-    initialHeading: (settings.windFrom+offset)%360, initialSpeed: 0,
-  }));
-  const movingStarts = [30,90,150,210,270,330].map(offset => ({
-    initialHeading: (settings.windFrom+offset)%360, initialSpeed: 0.35,
-  }));
-  const trials = angles(first).flatMap(a => angles(second).flatMap(b => starts.map(start =>
-    ({ trim: { first:a, second:b }, ...start }))));
-  // These fixed trims cover useful alternative starts that emerged in the first probe.
-  for (const [a,b] of [[-75,-75],[-65,-55],[-55,-65],[-45,-45],[-75,0],[0,-75],[45,45],[65,60],[60,65],[75,75]]) {
-    for (const start of movingStarts)
-      trials.push({ trim: { first: jointAngle(first.joint,a), second: jointAngle(second.joint,b) }, ...start });
-  }
-
+  const { trials, starts, movingStarts, angles } = passiveTrials(search.sails);
   const count = Math.min(8, Math.max(1, os.availableParallelism()-1));
   const workers = Array.from({ length: count }, () => new Worker(__filename, { workerData: { file } }));
   async function batch(phase, jobs) {
@@ -80,36 +66,19 @@ async function run(input, output) {
 
   try {
     const observed = await batch('search', trials);
-    const candidates = [];
-    for (const trial of observed) {
-      const { outcome, state } = trial.result;
-      if (!outcome) continue;
-      const matches = candidates.find(candidate =>
-        candidate.trim.first === trial.trim.first && candidate.trim.second === trial.trim.second &&
-        Math.abs(headingDifference(candidate.outcome.heading,outcome.heading)) < 2 &&
-        Math.abs(candidate.outcome.speed-outcome.speed) < 0.04);
-      const initial = { heading: trial.initialHeading, speed: trial.initialSpeed };
-      if (matches) matches.starts.push(initial);
-      else candidates.push({ trim: trial.trim, outcome, state, starts: [initial] });
-    }
-    const verified = (await batch('verify', candidates)).map(({ state, result, ...candidate }) =>
-      ({ ...candidate, disturbances: result, verified: result.every(item => item.recovered) }));
+    const candidates = collectCandidates(observed.flatMap(({ result, ...trial }) =>
+      result.outcome ? [{ ...trial, outcome: result.outcome, state: result.state }] : []));
+    const verified = (await batch('verify', candidates)).map(({ state, result, starts, ...candidate }) =>
+      ({ ...candidate, starts: starts.map(start => ({ heading: start.initialHeading, speed: start.initialSpeed })),
+        disturbances: result, verified: result.every(item => item.recovered) }));
     const wins = verified.filter(entry => entry.verified);
-    const bins = Array.from({ length: 360/settings.headingBin }, (_, index) => {
-      const center = headingDifference(index*settings.headingBin,0);
-      const matches = wins.filter(candidate => {
-        const offset = headingDifference(candidate.outcome.windAngle,center);
-        return offset >= -settings.headingBin/2 && offset < settings.headingBin/2;
-      });
-      matches.sort((a,b) => b.outcome.speed-a.outcome.speed);
-      return { center, candidates: matches.length, best: matches[0] ?? null };
-    }).sort((a,b) => a.center-b.center);
+    const bins = headingBins(wins).map(({ center, entries }) => ({ center, candidates: entries.length, best: entries[0] ?? null }));
     const counts = {};
     for (const trial of observed) counts[trial.result.status] = (counts[trial.result.status] ?? 0)+1;
     const result = {
       model: { name: snapshot.model?.name ?? snapshot.name, modelId: snapshot.modelId, revisionId: snapshot.revisionId, number: snapshot.number },
       settings, sails: search.sails.map(({ id,name }) => ({ id,name })), starts, movingStarts,
-      angles: [angles(first),angles(second)], trials: observed.map(({ result: trial, ...inputs }) =>
+      angles, trials: observed.map(({ result: trial, ...inputs }) =>
         ({ ...inputs, status: trial.status, outcome: trial.outcome })),
       counts, candidates: verified, bins,
     };

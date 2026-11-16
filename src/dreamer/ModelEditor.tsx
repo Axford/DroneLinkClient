@@ -7,6 +7,7 @@ import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
 import { BoatDocument, Revision, Snapshot } from './cloudModels';
 import StabilityView from './StabilityView';
+import TrimSearchView from './sailing/TrimSearchView';
 import SailingView from './sailing/SailingView';
 import ResponseView from './sailing/ResponseView';
 import { ApiError } from '../utils/api';
@@ -15,7 +16,7 @@ import './modelEditor.css';
 const origin: Vector = [0, 0, 0];
 const tabs = {
   import: 'Import', orient: 'Orient', configure: 'Configure', stability: 'Stability',
-  'sail-response': 'Sail response', 'hull-response': 'Hull response', sail: 'Sail',
+  'sail-response': 'Sail response', 'hull-response': 'Hull response', 'trim-search': 'Trim search', sail: 'Sail',
 } as const;
 const steps = Object.keys(tabs) as (keyof typeof tabs)[];
 type Step = typeof steps[number];
@@ -274,6 +275,10 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
         {(step === 'sail-response' || step === 'hull-response') && saved && <Tab.Pane eventKey={step} transition={false}>
           {dirty && <p className="dw-meta">This sweep uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
           <ResponseView key={step + saved.revision.revisionId} model={saved.model} mode={step === 'sail-response' ? 'sail' : 'hull'} />
+        </Tab.Pane>}
+        {saved && <Tab.Pane eventKey="trim-search" transition={false} mountOnEnter>
+          {dirty && <p className="dw-meta">Trim search uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
+          <TrimSearchView key={saved.revision.revisionId} model={saved.model} revision={saved.revision} />
         </Tab.Pane>}
         {step === 'sail' && saved && <Tab.Pane eventKey="sail" transition={false}>
           {dirty && <p className="dw-meta">Sailing uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}

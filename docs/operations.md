@@ -323,6 +323,10 @@ node tools/sweep-sail-trim.cjs revision.json sail-trim.csv 5
 
 The tool evaluates each pair of neutral-relative angles at 5° intervals and includes both sails' exact travel endpoints. It holds the boat upright and stationary at heading 000° in wind from 045°. The optional speed in m/s defaults to 5. The CSV reports combined and per-sail forces in newtons, with positive drive forward and positive side force to port. Positive yaw moment in N·m turns the bow to port about the boat's centre of gravity. The CSV also reports each sail’s area-weighted apparent-wind speed loss as a fraction from 0 to 1. Sail 1 and Sail 2 follow their order in the model. Keep private model snapshots and generated sweeps outside the repository.
 
+Open **Trim search** before **Sail** on a saved rudderless model with two enabled jointed sails. This increment searches in smooth water at 5 m/s true wind. Select **Run trim search** to start the background job. Use the heading scrubber or coverage buttons to inspect a verified result, choose an alternate trim in the same bin, or see a heading gap. The 3D preview shows the settled sail angles, wind, bow heading and direction of travel. **Download results** exports a versioned JSON result with the model revision and joint IDs.
+
+Enable **Symmetric response** only for boats whose port and starboard geometry and sail neutral positions are mirror images. The search skips reflected starting conditions that can be represented by a counterpart within the same joint limits. It marks reflected outcomes as **Mirrored estimate** and distinguishes mirrored-only bins from directly verified bins. When the sail joint lines have no matching reflection, run a full search.
+
 To search for passive headings at 5 m/s, save a revision with two enabled jointed sails and exclude the rudder and any other actuated water foils in Configure. Pass its snapshot JSON to the local search:
 
 ```sh

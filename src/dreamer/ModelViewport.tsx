@@ -31,6 +31,7 @@ interface Props {
   onPickVertex: (vertex: Vector) => void;
   hydrostatic?: HydrostaticPose;
   sailing?: SailingPose;
+  viewLabel?: string;
 }
 interface Marker { handle: Handle; world: Vector; local: Vector; screen: Vector; color: string; label: string; }
 type Drag =
@@ -52,7 +53,7 @@ function editorPalette() {
 }
 
 export default function ModelViewport({
-  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, neutralDraft, onMoveAngle, onMoveHandle, onPickVertex, hydrostatic, sailing,
+  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, neutralDraft, onMoveAngle, onMoveHandle, onPickVertex, hydrostatic, sailing, viewLabel,
 }: Props) {
   const [palette] = useState(editorPalette);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -410,7 +411,7 @@ export default function ModelViewport({
       <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={() => fitView(hydrostatic || sailing ? 0.75 : 1)} />
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
-      aria-label={(sailing ? 'Live 3D sailing view.' : hydrostatic ? '3D hydrostatic preview.' : '3D boat assembly.') + ' Right-drag to orbit, middle-drag to pan, Alt or Option plus scroll to zoom.'} tabIndex={0}
+      aria-label={(viewLabel ?? (sailing ? 'Live 3D sailing view.' : hydrostatic ? '3D hydrostatic preview.' : '3D boat assembly.')) + ' Right-drag to orbit, middle-drag to pan, Alt or Option plus scroll to zoom.'} tabIndex={0}
       onContextMenu={event => event.preventDefault()}
       onAuxClick={event => event.preventDefault()}
       onKeyDown={event => {
