@@ -258,3 +258,27 @@ test('wind shadow follows the upstream sail and weakens with partial overlap and
   expect(evaluate([0.6,0,0], airflow, 90)[1].shadow).toBeCloseTo(0, 8);
   expect(evaluate([0.6,0,0], airflow, 0, true)[1].shadow).toBeCloseTo(downwind.shadow!, 8);
 });
+
+test('a neutral stern rudder resists a yaw offset ahead and amplifies it astern', () => {
+  const sloop = boat();
+  const run = new SailingRun(sloop, 'Flat calm', 1);
+  for (const speed of [-0.6, 0.6]) {
+    for (const offset of [-2, 0, 2]) {
+      const halfYaw = offset*Math.PI/360;
+      const state = { ...run.state, velocity: [speed,0,0] as Vector,
+        orientation: [0,0,Math.sin(halfYaw),Math.cos(halfYaw)] as typeof run.state.orientation };
+      const rudder = loads(sloop, state, run.angles, run.conditions, true).components.find(part => part.name === 'Rudder')!;
+      if (!offset) expect(rudder.moment[2]).toBeCloseTo(0, 6);
+      else expect(rudder.moment[2] * -Math.sign(speed*offset)).toBeGreaterThan(0.01);
+    }
+  }
+});
+
+test('sailing instruments distinguish heading from stern-first travel', () => {
+  const run = new SailingRun(boat(), 'Flat calm', 1);
+  expect(instruments(run.state, run.conditions).course).toBeNull();
+  const moving = instruments({ ...run.state, velocity: [-0.6,0,0] }, run.conditions);
+  expect(moving.heading).toBeCloseTo(0);
+  expect(moving.course).toBeCloseTo(180);
+  expect(moving.foreAftSpeed).toBeCloseTo(-0.6);
+});

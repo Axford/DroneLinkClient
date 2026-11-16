@@ -288,12 +288,17 @@ export function instruments(state: SailingState, weather: Weather) {
   const { apparentWind: apparent } = windVectors(state, weather);
   const localWind = rotate(inverse(state.orientation), scale(apparent, -1));
   const bearing = (x: number, east: number) => (degrees(Math.atan2(east, x)) + 360) % 360;
+  const [vx,vy] = state.velocity;
+  const speed = Math.hypot(vx,vy);
+  const heading = Math.atan2(forward[1], forward[0]);
   return {
     heading: bearing(forward[0], -forward[1]),
     heel: degrees(Math.atan2(port[2], up[2])),
     pitch: degrees(Math.asin(clamp(forward[2], -1, 1))),
     wind: norm(apparent) > 0.01 ? bearing(localWind[0], -localWind[1]) : null,
     windSpeed: norm(apparent),
-    speed: Math.hypot(...state.velocity.slice(0, 2)),
+    speed,
+    course: speed >= 0.05 ? bearing(vx,-vy) : null,
+    foreAftSpeed: vx*Math.cos(heading) + vy*Math.sin(heading),
   };
 }

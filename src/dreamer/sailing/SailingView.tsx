@@ -163,6 +163,9 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
         <div><dt>Heel</dt><dd>{digits.format(numbers.heel)}°</dd></div>
         <div><dt>Pitch</dt><dd>{digits.format(numbers.pitch)}°</dd></div>
         <div><dt>Apparent wind</dt><dd>{digits.format(numbers.windSpeed)} m/s{numbers.wind !== null && ' from ' + digits.format(numbers.wind) + '°'}</dd></div>
+        <div><dt>Course</dt><dd>{numbers.course === null ? '—' : digits.format(numbers.course) + '°'}</dd></div>
+        <div><dt>Fore/aft speed</dt><dd>{Math.abs(numbers.foreAftSpeed).toFixed(2)} m/s{Math.abs(numbers.foreAftSpeed) >= 0.005 &&
+          (numbers.foreAftSpeed < 0 ? ' astern' : ' ahead')}</dd></div>
       </dl>
       {state.time > 6 && numbers.speed < 0.05 && <p className="dw-meta">Boat speed below 0.05 m/s.</p>}
     </section>
