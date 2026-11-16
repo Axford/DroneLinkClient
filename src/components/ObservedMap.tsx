@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import maplibregl from 'maplibre-gl';
 import { ArrowsFullscreen, InfoCircle } from 'react-bootstrap-icons';
@@ -7,6 +7,7 @@ import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import NodeSelector from './NodeSelector';
 import MapContextMenu from './MapContextMenu';
+import { useRegisterMapCamera } from './MapCamera';
 import { User } from '../App';
 import { GlobalState } from '../dronelink/DroneLinkState';
 import { ObservedBearing, ObservedPosition, observedPositions, receiptLabel } from '../dronelink/observedPositions';
@@ -453,20 +454,24 @@ export default function ObservedMap({ token, domainId, user, state, trails, view
   }, [secondaryPositions, now, token, user, selectedNodeId, mapReady, mapError]);
 
   // The canvas extends beneath the floating Inspector, but camera actions target the unobstructed lens.
-  const coveredMapArea = () => ({
+  const coveredMapArea = useCallback(() => ({
     right: Math.max(0, (container.current?.clientWidth ?? 0) - (pane.current?.clientWidth ?? 0)),
     bottom: Math.max(0, (container.current?.clientHeight ?? 0) - (pane.current?.clientHeight ?? 0)),
-  });
+  }), []);
+  const centerMap = useCallback((coordinates: [number, number]) => {
+    const { right, bottom } = coveredMapArea();
+    map.current?.easeTo({
+      center: coordinates, duration: 0,
+      ...(right || bottom ? { offset: [-right / 2, -bottom / 2] as [number, number] } : {}),
+    });
+  }, [coveredMapArea]);
+  useRegisterMapCamera(mapReady && !mapError && (token || local) ? centerMap : undefined);
   const canLocate = (nodeId: number) => mapReady && !mapError && positions.some(position => position.nodeId === nodeId);
   const locateNode = (nodeId: number) => {
     const position = positions.find(position => position.nodeId === nodeId);
     if (!position || !canLocate(nodeId)) return;
     if (onNodeSelect(nodeId) === false) return;
-    const { right, bottom } = coveredMapArea();
-    map.current?.easeTo({
-      center: position.coordinates, duration: 0,
-      ...(right || bottom ? { offset: [-right / 2, -bottom / 2] as [number, number] } : {}),
-    });
+    centerMap(position.coordinates);
   };
 
   const fitPositions = () => {

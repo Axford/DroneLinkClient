@@ -25,6 +25,7 @@ import TurnRateInstrument from './TurnRateInstrument';
 import ProaInstrument from './ProaInstrument';
 import SailorInstrument from './SailorInstrument';
 import WaypointInstrument from './WaypointInstrument';
+import WaypointActions from './WaypointActions';
 import NavInstrument from './NavInstrument';
 import WindDials from './WindDials';
 import DepthTrace from './DepthTrace';
@@ -60,7 +61,7 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
     </dd>;
 }
 
-export default function ChannelSummary({ nodeId, channelId, summary, sampleScope }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string }) {
+export default function ChannelSummary({ nodeId, channelId, summary, sampleScope, generation }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string; generation?: number }) {
     const label = `Observed readings for channel ${channelId}`;
     if ('polarResponse' in summary) {
         return <PolarInstrument label={label} summary={summary} />;
@@ -81,7 +82,10 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         return <SailorInstrument label={label} summary={summary} />;
     }
     if ('waypoint' in summary) {
-        return <WaypointInstrument label={label} summary={summary} />;
+        return <>
+            <WaypointInstrument label={label} summary={summary} />
+            <WaypointActions key={JSON.stringify([nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId} summary={summary} />
+        </>;
     }
     if ('navigationBearings' in summary) {
         return <NavInstrument nodeId={nodeId} label={label} summary={summary} />;

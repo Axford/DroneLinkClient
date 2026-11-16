@@ -59,7 +59,7 @@ export default function ChannelCard({ nodeId, channelId, channel, generation = 0
     const receipt = receiptLabel(channel.lastHeard, now);
     const summaryView = probe ? <>{expanded && <ProbeInstrument channel={channel} now={now}
         disabled={status === 0} motherboardVersion={motherboardVersion} />}</> :
-        summary && <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} />;
+        summary && <ChannelSummary nodeId={nodeId} channelId={channelId} summary={summary} sampleScope={sampleScope} generation={generation} />;
     const visibleSummary = !showParameters && summaryView;
     return <Card className="channel-card" data-status={statusText?.toLowerCase()}>
         <div className="dw-channel-card-heading">

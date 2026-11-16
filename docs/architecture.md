@@ -237,7 +237,11 @@ Sailor shares the navigation guides and hands. Target and course accept signed b
 
 ### Waypoint route progress
 
-Waypoint displays a one-based index from parameter 10 and count from 9, loop mode from 14, and estimated route speed from 16. Parameter 15 supplies the distance to the next waypoint, remaining distance and planned route length in metres. The track shows estimated distance covered and the next waypoint on the same scale. Before the route starts, the approach distance can exceed the planned length. A zero-length route has no proportional track but can still have an ETA with positive speed and a valid active waypoint. An empty route suppresses stale distance and speed readouts while Reading Details retains their observations. Route actions retain their separate scope.
+Waypoint displays a one-based index from parameter 10 and count from 9, loop mode from 14, and estimated route speed from 16. Parameter 15 supplies the distance to the next waypoint, remaining distance and planned route length in metres. The track shows estimated distance covered and the next waypoint on the same scale. Before the route starts, the approach distance can exceed the planned length. A zero-length route has no proportional track but can still have an ETA with positive speed and a valid active waypoint. An empty route suppresses stale distance and speed readouts while Reading Details retains their observations.
+
+The Waypoint Summary places its actions below the observed readings. **Restart** selects waypoint 1 in the loaded route. **Next** uses the observed index and count and stops at the final waypoint, including for looping routes. **Reload** requests a reread of `waypoint.csv` and a return to waypoint 1. These writes use the same selected Cloud or Workbench parameter path and observed writable metadata as the generic editor. The Summary shows request and delivery feedback separately from reported progress. A newer mode receipt alone cannot verify a reload.
+
+**Goto** centers the active map on the coordinates of the module's observed target (parameter 11), using the workspace camera offset. It requires a valid coordinate and an active map and remains available without write access. The map action does not select a different waypoint or send a command. See the [Summary action pattern](../../DroneLinkDatastore/docs/design-guidelines.md#module-summary-actions).
 
 ### Nav bearing comparison
 

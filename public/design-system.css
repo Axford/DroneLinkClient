@@ -242,6 +242,12 @@ body { margin: 0; font-size: 1rem; line-height: var(--dw-line-height); }
 [data-bs-theme] .dw-tab-content .card { --bs-card-bg: var(--dw-color-raised); }
 .dw-item-row { display: flex; align-items: center; gap: var(--dw-space-3); min-width: 0; }
 .dw-item-content { flex: 1; min-width: 0; }
+.dw-summary-actions { margin-top: var(--dw-space-2); }
+.dw-summary-action-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dw-space-1); }
+.dw-summary-action-row .btn { min-height: var(--dw-control-size); }
+.dw-summary-action-emphasis { margin-inline-start: auto; }
+.dw-summary-actions > [role="status"] { margin-top: var(--dw-space-1); overflow-wrap: anywhere; }
+.dw-summary-action-row .btn[aria-disabled="true"] { opacity: var(--bs-btn-disabled-opacity); pointer-events: none; }
 .dw-row-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: var(--dw-space-2); margin-left: auto; flex-shrink: 0; }
 .dw-actions-cell { width: 1%; text-align: right; vertical-align: middle; }
 .dw-row-actions .form-select { width: auto; min-width: var(--dw-select-min-width); }

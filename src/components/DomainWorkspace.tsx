@@ -1,3 +1,4 @@
+import { MapCameraProvider } from './MapCamera';
 import { FloatingInspector } from './ui/useFloatingInspectorMotion';
 import React, { useId, useLayoutEffect, useRef, useState } from 'react';
 import { InspectorSizePreference, type InspectorSize } from './NodeInspector';
@@ -70,7 +71,7 @@ export function DomainLensPanels({ lens, inspector, overMap = false, nodeSelecte
         hadSelection.current = nodeSelected;
     }, [nodeSelected]);
     if (!inspector) return <div className="dw-lens-only">{lens}</div>;
-    return <PanelGroup className={`dw-lens-panels ${overMap ? 'dw-map-panels' : ''}`} direction={narrow ? 'vertical' : 'horizontal'}>
+    return <MapCameraProvider><PanelGroup className={`dw-lens-panels ${overMap ? 'dw-map-panels' : ''}`} direction={narrow ? 'vertical' : 'horizontal'}>
         <Panel style={overMap ? { overflow: 'visible' } : undefined} defaultSize={narrow ? 50 : 65} minSize={narrow ? 25 : 35}>{lens}</Panel>
         <PanelResizeHandle className={`dw-panel-resize ${narrow ? 'vertical' : ''}`} />
         <Panel defaultSize={narrow ? 50 : 35} minSize={25} maxSize={narrow ? 75 : 65}
@@ -79,5 +80,5 @@ export function DomainLensPanels({ lens, inspector, overMap = false, nodeSelecte
                 <InspectorSizePreference.Provider value={[size, setSize]}>{inspector}</InspectorSizePreference.Provider>
             </FloatingInspector.Provider></div>
         </Panel>
-    </PanelGroup>;
+    </PanelGroup></MapCameraProvider>;
 }

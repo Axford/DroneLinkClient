@@ -100,6 +100,9 @@ export interface SailorSummary {
 }
 
 export interface WaypointSummary {
+    count?: number;
+    index?: number;
+    target?: [number, number];
     waypoint: ObservedSummary;
     total: ObservedSummary;
     speed: ObservedSummary;
@@ -807,7 +810,10 @@ function waypointSummary(channel: ChannelState): WaypointSummary {
     const seconds = metresPerSecond !== undefined && metresPerSecond > 0 && active && validLeg ?
         Math.round(remainingMetres / metresPerSecond) : undefined;
     const eta = seconds !== undefined && Number.isSafeInteger(seconds) ? waypointEtaText(seconds) : undefined;
+    const targetReading = channel.params[11];
+    const target = observedFloatVector(targetReading, 3) ? locationCoordinates({ reading: targetReading }) : undefined;
     return {
+        count, index: active ? index : undefined, target,
         waypoint, total, speed: count === 0 ? field(channel, 16, speed.label) : speed, eta, loop, covered, remaining, leg, routeProgress,
         details: [
             field(channel, 10, 'Active waypoint', active ? String(index + 1) : undefined),
