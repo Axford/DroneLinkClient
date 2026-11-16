@@ -1,5 +1,5 @@
 import { ApiError, authenticatedFetchJson } from '../utils/api';
-import { Axis, BoatPart } from './boatModel';
+import { Axis, BoatPart, Vector } from './boatModel';
 
 export interface BoatDocument {
   version: 1;
@@ -20,23 +20,29 @@ interface RevisionPage { data: Revision[]; nextCursor: string | null }
 
 export type WaterPreset = 'salt-water' | 'freshwater';
 
-export interface StabilityEquilibrium {
+export interface StabilityBalance {
   heel: number;
   pitch: number;
   draft: number;
   displacedVolume: number;
   heelMoment: number;
   pitchMoment: number;
+  waterline: number;
+  centerOfGravity: Vector;
+  centerOfBuoyancy: Vector;
+  buoyancy: number;
+  verticalResidual: number;
+}
+export interface StabilityEquilibrium extends StabilityBalance {
   stability: 'restoring' | 'non-restoring' | 'indeterminate';
 }
-export type StabilityPoint = { angle: number } & (
-  { heelMoment: number; pitchMoment: number } | { diagnostic: string }
-);
+export type StabilityPoint = { angle: number } & (StabilityBalance | { diagnostic: string });
 export interface StabilityResult {
   settings: { water: WaterPreset; density: number };
   diagnostics: { code: string; partId?: string; otherPartId?: string; partName?: string; otherPartName?: string }[];
   mass: number | null;
   equilibrium: StabilityEquilibrium | null;
+  contributors: { partId: string; hullId: string }[];
   heel: StabilityPoint[];
   pitch: StabilityPoint[];
 }

@@ -1,5 +1,4 @@
 .dreamer-stability { display: grid; gap: var(--dw-space-3); }
-.dreamer-stability-root { margin: var(--dw-space-4); }
 .dreamer-stability :is(h1,h2,h3) { margin: 0; overflow-wrap: anywhere; }
 .dreamer-stability h2, .dreamer-stability h3 { font-size: var(--dw-font-size-heading); }
 .dreamer-stability p { margin: var(--dw-space-2) 0; }
@@ -21,3 +20,21 @@
 @media (max-width: 900px) {
   .dreamer-stability-charts { grid-template-columns: 1fr; }
 }
+
+.dreamer-hydrostatic-preview { min-width: 0; }
+.dreamer-hydrostatic-controls { margin-block-start: var(--dw-space-2); }
+.dreamer-hydrostatic-controls label { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dreamer-hydrostatic-scrub { flex: 1 1 12rem; }
+.dreamer-hydrostatic-scrub input { flex: 1; min-width: 4rem; }
+.dreamer-hydrostatic-canvas { position: relative; }
+.dreamer-hydrostatic-canvas .dreamer-model-viewport { height: clamp(18rem, 45vh, 29rem); }
+.dreamer-hydrostatic-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dw-space-2) var(--dw-space-4);
+  list-style: none;
+  padding: 0;
+  margin: var(--dw-space-2) 0 0;
+}
+.dreamer-hydrostatic-cg b { color: var(--dw-color-warning); }
+.dreamer-hydrostatic-cp b { color: var(--dw-color-accent); }

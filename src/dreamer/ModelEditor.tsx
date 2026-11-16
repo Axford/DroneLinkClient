@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button } from 'react-bootstrap';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Button, Nav, Tab } from 'react-bootstrap';
 import { ArrowRepeat, Bullseye, Crosshair, Crosshair2, Eye, EyeSlash, InfoCircle, PlayFill, StopFill, Upload, XLg } from 'react-bootstrap-icons';
 import IconButton from '../components/ui/IconButton';
 import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, rebaseJointZero, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
 import { BoatDocument, Revision, Snapshot } from './cloudModels';
+import StabilityView from './StabilityView';
 import { ApiError } from '../utils/api';
 import './modelEditor.css';
 
 const origin: Vector = [0, 0, 0];
+const steps = ['import', 'orient', 'configure', 'stability'] as const;
+type Step = typeof steps[number];
 
 interface VectorFieldsProps { label: string; value: Vector; change: (value: Vector) => void }
 
@@ -47,6 +50,9 @@ interface CloudEditor {
   domainId: string;
   initial?: Snapshot;
   editable: boolean;
+  analysisEditable: boolean;
+  startInStability?: boolean;
+  signal: AbortSignal;
   save: (modelId: string, revisionId: string, baseRevisionId: string | null, model: BoatDocument) => Promise<Revision>;
   back: () => void;
 }
@@ -61,7 +67,9 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
   const [saving, setSaving] = useState(false);
   const assemblyInput = useRef<HTMLInputElement>(null);
   const replacementInput = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'import' | 'orient' | 'configure'>(initial ? 'configure' : 'import');
+  const tabsId = useId();
+  const [step, setStep] = useState<Step>(cloud?.startInStability && initial ? 'stability' : initial ? 'configure' : 'import');
+  const [configured, setConfigured] = useState(Boolean(initial));
   const [neutralDraft, setNeutralDraft] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [parts, setParts] = useState<BoatPart[]>(initial?.model.parts ?? []);
@@ -157,9 +165,10 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
     setNeutralDraft(joint.neutral ?? 0);
   }
 
-  function changeStep(next: 'import' | 'orient' | 'configure') {
+  function changeStep(next: Step) {
     stopPreview();
     setTool(joint ? 'joint' : 'mass');
+    if (next === 'configure') setConfigured(true);
     setStep(next);
   }
 
@@ -206,6 +215,7 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
         setParts(current => current.map(item => item.id === next.id ? { ...item, mesh: next.mesh } : item));
         setNotice('Replaced the mesh for ' + replacement.name + '.');
       } else {
+        setConfigured(false);
         setStep('orient');
         setName(file.name.replace(/\.3mf$/i, '').trim().slice(0, 120) || 'Untitled boat');
         setParts(imported);
@@ -238,11 +248,25 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
         {dirty && <span className="dw-meta">Unsaved changes</span>}
       </>}
     </div>}
-    <ol className="dreamer-editor-steps" aria-label="Model setup">
-      <li aria-current={step === 'import' ? 'step' : undefined}>Import</li>
-      <li aria-current={step === 'orient' ? 'step' : undefined}>Orient</li>
-      <li aria-current={step === 'configure' ? 'step' : undefined}>Configure</li>
-    </ol>
+    <Tab.Container id={tabsId} activeKey={step} onSelect={key => {
+      if (key && steps.some(tab => tab === key) && key !== step) changeStep(key as Step);
+    }}>
+      <Nav variant="tabs" aria-label="Model setup" className="dw-attached-tabs dreamer-editor-tabs">
+        {steps.map(tab => <Nav.Item key={tab}>
+          <Nav.Link as="button" eventKey={tab} disabled={saving || pending ||
+            (tab === 'stability' && !saved) || (tab === 'configure' && !configured) ||
+            (tab === 'orient' && (!editable || !parts.length)) || (tab === 'import' && !editable)}>
+            {tab[0].toUpperCase() + tab.slice(1)}
+          </Nav.Link>
+        </Nav.Item>)}
+      </Nav>
+      <Tab.Content className="dreamer-editor-content">
+        {step === 'stability' && cloud && saved && <Tab.Pane eventKey="stability" transition={false}>
+          {dirty && <p className="dw-meta">Stability uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
+          <StabilityView key={saved.revision.revisionId} revision={saved.revision} model={saved.model}
+            domainId={cloud.domainId} signal={cloud.signal} editable={cloud.analysisEditable} />
+        </Tab.Pane>}
+        {step !== 'stability' && <Tab.Pane eventKey={step} transition={false}>
     <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
       void load(event.currentTarget.files?.[0]);
       event.currentTarget.value = '';
@@ -396,5 +420,8 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
         </fieldset>
       </section>}
     </div>}
+        </Tab.Pane>}
+      </Tab.Content>
+    </Tab.Container>
   </div>;
 }

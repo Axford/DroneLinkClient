@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 
 import { ApiError } from '../utils/api';
-import { Revision, StabilityMetadata, StabilityResult, WaterPreset, cloudModels } from './cloudModels';
+import { BoatDocument, Revision, StabilityMetadata, StabilityResult, WaterPreset, cloudModels } from './cloudModels';
 import StabilityChart from './StabilityChart';
+import StabilityPreview from './StabilityPreview';
 import './stability.css';
 
 const waters: Record<WaterPreset, string> = {
@@ -30,14 +31,18 @@ const diagnosticLabels: Record<string, string> = {
 interface Props {
   domainId: string;
   revision: Revision;
+  model: BoatDocument;
   editable: boolean;
   signal: AbortSignal;
-  back: () => void;
 }
 
 const format = (value: number, digits = 3) => new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(value);
 
-function Results({ result }: { result: StabilityResult }) {
+function Results({ result, model }: { result: StabilityResult; model: BoatDocument }) {
+  const [sample, setSample] = useState<{ axis: 'heel' | 'pitch'; index: number | null }>({ axis: 'heel', index: null });
+  const scrub = useCallback((axis: 'heel' | 'pitch', index: number) => {
+    setSample(previous => previous.axis === axis && previous.index === index ? previous : { axis, index });
+  }, []);
   const equilibrium = result.equilibrium;
   const gaps = [...result.heel, ...result.pitch].filter(point => 'diagnostic' in point).length;
 
@@ -63,14 +68,16 @@ function Results({ result }: { result: StabilityResult }) {
       <p className="dw-meta">Positive moment increases the plotted angle. Each sweep holds the other angle at equilibrium.</p>
       {gaps > 0 && <p role="status" className="dreamer-model-warning">{gaps} samples have no resolved vertical balance. Gaps mark those angles.</p>}
       <div className="dreamer-stability-charts">
-        <StabilityChart axis="heel" points={result.heel} equilibrium={equilibrium} />
-        <StabilityChart axis="pitch" points={result.pitch} equilibrium={equilibrium} />
+        <StabilityChart axis="heel" points={result.heel} equilibrium={equilibrium} onScrub={scrub} />
+        <StabilityChart axis="pitch" points={result.pitch} equilibrium={equilibrium} onScrub={scrub} />
       </div>
+      <StabilityPreview model={model} result={result} equilibrium={equilibrium} sample={sample}
+        scrub={scrub} reset={() => setSample(previous => ({ ...previous, index: null }))} />
     </>}
   </>;
 }
 
-export default function StabilityView({ domainId, revision, editable, signal, back }: Props) {
+export default function StabilityView({ domainId, revision, model, editable, signal }: Props) {
   const [water, setWater] = useState<WaterPreset>('salt-water');
   const [saved, setSaved] = useState<StabilityMetadata[]>([]);
   const [next, setNext] = useState<string | null>(null);
@@ -131,11 +138,6 @@ export default function StabilityView({ domainId, revision, editable, signal, ba
 
   return <section className="dreamer-stability">
     <header className="dw-panel">
-      <div className="dw-toolbar">
-        <Button variant="outline-secondary" onClick={back} disabled={!!busy}>Back to models</Button>
-        <h1>Stability</h1>
-      </div>
-      <p>{revision.name} · Revision {revision.number}</p>
       {editable && <div className="dw-toolbar">
         <label htmlFor="dreamer-water-preset">Water density</label>
         <select id="dreamer-water-preset" className="form-select" value={water}
@@ -147,10 +149,6 @@ export default function StabilityView({ domainId, revision, editable, signal, ba
     </header>
     {error && <p className="dreamer-model-error" role="alert">{error}</p>}
     {(busy || notice) && <p role="status">{busy || notice}</p>}
-    {display && <section className="dreamer-stability" aria-label="Analysis result">
-      <h2>{waters[display.result.settings.water]}{display.record ? ' · Saved' : ''}</h2>
-      <Results result={display.result} />
-    </section>}
     <section className="dw-panel" aria-labelledby="dreamer-stability-history">
       <h2 id="dreamer-stability-history">Saved analyses</h2>
       {saved.length === 0 && !busy && <p>No saved analyses for this revision.</p>}
@@ -169,5 +167,9 @@ export default function StabilityView({ domainId, revision, editable, signal, ba
         setNext(page.nextCursor);
       })}>More analyses</Button>}
     </section>
+    {display && <section className="dreamer-stability" aria-label="Analysis result">
+      <h2>{waters[display.result.settings.water]}{display.record ? ' · Saved' : ''}</h2>
+      <Results key={display.record?.analysisId ?? 'preflight'} result={display.result} model={model} />
+    </section>}
   </section>;
 }

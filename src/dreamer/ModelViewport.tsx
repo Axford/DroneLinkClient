@@ -6,6 +6,7 @@ import {
   meshBounds, partPose, scale, subtract, transformPoint,
 } from './boatModel';
 import { angleDelta, protractorBasis, screenProtractor } from './jointProtractor';
+import { HydrostaticPose, hydrostaticRotation, waterlineSegment } from './hydrostaticScene';
 import { nearestVisibleVertex } from './viewportPicking';
 
 export type Handle = 'centerOfMass' | 'pivot' | 'axis';
@@ -26,6 +27,7 @@ interface Props {
   onMoveAngle: (handle: AngleHandle, angle: number) => void;
   onMoveHandle: (handle: Handle, value: Vector) => void;
   onPickVertex: (vertex: Vector) => void;
+  hydrostatic?: HydrostaticPose;
 }
 interface Marker { handle: Handle; world: Vector; local: Vector; screen: Vector; color: string; label: string; }
 type Drag =
@@ -47,11 +49,12 @@ function editorPalette() {
 }
 
 export default function ModelViewport({
-  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, neutralDraft, onMoveAngle, onMoveHandle, onPickVertex,
+  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, neutralDraft, onMoveAngle, onMoveHandle, onPickVertex, hydrostatic,
 }: Props) {
   const [palette] = useState(editorPalette);
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef<Drag | undefined>(undefined);
+  const fittedHydrostatic = useRef(false);
   const [[width, height], setSize] = useState<Point>([0, 0]);
   const [azimuth, yaw] = useState(-0.9);
   const [elevation, pitch] = useState(0.42);
@@ -96,9 +99,10 @@ export default function ModelViewport({
       neutralDraft !== null ? neutralDraft - (selected.part.joint?.neutral ?? 0) :
         previewAngle ?? limitPreview ?? 0) : (vertex: Vector) => vertex;
 
+    const attitude = hydrostatic && hydrostaticRotation(hydrostatic.heel, hydrostatic.pitch);
     const visible = scene.filter(entry => !hidden.has(entry.part.id)).map(entry => {
       const placement = entry === selected ? move : jointPlacement(entry.part, entry.pose);
-      const vertices = entry.vertices.map(placement);
+      const vertices = attitude ? entry.vertices.map(vertex => attitude(placement(vertex))) : entry.vertices.map(placement);
       return { ...entry, vertices, projected: vertices.map(project) };
     });
     const faces = visible.flatMap(({ part, projected }) => part.mesh.triangles.map(([a, b, c]) => {
@@ -113,9 +117,16 @@ export default function ModelViewport({
       const fill = `color-mix(in srgb, ${base} ${Math.round(light * 100)}%, black)`;
       return { vertices, depth: (p[2]+q[2]+r[2])/3, fill };
     })).sort((a, b) => a.depth - b.depth);
-    return { right, vertical, camera, view, project, joint, move, visible, faces };
-  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle, neutralDraft, limitPreview, palette]);
-  const { right, vertical, camera, view, project, joint, move, visible, faces } = frame;
+    const waterline = hydrostatic?.water?.waterline;
+    const sections = waterline === undefined ? [] : visible
+      .filter(({ part }) => hydrostatic?.water?.displacementIds.includes(part.id))
+      .flatMap(({ part, vertices }) => part.mesh.triangles.flatMap(([a,b,c]) => {
+        const segment = waterlineSegment([vertices[a], vertices[b], vertices[c]], waterline);
+        return segment ? [segment.map(project)] : [];
+      }));
+    return { right, vertical, camera, view, project, joint, move, visible, faces, sections };
+  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle, neutralDraft, limitPreview, palette, hydrostatic]);
+  const { right, vertical, camera, view, project, joint, move, visible, faces, sections } = frame;
   const pickedPart = visible.find(entry => entry.part.id === selectedId);
 
   const angleMode = tool === 'neutral' || tool === 'limits';
@@ -159,6 +170,36 @@ export default function ModelViewport({
     context.setTransform(density, 0, 0, density, 0, 0);
     context.fillStyle = palette.canvas;
     context.fillRect(0, 0, width, height);
+    const water = hydrostatic?.water;
+    const bounds = water && meshBounds(visible.flatMap(entry => entry.vertices));
+    const extent = bounds ? Math.max(...subtract(bounds.max, bounds.min), 0.01) : 0;
+    if (water && bounds) {
+      const [x, y] = scale(add(bounds.min, bounds.max), 0.5);
+      const radius = extent * 0.68;
+      const [a,b,c,d] = [
+        [x-radius, y-radius, water.waterline], [x+radius, y-radius, water.waterline],
+        [x+radius, y+radius, water.waterline], [x-radius, y+radius, water.waterline],
+      ].map(vertex => project(vertex as Vector));
+      context.beginPath();
+      context.moveTo(a[0], a[1]);
+      for (const corner of [b,c,d]) context.lineTo(corner[0], corner[1]);
+      context.closePath();
+      context.fillStyle = 'color-mix(in srgb, ' + palette.highlight + ' 18%, transparent)';
+      context.fill();
+      context.strokeStyle = 'color-mix(in srgb, ' + palette.highlight + ' 60%, transparent)';
+      context.lineWidth = 1;
+      context.stroke();
+      for (let index = 1; index < 8; index++) {
+        const step = index * radius / 4;
+        const h1 = project([x-radius, y-radius+step, water.waterline]);
+        const h2 = project([x+radius, y-radius+step, water.waterline]);
+        const v1 = project([x-radius+step, y-radius, water.waterline]);
+        const v2 = project([x-radius+step, y+radius, water.waterline]);
+        const gridColor = 'color-mix(in srgb, ' + palette.highlight + ' 27%, transparent)';
+        line([h1[0],h1[1]], [h2[0],h2[1]], gridColor);
+        line([v1[0],v1[1]], [v2[0],v2[1]], gridColor);
+      }
+    }
     for (const { vertices, fill } of faces) {
       context.beginPath();
       context.moveTo(vertices[0][0], vertices[0][1]);
@@ -178,13 +219,43 @@ export default function ModelViewport({
       context.lineWidth = width;
       context.stroke();
     }
+    for (const [a,b] of sections) line([a[0],a[1]], [b[0],b[1]], palette.highlight, 2);
+    if (water) {
+      const arrows: [Vector, number, string, string][] = [
+        [water.cg, -1, palette.cg, 'CG'], [water.cp, 1, palette.highlight, 'CP'],
+      ];
+      for (const [world, sign, color, label] of arrows) {
+        const [x,y] = project(world);
+        const [endX,endY] = project(add(world, [0,0,sign * extent * 0.22]));
+        const dx = endX - x, dy = endY - y;
+        const length = Math.hypot(dx, dy);
+        line([x,y], [endX,endY], color, 2.5);
+        if (length >= 1) {
+          const ux = dx / length, uy = dy / length;
+          line([endX,endY], [endX - 9*ux + 4*uy, endY - 9*uy - 4*ux], color, 2.5);
+          line([endX,endY], [endX - 9*ux - 4*uy, endY - 9*uy + 4*ux], color, 2.5);
+        }
+        context.beginPath();
+        context.arc(x, y, 4, 0, 2*Math.PI);
+        context.fillStyle = color;
+        context.fill();
+        context.font = '600 ' + palette.font;
+        context.strokeStyle = palette.outline;
+        context.lineWidth = 4;
+        const offset = sign > 0 ? -8 : 15;
+        context.strokeText(label, x+10, y+offset);
+        context.fillText(label, x+10, y+offset);
+      }
+    }
     if (scene.length) {
       const origin: Point = [50, height - 45];
       context.font = palette.font;
+      const rotateAxes = hydrostatic && hydrostaticRotation(hydrostatic.heel, hydrostatic.pitch);
       for (const [axis, color, label] of [
         [[1, 0, 0], palette.forward, 'Fwd'], [[0, 1, 0], palette.highlight, 'Port'], [[0, 0, 1], palette.up, 'Up'],
       ] as [Vector, string, string][]) {
-        const x = origin[0] + 26 * dot(axis, right), y = origin[1] - 26 * dot(axis, vertical);
+        const direction = rotateAxes ? rotateAxes(axis) : axis;
+        const x = origin[0] + 26 * dot(direction, right), y = origin[1] - 26 * dot(direction, vertical);
         line(origin, [x, y], color);
         context.fillStyle = color;
         context.fillText(label, x + 4, y);
@@ -275,15 +346,22 @@ export default function ModelViewport({
     return [event.clientX - rect.left, event.clientY - rect.top];
   }
 
-  function fitView() {
+  function fitView(margin = 1) {
     const points = visible.flatMap(entry => entry.vertices.map(view));
     if (!points.length) return;
     const { min, max } = meshBounds(points);
     const [x, y, z] = scale(add(min, max), 0.5);
     setTarget(add(add(scale(right, x), scale(vertical, y)), scale(camera, z)));
-    setPixels(clampScale(Math.min((width-48) / Math.max(0.0001, max[0]-min[0]),
+    setPixels(clampScale(margin * Math.min((width-48) / Math.max(0.0001, max[0]-min[0]),
       (height-70) / Math.max(0.0001, max[1]-min[1]))));
   }
+
+  useEffect(() => {
+    if (hydrostatic && !fittedHydrostatic.current && width > 80 && height > 100 && visible.length) {
+      fittedHydrostatic.current = true;
+      fitView(0.75);
+    }
+  });
 
   const zoomBy = (amount: number) => setPixels(previous => clampScale(previous * amount));
   return <>
@@ -296,10 +374,10 @@ export default function ModelViewport({
         pitch(Math.asin(Math.max(-1, Math.min(1, joint.axis[2]))));
         setTarget(joint.pivot);
       }} />}
-      <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={fitView} />
+      <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={() => fitView(hydrostatic ? 0.75 : 1)} />
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
-      aria-label="3D boat assembly. Right-drag to orbit, middle-drag to pan, scroll to zoom." tabIndex={0}
+      aria-label={(hydrostatic ? '3D hydrostatic preview.' : '3D boat assembly.') + ' Right-drag to orbit, middle-drag to pan, scroll to zoom.'} tabIndex={0}
       onContextMenu={event => event.preventDefault()}
       onAuxClick={event => event.preventDefault()}
       onKeyDown={event => {

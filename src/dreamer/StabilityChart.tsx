@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, ScatterChart } from 'echarts/charts';
@@ -6,13 +6,15 @@ import { GridComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
 import { StabilityEquilibrium, StabilityPoint } from './cloudModels';
+import { nearestSampleIndex } from './hydrostaticScene';
 
 echarts.use([LineChart, ScatterChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-export default function StabilityChart({ axis, points, equilibrium }: {
+export default memo(function StabilityChart({ axis, points, equilibrium, onScrub }: {
   axis: 'heel' | 'pitch';
   points: StabilityPoint[];
   equilibrium: StabilityEquilibrium;
+  onScrub: (axis: 'heel' | 'pitch', index: number) => void;
 }) {
   const heel = axis === 'heel';
   const title = heel ? 'Righting moment' : 'Pitch restoring moment';
@@ -26,7 +28,7 @@ export default function StabilityChart({ axis, points, equilibrium }: {
     animation: false,
     textStyle: { color: color('text') },
     grid: { top: 20, bottom: 55, left: 75, right: 24 },
-    tooltip: { trigger: 'axis', backgroundColor: color('raised'), textStyle: { color: color('text') } },
+    tooltip: { trigger: 'axis', axisPointer: { axis: 'x', snap: false }, backgroundColor: color('raised'), textStyle: { color: color('text') } },
     xAxis: { type: 'value', name: angleLabel, nameLocation: 'center', nameGap: 32, nameTextStyle: labelStyle, axisLabel: { ...labelStyle, showMinLabel: true, showMaxLabel: true } },
     yAxis: { type: 'value', name: 'Moment (N·m)', nameLocation: 'center', nameGap: 52, nameTextStyle: labelStyle, axisLabel: labelStyle },
     series: [
@@ -34,10 +36,17 @@ export default function StabilityChart({ axis, points, equilibrium }: {
       { type: 'scatter', name: 'Equilibrium', data: [[equilibrium[axis], equilibrium[moment]]], itemStyle: { color: color('warning') }, symbolSize: 9 },
     ],
   };
+  const onEvents = {
+    updateAxisPointer: ({ axesInfo }: { axesInfo?: { axisDim: string; value: number }[] }) => {
+      const value = axesInfo?.find(info => info.axisDim === 'x')?.value;
+      if (value === undefined || !Number.isFinite(value) || points.length === 0) return;
+      onScrub(axis, nearestSampleIndex(points, value));
+    },
+  };
   return <section className="dw-panel dreamer-stability-chart">
     <h3>{title}</h3>
     <div role="img" aria-label={title + ' chart. ' + angleLabel + ' versus moment in newton metres.'}>
-      <ReactEChartsCore echarts={echarts} option={option} notMerge style={{ height: 280 }} />
+      <ReactEChartsCore echarts={echarts} option={option} onEvents={onEvents} notMerge style={{ height: 280 }} />
     </div>
     <details>
       <summary>Sample values</summary>
@@ -48,4 +57,4 @@ export default function StabilityChart({ axis, points, equilibrium }: {
       </table>
     </details>
   </section>;
-}
+});
