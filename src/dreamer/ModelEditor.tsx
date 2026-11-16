@@ -7,11 +7,12 @@ import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
 import { BoatDocument, Revision, Snapshot } from './cloudModels';
 import StabilityView from './StabilityView';
+import SailingView from './sailing/SailingView';
 import { ApiError } from '../utils/api';
 import './modelEditor.css';
 
 const origin: Vector = [0, 0, 0];
-const steps = ['import', 'orient', 'configure', 'stability'] as const;
+const steps = ['import', 'orient', 'configure', 'stability', 'sail'] as const;
 type Step = typeof steps[number];
 
 interface VectorFieldsProps { label: string; value: Vector; change: (value: Vector) => void }
@@ -254,7 +255,7 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
       <Nav variant="tabs" aria-label="Model setup" className="dw-attached-tabs dreamer-editor-tabs">
         {steps.map(tab => <Nav.Item key={tab}>
           <Nav.Link as="button" eventKey={tab} disabled={saving || pending ||
-            (tab === 'stability' && !saved) || (tab === 'configure' && !configured) ||
+            ((tab === 'stability' || tab === 'sail') && !saved) || (tab === 'configure' && !configured) ||
             (tab === 'orient' && (!editable || !parts.length)) || (tab === 'import' && !editable)}>
             {tab[0].toUpperCase() + tab.slice(1)}
           </Nav.Link>
@@ -266,7 +267,11 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
           <StabilityView key={saved.revision.revisionId} revision={saved.revision} model={saved.model}
             domainId={cloud.domainId} signal={cloud.signal} editable={cloud.analysisEditable} />
         </Tab.Pane>}
-        {step !== 'stability' && <Tab.Pane eventKey={step} transition={false}>
+        {step === 'sail' && saved && <Tab.Pane eventKey="sail" transition={false}>
+          {dirty && <p className="dw-meta">Sailing uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
+          <SailingView key={saved.revision.revisionId} model={saved.model} />
+        </Tab.Pane>}
+        {step !== 'stability' && step !== 'sail' && <Tab.Pane eventKey={step} transition={false}>
     <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
       void load(event.currentTarget.files?.[0]);
       event.currentTarget.value = '';
