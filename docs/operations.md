@@ -292,3 +292,21 @@ On signed-in Home, choose **Cloud Replay** for a Domain. Pick a date and time, o
 The first visit to an older point may need preparation. The Server keeps preparing after navigation. Dragging uses the Client cache where data is available. A seek to an unloaded range fetches after release. **Refresh history** refreshes the cached data and reopens the same time. Open Replay from the archived Domain list to inspect retained records.
 
 Editors, Owners and Platform Admins can add a note at the playhead or bookmark the latest retained telemetry from Cloud Live. They can change the capture interval in Replay for active Domains. Viewers can open shared bookmarks.
+
+## Dreamer model editor preview
+
+Start the Client from the Dreamer model-editor branch:
+
+```sh
+HOST=127.0.0.1 PORT=8768 BROWSER=none npm start
+```
+
+Open [Dreamer model editor](http://127.0.0.1:8768/dreamer/model-editor). The development route reads 3MF files in the browser and keeps editing state in the tab. Reloading clears the working assembly. Cloud Domain model revisions and Workbench handoff are later increments.
+
+Import an Onshape assembly, confirm its source forward and up axes, and select a part below the 3D view. Positions are in metres, masses in kilograms and display bounds in millimetres. Placement offsets and rotations use the configured boat axes. The centre of mass, pivot and joint axis use the selected mesh's local CAD frame.
+
+To update an existing part, choose **Replace mesh** and use a single-part 3MF exported with the same local origin and axes. The editor uses its geometry in the selected part's existing frame. It retains the name, placement, mass, centre of mass, role and joint settings. A failed replacement leaves the current assembly available for editing.
+
+The import accepts a single main model with local mesh objects, build instances and component references. It expands instance transforms, normalises lengths to metres, merges exactly coincident vertices and discards zero-area faces. The closure indication checks edge pairing and winding. It is an import diagnostic for the next physics slice.
+
+Run `CI=true npm test -- --watchAll=false --runInBand src/dreamer/import3mf.test.ts` for the independent fixture cases. See the [central Dreamer workflow](../../DroneLinkDatastore/docs/planning/workbench.md#advanced-dreamer-workflow) for the staged acceptance plan.

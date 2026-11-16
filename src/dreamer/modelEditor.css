@@ -1,0 +1,41 @@
+.dreamer-model {
+  --model-panel: #1b2e3b;
+  --model-line: #3b5361;
+  --model-muted: #b6c9d1;
+  min-height: 100vh;
+  padding: clamp(12px, 3vw, 34px);
+  color: #edf6f9;
+  background: #111e28;
+  color-scheme: dark;
+}
+.dreamer-model-heading h1 { font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 4px; }
+.dreamer-model-heading p, .dreamer-model-status, .dreamer-model-hint { color: var(--model-muted); margin: 0; }
+.dreamer-model-toolbar { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 18px; }
+.dreamer-model-status { min-height: 28px; padding-top: 5px; }
+.dreamer-model-error { color: #ffbd9c; }
+.dreamer-model-workspace { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(270px, 320px); align-items: start; }
+.dreamer-model-scene, .dreamer-model-properties { border: 1px solid var(--model-line); border-radius: 12px; background: var(--model-panel); }
+.dreamer-model-scene { position: relative; overflow: hidden; }
+.dreamer-model-scene:only-child { grid-column: 1 / -1; }
+.dreamer-model-viewport { display: block; width: 100%; height: clamp(340px, 65vh, 720px); touch-action: none; cursor: grab; }
+.dreamer-model-viewport:active { cursor: grabbing; }
+.dreamer-model-hint { position: absolute; top: 12px; right: 14px; pointer-events: none; font-size: 0.85rem; }
+.dreamer-model-parts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-top: 1px solid var(--model-line); }
+.dreamer-model-properties { min-width: 0; padding: 14px; }
+.dreamer-model-properties h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
+.dreamer-model-properties p { margin: 0 0 8px; color: var(--model-muted); font-size: 0.85rem; }
+.dreamer-model label { display: grid; gap: 3px; min-width: 0; font-size: 0.88rem; }
+.dreamer-model-properties > label { margin: 8px 0; }
+.dreamer-model input, .dreamer-model select, .dreamer-model button { color: inherit; max-width: 100%; }
+.dreamer-model select, .dreamer-model input[type=number], .dreamer-model button {
+  background: #233947; padding: 5px 8px; border: 1px solid var(--model-line); border-radius: 6px;
+}
+.dreamer-model input[type=number], .dreamer-model input[type=file] { min-width: 0; width: 100%; }
+.dreamer-model button[aria-pressed=true] { color: #9cebc9; border-color: #86c8b4; }
+.dreamer-model fieldset { margin: 8px 0; min-width: 0; }
+.dreamer-model legend { font-size: 0.88rem; margin: 0; }
+.dreamer-model-triple { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 6px; }
+.dreamer-model label.dreamer-model-checkbox { display: flex; align-items: center; }
+@media (max-width: 740px) {
+  .dreamer-model-workspace { grid-template-columns: 1fr; }
+}
