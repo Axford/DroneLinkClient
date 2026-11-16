@@ -40,6 +40,7 @@ export type InspectorSummary = {
 
 export interface PolarSummary {
     polarResponse: number[] | undefined;
+    modeValue?: 0 | 1 | 2;
     sampleCounts?: number[];
     relativeHeading?: number;
     heading: ObservedSummary;
@@ -1052,6 +1053,7 @@ function polarSummary(channel: ChannelState): PolarSummary {
     const mode = field(channel, 9, 'Mode', modeValue === undefined ? undefined : ['Passive', 'Active', 'Reset'][modeValue]);
     return {
         polarResponse, sampleCounts, relativeHeading, heading, wind, mode,
+        modeValue: modeValue === 0 || modeValue === 1 || modeValue === 2 ? modeValue : undefined,
         details: [heading, wind, mode,
             field(channel, 11, 'Reported relative speed (0–255)', polarResponse?.join(', ')),
             field(channel, 12, 'Reported samples per sector', sampleCounts?.join(', '))]

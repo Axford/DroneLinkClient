@@ -215,6 +215,8 @@ Attitude, Wind, Nav and Sailor share circular guides and hand geometry. Their ca
 
 Polar mirrors 16 firmware sectors into a wind-relative dial. The outer trace uses relative speed at 11 on a 0–255 scale, with gaps where the sample count at 12 is zero or unavailable. The inner trace uses counts scaled to the largest observed sector count. The adjusted heading at 14 is drawn relative to wind at 34. Mode at 9 reports Passive, Active or Reset. Reading Details preserves independent receipts and reported sector values. Map rings, historical plots and controls retain their separate scope.
 
+The Polar Summary offers **Passive** and **Active** through the selected Cloud or Workbench parameter path when that path reports the same writable mode as the Summary. Passive passes through the heading. Active runs polar sampling and can generate an adjusted heading. Firmware can return to Passive when Polar leaves the sampling area. The requested mode and delivery feedback appear below the instrument, while the instrument continues to display observed mode, heading and samples.
+
 ### KiteController flight plot
 
 KiteController projects the reported yaw, pitch, payout distance and estimated roll at parameter 14 into a 2D plot. Positive yaw points left and positive pitch points up. The waypoint's angular radius comes from 16. The recent trail uses the shared receipt window, with gaps at invalid samples. The payout target and rate limit at 13 describe configuration, while distance in the flight vector is actual payout. Reading Details preserves the independent vector, waypoint and control receipts. The legacy disabled 3D scene stays in separate scope.

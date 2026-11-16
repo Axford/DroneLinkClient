@@ -19,6 +19,7 @@ import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
 import PolarInstrument from './PolarInstrument';
+import PolarActions from './PolarActions';
 import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
 import TankSteerActions from './TankSteerActions';
@@ -65,7 +66,10 @@ function PacketReading({ label, value }: { label: string; value?: string }) {
 export default function ChannelSummary({ nodeId, channelId, summary, sampleScope, generation }: { nodeId: number; channelId: number; summary: InspectorSummary; sampleScope?: string; generation?: number }) {
     const label = `Observed readings for channel ${channelId}`;
     if ('polarResponse' in summary) {
-        return <PolarInstrument label={label} summary={summary} />;
+        return <>
+            <PolarInstrument label={label} summary={summary} />
+            <PolarActions key={JSON.stringify([nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId} modeValue={summary.modeValue} />
+        </>;
     }
     if ('kiteVector' in summary) {
         return <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />;
