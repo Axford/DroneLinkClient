@@ -23,7 +23,7 @@ export interface BoatPart {
   rotation: Vector;
   role: typeof roles[number];
   mass: number | null;
-  centerOfMass: Vector;
+  centerOfMass: Vector | null;
   joint: null | { pivot: Vector; axis: Vector; minimum: number; maximum: number };
 }
 
@@ -47,7 +47,7 @@ export function composePose(parent: MeshPose, [x, y, z, position]: MeshPose): Me
 export function newPart(id: string, name: string, mesh: PartMesh, sourcePose: MeshPose): BoatPart {
   return {
     id, name, mesh, sourcePose, translation: [0, 0, 0], rotation: [0, 0, 0],
-    role: 'Unassigned', mass: null, centerOfMass: [0, 0, 0], joint: null,
+    role: 'Unassigned', mass: null, centerOfMass: uniformDensityCenter(mesh) ?? null, joint: null,
   };
 }
 

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowsFullscreen, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
+import IconButton from '../components/ui/IconButton';
 import {
   Axis, BoatPart, MeshPose, Vector, add, cross, direction, dot, jointFrame, localDirection,
   meshBounds, partPose, scale, subtract, transformPoint, turnAboutJoint,
@@ -28,11 +30,21 @@ type Drag =
 
 const minScale = 0.01, maxScale = 1_000_000;
 const clampScale = (value: number) => Math.min(maxScale, Math.max(minScale, value));
-const colors = { centerOfMass: '#ffe095', pivot: '#83ddff', axis: '#83ddff' };
+function editorPalette() {
+  const style = getComputedStyle(document.documentElement);
+  const read = (role: string) => style.getPropertyValue('--dw-' + role).trim();
+  return {
+    canvas: read('color-instrument-face'), outline: read('color-canvas'),
+    highlight: read('color-accent'), mesh: read('color-muted'),
+    cg: read('color-warning'), up: read('color-text'), forward: read('color-success'),
+    font: [read('font-size-meta'), read('font-family')].join(' '),
+  };
+}
 
 export default function ModelViewport({
   parts, selectedId, hidden, forward, up, tool, pick, previewAngle, onMoveHandle, onPickVertex,
 }: Props) {
+  const [palette] = useState(editorPalette);
   const canvas = useRef<HTMLCanvasElement>(null);
   const drag = useRef<Drag | undefined>(undefined);
   const [[width, height], setSize] = useState<Point>([0, 0]);
@@ -91,21 +103,23 @@ export default function ModelViewport({
         [(r[0]-p[0])/pixels, (p[1]-r[1])/pixels, r[2]-p[2]]);
       const norm = Math.hypot(...normal);
       const light = norm ? 0.48 + 0.5 * Math.abs(dot(normal, [-0.3, 0.5, 0.8]) / norm) : 0.48;
-      const color = (part.id === selectedId ? [152, 236, 203] : [114, 163, 188]).map(value => Math.round(value * light));
-      return { vertices, depth: (p[2]+q[2]+r[2])/3, fill: 'rgb(' + color.join(',') + ')' };
+      const base = part.id === selectedId ? palette.highlight : palette.mesh;
+      const fill = `color-mix(in srgb, ${base} ${Math.round(light * 100)}%, black)`;
+      return { vertices, depth: (p[2]+q[2]+r[2])/3, fill };
     })).sort((a, b) => a.depth - b.depth);
     return { right, vertical, camera, view, project, joint, move, visible, faces };
-  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle]);
+  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle, palette]);
   const { right, vertical, camera, view, project, joint, move, visible, faces } = frame;
   const pickedPart = visible.find(entry => entry.part.id === selectedId);
 
   const markers: Marker[] = [];
   function marker(handle: Handle, world: Vector, local: Vector, label: string) {
-    markers.push({ handle, world, local, screen: project(world), color: colors[handle], label });
+    markers.push({ handle, world, local, screen: project(world), color: handle === 'centerOfMass' ? palette.cg : palette.highlight, label });
   }
   if (selected && tool === 'mass') {
-    const { centerOfMass } = selected.part;
-    marker('centerOfMass', move(transformPoint(selected.pose, centerOfMass)), centerOfMass, 'CG');
+    const centerOfMass = selected.part.centerOfMass ?? [0, 0, 0];
+    marker('centerOfMass', move(transformPoint(selected.pose, centerOfMass)), centerOfMass,
+      selected.part.centerOfMass ? 'CG' : 'Set CG');
   }
   if (selected?.part.joint && joint) {
     marker('pivot', joint.pivot, selected.part.joint.pivot, 'Pivot');
@@ -121,7 +135,7 @@ export default function ModelViewport({
     if (element.width !== bitmapWidth) element.width = bitmapWidth;
     if (element.height !== bitmapHeight) element.height = bitmapHeight;
     context.setTransform(density, 0, 0, density, 0, 0);
-    context.fillStyle = '#142630';
+    context.fillStyle = palette.canvas;
     context.fillRect(0, 0, width, height);
     for (const { vertices, fill } of faces) {
       context.beginPath();
@@ -144,9 +158,9 @@ export default function ModelViewport({
     }
     if (scene.length) {
       const origin: Point = [50, height - 45];
-      context.font = '12px system-ui';
+      context.font = palette.font;
       for (const [axis, color, label] of [
-        [[1, 0, 0], '#a9ebc8', 'Fwd'], [[0, 1, 0], '#9cc6f4', 'Port'], [[0, 0, 1], '#f6d7a0', 'Up'],
+        [[1, 0, 0], palette.forward, 'Fwd'], [[0, 1, 0], palette.highlight, 'Port'], [[0, 0, 1], palette.up, 'Up'],
       ] as [Vector, string, string][]) {
         const x = origin[0] + 26 * dot(axis, right), y = origin[1] - 26 * dot(axis, vertical);
         line(origin, [x, y], color);
@@ -165,11 +179,11 @@ export default function ModelViewport({
       context.arc(x, y, radius, 0, 2*Math.PI);
       context.fillStyle = item.color;
       context.fill();
-      context.strokeStyle = '#142630';
+      context.strokeStyle = palette.outline;
       context.lineWidth = 2;
       context.stroke();
-      context.font = '600 12px system-ui';
-      context.strokeStyle = '#142630';
+      context.font = '600 ' + palette.font;
+      context.strokeStyle = palette.outline;
       context.lineWidth = 4;
       context.strokeText(item.label, x + 10, y - 8);
       context.fillText(item.label, x + 10, y - 8);
@@ -179,7 +193,7 @@ export default function ModelViewport({
     if (candidate) {
       context.beginPath();
       context.arc(candidate[0], candidate[1], 8, 0, 2*Math.PI);
-      context.strokeStyle = '#fff4ae';
+      context.strokeStyle = palette.cg;
       context.lineWidth = 2;
       context.stroke();
     }
@@ -202,10 +216,10 @@ export default function ModelViewport({
 
   const zoomBy = (amount: number) => setPixels(previous => clampScale(previous * amount));
   return <>
-    <div className="dreamer-viewport-tools" role="group" aria-label="View controls">
-      <button type="button" aria-label="Zoom in" disabled={!scene.length || pixels >= maxScale} onClick={() => zoomBy(1.4)}>+</button>
-      <button type="button" aria-label="Zoom out" disabled={!scene.length || pixels <= minScale} onClick={() => zoomBy(1/1.4)}>−</button>
-      <button type="button" disabled={!visible.length} onClick={fitView}>Fit view</button>
+    <div className="dreamer-viewport-tools dw-toolbar" role="group" aria-label="View controls">
+      <IconButton type="button" label="Zoom in" icon={<ZoomIn />} disabled={!scene.length || pixels >= maxScale} onClick={() => zoomBy(1.4)} />
+      <IconButton type="button" label="Zoom out" icon={<ZoomOut />} disabled={!scene.length || pixels <= minScale} onClick={() => zoomBy(1/1.4)} />
+      <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={fitView} />
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
       aria-label="3D boat assembly. Right-drag to orbit, middle-drag to pan, scroll to zoom." tabIndex={0}

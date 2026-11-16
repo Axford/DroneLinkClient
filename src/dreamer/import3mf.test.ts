@@ -65,11 +65,14 @@ test('calculates the volume centroid of a closed solid in local coordinates', ()
   for (const faces of [closed, closed.map(([a, b, c]) => [a, c, b])]) {
     const [part] = import3mf(archive(`<object id="1">${mesh(faces, offset)}</object>`, item));
     const center = uniformDensityCenter(part.mesh)!;
+    expect(part.centerOfMass).toEqual(center);
     [0.42, -0.425, 0.124].forEach((expected, index) => expect(center[index]).toBeCloseTo(expected, 8));
   }
   const [open] = import3mf(archive(`<object id="1">${mesh([[0, 1, 2]])}</object>`, item));
   expect(uniformDensityCenter(open.mesh)).toBeUndefined();
+  expect(open.centerOfMass).toBeNull();
   const [flat] = import3mf(archive(`<object id="1">${mesh([[0, 1, 2], [0, 2, 1]], vertices.slice(0, 3))}</object>`, item));
   expect(flat.mesh.closed).toBe(true);
   expect(uniformDensityCenter(flat.mesh)).toBeUndefined();
+  expect(flat.centerOfMass).toBeNull();
 });

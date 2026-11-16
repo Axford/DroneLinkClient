@@ -1,8 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Button } from 'react-bootstrap';
+import { ArrowRepeat, Bullseye, Crosshair, Crosshair2, Eye, EyeSlash, InfoCircle, PlayFill, StopFill, Upload, XLg } from 'react-bootstrap-icons';
+import IconButton from '../components/ui/IconButton';
 import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { EditTool, Handle, JointPick } from './ModelViewport';
 import './modelEditor.css';
+
+const origin: Vector = [0, 0, 0];
 
 interface VectorFieldsProps { label: string; value: Vector; change: (value: Vector) => void }
 
@@ -11,7 +16,7 @@ function NumberField({ value, label, change }: { value: number; label?: string; 
   useEffect(() => {
     if (input.current && document.activeElement !== input.current) input.current.value = String(Number(value.toFixed(6)));
   }, [value]);
-  return <input ref={input} type="number" step="any" aria-label={label} defaultValue={value}
+  return <input ref={input} className="form-control" type="number" step="any" aria-label={label} defaultValue={value}
     onBlur={event => {
       const input = event.currentTarget;
       const next = input.valueAsNumber;
@@ -37,6 +42,9 @@ function VectorFields({ label, value, change }: VectorFieldsProps) {
 }
 
 export default function ModelEditor() {
+  const assemblyInput = useRef<HTMLInputElement>(null);
+  const replacementInput = useRef<HTMLInputElement>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [parts, setParts] = useState<BoatPart[]>([]);
   const [name, setName] = useState('');
   const [assemblyVersion, setAssemblyVersion] = useState(0);
@@ -150,60 +158,61 @@ export default function ModelEditor() {
   return <main className="dreamer-model">
     <header className="dreamer-model-heading">
       <h1>Dreamer model editor</h1>
-      <p>{name || 'Import an Onshape assembly to get started.'} <span>· Local preview</span></p>
+      <p className="dw-meta">{name ? name + ' · ' : ''}Local preview</p>
     </header>
-    <div className="dreamer-model-toolbar">
-      <label>Import assembly <input type="file" accept=".3mf" disabled={pending} onChange={event => {
+    <div className="dreamer-model-toolbar dw-toolbar">
+      <Button type="button" disabled={pending} onClick={() => assemblyInput.current?.click()}><Upload /> Import assembly</Button>
+      <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
         void load(event.currentTarget.files?.[0]);
         event.currentTarget.value = '';
-      }} /></label>
-      <label>Source forward <select value={forward} onChange={event => setForward(event.target.value as Axis)}>
+      }} />
+      <label>Forward <select className="form-select" value={forward} onChange={event => setForward(event.target.value as Axis)}>
         {axes.filter(axis => axis[1] !== up[1]).map(axis => <option key={axis}>{axis}</option>)}
       </select></label>
-      <label>Source up <select value={up} onChange={event => setUp(event.target.value as Axis)}>
+      <label>Up <select className="form-select" value={up} onChange={event => setUp(event.target.value as Axis)}>
         {axes.filter(axis => axis[1] !== forward[1]).map(axis => <option key={axis}>{axis}</option>)}
       </select></label>
     </div>
-    <p className="dreamer-model-status" role="status">{pending ? 'Reading the 3MF…' : notice}</p>
+    <div className="dreamer-model-status dw-meta" role="status">{pending ? 'Reading 3MF…' : notice}</div>
     {error && <p className="dreamer-model-error" role="alert">{error}</p>}
     <div className="dreamer-model-workspace">
-      <section className="dreamer-model-scene" aria-label="Assembly preview">
+      <section className="dw-panel dreamer-model-scene" aria-label="Assembly preview">
         <ModelViewport parts={parts} selectedId={selectedId} hidden={hidden} forward={forward} up={up}
           tool={tool} pick={pick} previewAngle={previewAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
         {parts.length > 0 && <>
-          <div className="dreamer-model-overlay-tools" role="group" aria-label="Selected part controls">
-            <button type="button" disabled={!selectedVisible} aria-pressed={tool === 'mass'}
-              onClick={() => { stopPreview(); setTool('mass'); }}>Edit CG</button>
-            <button type="button" disabled={!selectedVisible || !joint} aria-pressed={tool === 'joint'}
-              onClick={() => { stopPreview(); setTool('joint'); }}>Edit joint</button>
-            <button type="button" disabled={!selectedVisible || !joint} aria-pressed={pick !== null}
-              onClick={() => { stopPreview(); setTool('joint'); setPick(pick ? null : 'origin'); }}>
-              {pick ? 'Cancel picking' : 'Pick joint vertices'}
-            </button>
-            <button type="button" disabled={!animating && (!selectedVisible || !jointValid)}
+          <div className="dreamer-model-overlay-tools dw-toolbar" role="group" aria-label="Selected part controls">
+            <IconButton type="button" label="Edit CG" disabled={!selectedVisible} aria-pressed={tool === 'mass'} icon={<Bullseye />}
+              onClick={() => { stopPreview(); setTool('mass'); }} />
+            <IconButton type="button" label="Edit joint" disabled={!selectedVisible || !joint} aria-pressed={tool === 'joint'}
+              icon={<Crosshair />} onClick={() => { stopPreview(); setTool('joint'); }} />
+            <IconButton type="button" label={pick ? 'Cancel picking' : 'Pick joint vertices'}
+              icon={pick ? <XLg /> : <Crosshair2 />} disabled={!selectedVisible || !joint} aria-pressed={pick !== null}
+              onClick={() => { stopPreview(); setTool('joint'); setPick(pick ? null : 'origin'); }} />
+            <IconButton type="button" label={animating ? 'Stop motion' : 'Test joint motion'}
+              icon={animating ? <StopFill /> : <PlayFill />} disabled={!animating && (!selectedVisible || !jointValid)}
               aria-pressed={animating} onClick={() => {
                 if (animating) stopPreview();
                 else { setPick(null); setTool('joint'); setElapsed(0); setAnimating(true); }
-              }}>{animating ? 'Stop motion' : 'Test joint motion'}</button>
+              }} />
             {previewAngle !== null && <output aria-label="Joint preview angle">{previewAngle.toFixed(1)}°</output>}
+            <IconButton type="button" className="dreamer-view-help-button" label="View controls help" icon={<InfoCircle />}
+              aria-expanded={showHelp} aria-controls="dreamer-view-help" onClick={() => setShowHelp(previous => !previous)} />
           </div>
-          <p className="dreamer-model-view-help" role={pick ? 'status' : undefined}>
-            {pick === 'origin' ? 'Click a vertex on the selected part for the pivot.' :
-              pick === 'direction' ? 'Click a second vertex to point the joint axis.' :
-              selectedVisible && tool === 'mass' ? 'Left-drag the CG handle. Middle-drag to pan, right-drag to orbit.' :
-              selectedVisible && joint ? 'Left-drag the pivot or axis tip. Middle-drag to pan, right-drag to orbit.' :
-              'Middle-drag to pan, right-drag to orbit, or scroll to zoom.'}
+          <p id="dreamer-view-help" className="dreamer-model-view-help dw-meta" hidden={!showHelp}>
+            Left-drag handles, middle-drag to pan, right-drag to orbit, or scroll to zoom.
           </p>
+          {pick && <p className="dreamer-model-view-help dw-meta" role="status">
+            {pick === 'origin' ? 'Select the pivot vertex.' : 'Select a second vertex to set the axis.'}
+          </p>}
           <div className="dreamer-model-parts" role="group" aria-label="Parts">
-            {parts.map(item => <div className="dreamer-model-part" key={item.id}>
-              <button type="button" aria-pressed={item.id === selectedId} onClick={() => selectPart(item.id)}>{item.name}</button>
-              <input type="checkbox" checked={!hidden.has(item.id)} aria-label={'Show ' + item.name}
-                onChange={event => {
-                  const show = event.target.checked;
-                  if (!show && item.id === selectedId) stopPreview();
+            {parts.map(item => <div className="dreamer-model-part" data-selected={item.id === selectedId} key={item.id}>
+              <Button type="button" variant="outline-secondary" aria-pressed={item.id === selectedId} onClick={() => selectPart(item.id)}>{item.name}</Button>
+              <IconButton type="button" label={(hidden.has(item.id) ? 'Show ' : 'Hide ') + item.name}
+                icon={hidden.has(item.id) ? <EyeSlash /> : <Eye />} onClick={() => {
+                  if (!hidden.has(item.id) && item.id === selectedId) stopPreview();
                   setHidden(previous => {
                     const next = new Set(previous);
-                    if (show) next.delete(item.id); else next.add(item.id);
+                    if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
                     return next;
                   });
                 }} />
@@ -211,26 +220,35 @@ export default function ModelEditor() {
           </div>
         </>}
       </section>
-      {part && <section className="dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
-        <h2>{part.name}</h2>
-        <p>{max.map((value, i) => ((value-min[i])*1000).toFixed(1)).join(' × ')} mm (X × Y × Z)</p>
-        <p>{part.mesh.triangles.length.toLocaleString()} faces · {part.mesh.closed ? 'Closed edges' : 'Open or inconsistent edges'}</p>
+      {part && <section className="dw-panel dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
+        <div className="dreamer-part-heading">
+          <h2>{part.name}</h2>
+          <IconButton type="button" label="Replace mesh" icon={<ArrowRepeat />} disabled={pending}
+            onClick={() => replacementInput.current?.click()} />
+          <input ref={replacementInput} type="file" accept=".3mf" hidden aria-label="Replacement 3MF" disabled={pending}
+            onChange={event => {
+              void load(event.currentTarget.files?.[0], part);
+              event.currentTarget.value = '';
+            }} />
+        </div>
+        <p className="dw-meta">{max.map((value, i) => ((value-min[i])*1000).toFixed(1)).join(' × ')} mm (X × Y × Z)</p>
+        <p className="dw-meta">{part.mesh.triangles.length.toLocaleString()} faces · {part.mesh.closed ? 'Closed edges' : 'Open or inconsistent edges'}</p>
         {(part.mesh.duplicateVertices > 0 || part.mesh.degenerateFaces > 0) &&
-          <p>Merged {part.mesh.duplicateVertices} duplicate vertices and removed {part.mesh.degenerateFaces} zero-area faces.</p>}
-        <label>Replace mesh <input type="file" accept=".3mf" disabled={pending} onChange={event => {
-          void load(event.currentTarget.files?.[0], part);
-          event.currentTarget.value = '';
-        }} /></label>
-        <p>Use a single-part 3MF with the same CAD origin and axes.</p>
-        <label>Physics role <select value={part.role} onChange={event => changePart({ role: event.target.value as BoatPart['role'] })}>
+          <p className="dw-meta">Merged {part.mesh.duplicateVertices} duplicate vertices and removed {part.mesh.degenerateFaces} zero-area faces.</p>}
+        <label>Physics role <select className="form-select" value={part.role} onChange={event => changePart({ role: event.target.value as BoatPart['role'] })}>
           {roles.map(role => <option key={role}>{role}</option>)}
         </select></label>
-        {part.role === 'Displacement hull' && !part.mesh.closed && <p className="dreamer-model-error">A displacement hull needs a closed mesh.</p>}
-        <label>Mass (kg) <input type="number" min="0" step="any" value={part.mass ?? ''}
+        {part.role === 'Displacement hull' && !part.mesh.closed && <p className="dreamer-model-warning">A displacement hull needs a closed mesh.</p>}
+        <label>Mass (kg) <input className="form-control" type="number" min="0" step="any" value={part.mass ?? ''}
           onChange={event => changePart({ mass: event.currentTarget.value === '' ? null : Math.max(0, event.currentTarget.valueAsNumber) })} /></label>
-        <VectorFields label="Placement offset (m)" value={part.translation} change={translation => changePart({ translation })} />
-        <VectorFields label="Placement rotation (°)" value={part.rotation} change={rotation => changePart({ rotation })} />
-        <button type="button" disabled={!part.mesh.closed} onClick={() => {
+        <details className="dreamer-part-detail">
+          <summary>Placement</summary>
+          <VectorFields label="Placement offset (m)" value={part.translation} change={translation => changePart({ translation })} />
+          <VectorFields label="Placement rotation (°)" value={part.rotation} change={rotation => changePart({ rotation })} />
+        </details>
+        <VectorFields label="Local centre of mass (m)" value={part.centerOfMass ?? origin} change={centerOfMass => changePart({ centerOfMass })} />
+        <Button type="button" variant="outline-secondary" disabled={!part.mesh.closed}
+          title="Calculate from the enclosed volume with uniform density" onClick={() => {
           const centerOfMass = uniformDensityCenter(part.mesh);
           if (!centerOfMass) {
             setNotice('Calculate CG needs a mesh with a valid enclosed volume.');
@@ -240,14 +258,13 @@ export default function ModelEditor() {
           stopPreview();
           setTool('mass');
           setNotice('Calculated CG for ' + part.name + ' using uniform density.');
-        }}>Calculate CG</button>
-        <p>{part.mesh.closed ? 'Uses the enclosed volume and assumes uniform density.' : 'Calculate CG requires a closed mesh.'}</p>
-        <VectorFields label="Local centre of mass (m)" value={part.centerOfMass} change={centerOfMass => changePart({ centerOfMass })} />
-        <label className="dreamer-model-checkbox"><input type="checkbox" checked={Boolean(joint)} onChange={event => {
+        }}>Calculate CG</Button>
+        {!part.centerOfMass && <p className="dreamer-model-warning dw-meta">CG unavailable from mesh. Enter manually.</p>}
+        <label className="dreamer-model-checkbox"><input className="form-check-input" type="checkbox" checked={Boolean(joint)} onChange={event => {
           const enabled = event.target.checked;
           stopPreview();
           setTool(enabled ? 'joint' : 'mass');
-          changePart({ joint: enabled ? { pivot: part.centerOfMass, axis: [0, 0, 1], minimum: -30, maximum: 30 } : null });
+          changePart({ joint: enabled ? { pivot: part.centerOfMass ?? origin, axis: [0, 0, 1], minimum: -30, maximum: 30 } : null });
         }}
         /> Revolute joint</label>
         {joint && <>
