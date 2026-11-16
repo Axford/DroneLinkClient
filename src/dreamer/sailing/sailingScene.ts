@@ -7,7 +7,16 @@ export interface SailingPose {
   center: Vector;
   angles: Controls;
   water: Weather['water'];
-  vectors: { label: string; color: 'forward' | 'cg' | 'highlight' | 'up'; start: Vector; end: Vector }[];
+  vectors: { label: string; color: 'forward' | 'cg' | 'highlight' | 'up' | 'course'; start: Vector; end: Vector }[];
+}
+
+export function velocityArrow(state: SailingState): SailingPose['vectors'][number] | undefined {
+  const velocity: Vector = [state.velocity[0], state.velocity[1], 0];
+  const speed = Math.hypot(...velocity);
+  if (speed < 0.01) return undefined;
+  const start = add(state.position, [0,0,0.06]);
+  return { label: 'Velocity · ' + speed.toFixed(2) + ' m/s', color: 'course',
+    start, end: add(start, scale(velocity, 0.8)) };
 }
 
 export function waterGrid(position: Vector, time: number, water: Weather['water'], metresVisible: number) {

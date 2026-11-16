@@ -16,7 +16,16 @@
 .dreamer-sailing-vectors { margin-block-end: var(--dw-space-2); }
 .dreamer-sailing-vectors label { display: flex; align-items: center; gap: var(--dw-space-1); }
 .dreamer-sailing-vector.forward { color: var(--dw-color-success); }
+.dreamer-sailing-vector.course { color: var(--dw-color-navigation-course); }
 .dreamer-sailing-vector.highlight { color: var(--dw-color-accent); }
 .dreamer-sailing-vector.cg { color: var(--dw-color-warning); }
 .dreamer-sailing-canvas { position: relative; }
 .dreamer-sailing-canvas .dreamer-model-viewport { height: clamp(18rem, 56vh, 42rem); }
+
+.dreamer-response { display: grid; gap: var(--dw-space-3); }
+.dreamer-response-controls label { display: grid; gap: var(--dw-space-1); }
+.dreamer-response-controls + p { margin-block: var(--dw-space-2) 0; }
+.dreamer-response-charts { display: grid; gap: var(--dw-space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.dreamer-response-charts > section { min-width: 0; }
+.dreamer-response-charts h3 { font-size: var(--dw-font-size-heading); }
+.dreamer-response-table-select { display: inline-grid; gap: var(--dw-space-1); margin-block: var(--dw-space-2); }

@@ -7,7 +7,7 @@ import ModelViewport from '../ModelViewport';
 import { Controls, SailingBoat, jointAngle, prepareSailingBoat } from './sailingModel';
 import { WeatherPreset, instruments, loads, stepSeconds, weatherPresets, windVectors } from './sailingPhysics';
 import { SailingRun, SailingTrace, neutralControls } from './sailingRun';
-import { SailingPose, sailingForces } from './sailingScene';
+import { SailingPose, sailingForces, velocityArrow } from './sailingScene';
 import './sailing.css';
 
 const noOp = () => {};
@@ -33,7 +33,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
   const [replaying, setReplaying] = useState(false);
   const [lastTrace, setLastTrace] = useState<SailingTrace>();
   const [error, setError] = useState('');
-  const [vectors, setVectors] = useState({ wind: true, apparent: true, water: true, air: true });
+  const [vectors, setVectors] = useState({ wind: true, apparent: true, water: true, air: true, velocity: true });
 
   function reset(weather = run.weather, seed = run.seed, playback?: SailingTrace, wind = { speed: run.windSpeed }) {
     if (run.tick) setLastTrace(run.trace());
@@ -90,6 +90,8 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
     }
     if (vectors.wind) windArrow('Wind', trueWind, 'forward', start);
     if (vectors.apparent) windArrow('Apparent wind', apparentWind, 'up', add(start, [0,0,0.12]));
+    const travel = vectors.velocity && velocityArrow(state);
+    if (travel) arrows.push(travel);
     if (vectors.air || vectors.water) {
       const reported = loads(boat, state, controls, run.conditions, true);
       const selected = reported.components.filter(part => vectors[part.medium]);
@@ -99,6 +101,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
     return { state, center: boat.center, angles: controls, water: run.conditions.water, vectors: arrows };
   }, [boat, run, state, controls, vectors]);
 
+  const visibleParts = useMemo(() => model.parts.filter(part => part.simulationEnabled !== false), [model]);
   const jointed = boat.parts.filter(part => part.joint);
   const traceToPlay = lastTrace ?? (run.tick ? run.trace() : undefined);
   return <div className="dreamer-sailing">
@@ -173,7 +176,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
       <div className="dw-toolbar dreamer-sailing-vectors" role="group" aria-label="Vectors">
         {([
           ['wind','True wind','forward'], ['apparent','Apparent wind','up'],
-          ['water','Water forces','highlight'], ['air','Air forces','cg'],
+          ['velocity','Velocity','course'], ['water','Water forces','highlight'], ['air','Air forces','cg'],
         ] as const).map(([key,label,color]) => <label className={'dreamer-sailing-vector ' + color} key={key}>
           <input className="form-check-input" type="checkbox" checked={vectors[key]}
             onChange={event => setVectors({ ...vectors, [key]: event.target.checked })} /> {label}
@@ -182,7 +185,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
         <span className="dreamer-sailing-vector highlight">Hull waterline</span>
       </div>
       <div className="dreamer-sailing-canvas">
-        <ModelViewport parts={model.parts} selectedId="" hidden={hidden} forward={model.forward} up={model.up}
+        <ModelViewport parts={visibleParts} selectedId="" hidden={hidden} forward={model.forward} up={model.up}
           tool="mass" pick={null} previewAngle={null} neutralDraft={null} onMoveAngle={noOp} onMoveHandle={noOp}
           onPickVertex={noOp} sailing={pose} />
       </div>

@@ -4,7 +4,7 @@ import fixture from './__fixtures__/sloop.json';
 import { jointAngle, prepareSailingBoat } from './sailingModel';
 import { initialState, instruments, loads, makeWeather, weatherPresets } from './sailingPhysics';
 import { SailingRun, neutralControls } from './sailingRun';
-import { waterGrid } from './sailingScene';
+import { velocityArrow, waterGrid } from './sailingScene';
 
 const model = fixture as BoatDocument;
 const boat = () => prepareSailingBoat(model);
@@ -281,4 +281,27 @@ test('sailing instruments distinguish heading from stern-first travel', () => {
   expect(moving.heading).toBeCloseTo(0);
   expect(moving.course).toBeCloseTo(180);
   expect(moving.foreAftSpeed).toBeCloseTo(-0.6);
+});
+
+test('a disabled part contributes no mass, loads or actuator while legacy parts stay enabled', () => {
+  const reference = boat();
+  const body = prepareSailingBoat({ ...model, parts: model.parts.map(part =>
+    part.name === 'Rudder' || part.name === 'Main sail' ? { ...part, simulationEnabled: false } : part,
+  ) });
+  expect(body.mass).toBeCloseTo(reference.mass-0.25-0.6);
+  expect(Object.keys(neutralControls(body))).toEqual([]);
+  const run = new SailingRun(body, 'Smooth water · light wind', 1);
+  const motion = { ...run.state, velocity: [0.6,0.2,0] as Vector };
+  expect(loads(body, motion, {}, run.conditions, true).components.map(part => part.name)).toEqual(['Hull','Keel']);
+});
+
+test('the velocity arrow points along travel and scales linearly with speed', () => {
+  const { state } = new SailingRun(boat(), 'Flat calm', 1);
+  expect(velocityArrow(state)).toBeUndefined();
+  const first = velocityArrow({ ...state, velocity: [-0.5,0.25,0.9] })!;
+  const second = velocityArrow({ ...state, velocity: [-1,0.5,0.9] })!;
+  expect(first.end[0] - first.start[0]).toBeCloseTo(-0.4);
+  expect(first.end[1] - first.start[1]).toBeCloseTo(0.2);
+  expect(first.end[2]).toBe(first.start[2]);
+  expect(second.end[0] - second.start[0]).toBeCloseTo(2*(first.end[0]-first.start[0]));
 });

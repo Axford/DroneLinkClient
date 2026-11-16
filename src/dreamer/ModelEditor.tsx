@@ -8,11 +8,16 @@ import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './Model
 import { BoatDocument, Revision, Snapshot } from './cloudModels';
 import StabilityView from './StabilityView';
 import SailingView from './sailing/SailingView';
+import ResponseView from './sailing/ResponseView';
 import { ApiError } from '../utils/api';
 import './modelEditor.css';
 
 const origin: Vector = [0, 0, 0];
-const steps = ['import', 'orient', 'configure', 'stability', 'sail'] as const;
+const tabs = {
+  import: 'Import', orient: 'Orient', configure: 'Configure', stability: 'Stability',
+  'sail-response': 'Sail response', 'hull-response': 'Hull response', sail: 'Sail',
+} as const;
+const steps = Object.keys(tabs) as (keyof typeof tabs)[];
 type Step = typeof steps[number];
 
 interface VectorFieldsProps { label: string; value: Vector; change: (value: Vector) => void }
@@ -254,9 +259,9 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
       <Nav variant="tabs" aria-label="Model setup" className="dw-attached-tabs dreamer-editor-tabs">
         {steps.map(tab => <Nav.Item key={tab}>
           <Nav.Link as="button" eventKey={tab} disabled={saving || pending ||
-            ((tab === 'stability' || tab === 'sail') && !saved) || (tab === 'configure' && !configured) ||
+            (steps.indexOf(tab) >= steps.indexOf('stability') && !saved) || (tab === 'configure' && !configured) ||
             (tab === 'orient' && (!editable || !parts.length)) || (tab === 'import' && !editable)}>
-            {tab[0].toUpperCase() + tab.slice(1)}
+            {tabs[tab]}
           </Nav.Link>
         </Nav.Item>)}
       </Nav>
@@ -266,11 +271,15 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
           <StabilityView key={saved.revision.revisionId} revision={saved.revision} model={saved.model}
             domainId={cloud.domainId} signal={cloud.signal} editable={cloud.analysisEditable} />
         </Tab.Pane>}
+        {(step === 'sail-response' || step === 'hull-response') && saved && <Tab.Pane eventKey={step} transition={false}>
+          {dirty && <p className="dw-meta">This sweep uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
+          <ResponseView key={step + saved.revision.revisionId} model={saved.model} mode={step === 'sail-response' ? 'sail' : 'hull'} />
+        </Tab.Pane>}
         {step === 'sail' && saved && <Tab.Pane eventKey="sail" transition={false}>
           {dirty && <p className="dw-meta">Sailing uses saved revision {saved.revision.number}. Unsaved edits are in Configure.</p>}
           <SailingView key={saved.revision.revisionId} model={saved.model} />
         </Tab.Pane>}
-        {step !== 'stability' && step !== 'sail' && <Tab.Pane eventKey={step} transition={false}>
+        {(step === 'import' || step === 'orient' || step === 'configure') && <Tab.Pane eventKey={step} transition={false}>
     <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
       void load(event.currentTarget.files?.[0]);
       event.currentTarget.value = '';
@@ -362,6 +371,8 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
         {(part.mesh.duplicateVertices > 0 || part.mesh.degenerateFaces > 0) &&
           <p className="dw-meta">Merged {part.mesh.duplicateVertices} duplicate vertices and removed {part.mesh.degenerateFaces} zero-area faces.</p>}
         <fieldset disabled={!editable} className="dreamer-model-fields">
+        <label><input type="checkbox" className="form-check-input" checked={part.simulationEnabled !== false}
+          onChange={event => changePart({ simulationEnabled: event.target.checked })} /> Include in simulation</label>
         <label>Physics role <select className="form-select" value={part.role} onChange={event => changePart({ role: event.target.value as BoatPart['role'] })}>
           {roles.map(role => <option key={role} value={role}>{role === 'Displacement hull' ? 'Displacement body' : role === 'Ballast' ? 'Ballast (mass only)' : role}</option>)}
         </select></label>

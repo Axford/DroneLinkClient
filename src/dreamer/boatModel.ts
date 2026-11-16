@@ -22,6 +22,7 @@ export interface BoatPart {
   translation: Vector;
   rotation: Vector;
   role: typeof roles[number];
+  simulationEnabled?: boolean;
   mass: number | null;
   centerOfMass: Vector | null;
   joint: null | { pivot: Vector; axis: Vector; neutral?: number; minimum: number; maximum: number };

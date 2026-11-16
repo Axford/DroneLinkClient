@@ -71,7 +71,7 @@ function Results({ result, model }: { result: StabilityResult; model: BoatDocume
         <StabilityChart axis="heel" points={result.heel} equilibrium={equilibrium} onScrub={scrub} />
         <StabilityChart axis="pitch" points={result.pitch} equilibrium={equilibrium} onScrub={scrub} />
       </div>
-      <StabilityPreview model={model} result={result} equilibrium={equilibrium} sample={sample}
+      <StabilityPreview model={{ ...model, parts: model.parts.filter(part => part.simulationEnabled !== false) }} result={result} equilibrium={equilibrium} sample={sample}
         scrub={scrub} reset={() => setSample(previous => ({ ...previous, index: null }))} />
     </>}
   </>;

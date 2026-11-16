@@ -131,7 +131,7 @@ export function prepareSailingBoat(model: BoatDocument): SailingBoat {
   const loads: { mass: number; cg: Vector; size: Vector }[] = [];
   const hullBounds: ReturnType<typeof meshBounds>[] = [];
   for (const part of model.parts) {
-    if (part.role === 'Visual only') continue;
+    if (part.simulationEnabled === false || part.role === 'Visual only') continue;
     if (part.role === 'Unassigned') throw new Error(part.name + ' needs a physics role.');
     if (part.mass === null || !Number.isFinite(part.mass) || part.mass < 0)
       throw new Error(part.name + ' needs a mass or an explicit zero.');

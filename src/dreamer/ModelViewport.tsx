@@ -46,7 +46,7 @@ function editorPalette() {
   return {
     canvas: read('color-instrument-face'), outline: read('color-canvas'),
     highlight: read('color-accent'), mesh: read('color-muted'),
-    cg: read('color-warning'), up: read('color-text'), forward: read('color-success'),
+    course: read('color-navigation-course'), cg: read('color-warning'), up: read('color-text'), forward: read('color-success'),
     font: [read('font-size-meta'), read('font-family')].join(' '),
   };
 }

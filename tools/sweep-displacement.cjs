@@ -11,8 +11,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 
 const { prepareSailingBoat } = require('../src/dreamer/sailing/sailingModel.ts');
-const { initialState, loads, makeWeather, weatherPresets } = require('../src/dreamer/sailing/sailingPhysics.ts');
-const { neutralControls } = require('../src/dreamer/sailing/sailingRun.ts');
+const { hullResponse, sweepSpeeds, sweepLeeway } = require('../src/dreamer/sailing/responseSweeps.ts');
 
 function main([input, output]) {
   if (!input || !output)
@@ -20,25 +19,16 @@ function main([input, output]) {
   const snapshot = JSON.parse(fs.readFileSync(input, 'utf8'));
   const model = snapshot.model ?? snapshot;
   const boat = prepareSailingBoat(model);
-  const weather = makeWeather(weatherPresets['Flat calm'], 1);
-  const initial = initialState(boat, weather);
-  const controls = neutralControls(boat);
-  const parts = model.parts.filter(part => part.role === 'Displacement hull' ||
-    part.role === 'Water foil' || part.role === 'Ballast');
+  const response = hullResponse(boat);
+  const parts = model.parts.filter(part => part.simulationEnabled !== false &&
+    (part.role === 'Displacement hull' || part.role === 'Water foil' || part.role === 'Ballast'));
+  const indices = new Map(response.parts.map((part, index) => [part.id, index]));
   const rows = ['speed_m_s,leeway_port_deg,part_id,part_name,drag_n,side_port_n,yaw_port_nm,up_n'];
-  for (const speed of [0, 0.2, 0.4, 0.6, 0.8, 1, 1.2]) {
-    for (let leeway = -30; leeway <= 30; leeway += 5) {
-      const angle = leeway*Math.PI/180;
-      const along = [Math.cos(angle), Math.sin(angle)];
-      const across = [-along[1], along[0]];
-      const state = { ...initial, velocity: [speed*along[0], speed*along[1], 0] };
-      const { components } = loads(boat, state, controls, weather, true);
+  for (const speed of sweepSpeeds) {
+    for (const leeway of sweepLeeway) {
+      const values = response.at(speed, leeway);
       for (const part of parts) {
-        const component = components.find(load => load.partId === part.id && load.medium === 'water');
-        const [x,y,z] = component?.force ?? [0,0,0];
-        const drag = -along[0]*x - along[1]*y;
-        const side = across[0]*x + across[1]*y;
-        const yaw = component?.moment[2] ?? 0;
+        const { longitudinal: drag, side, yaw, vertical: z } = values[indices.get(part.id)] ?? { longitudinal: 0, side: 0, yaw: 0, vertical: 0 };
         if (![drag,side,yaw,z].every(Number.isFinite))
           throw new Error(`Non-finite water load on ${part.name} at ${speed} m/s and ${leeway}°.`);
         const csvName = '"' + part.name.replaceAll('"', '""') + '"';
