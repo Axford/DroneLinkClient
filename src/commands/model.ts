@@ -9,10 +9,10 @@ export interface Expected { observationEpoch: string; nodeGeneration: number; ms
 export interface Address { source: number; node: number; channel: number; param: number; priority: number }
 export type Payload = { values: number[] } | { text: string } | { addresses: Address[] };
 export type Query = 'query-value' | 'query-name';
-export type Intent = { target: Target } & ({ operation: Query } | { operation: 'write'; expected: Expected; payload: Payload });
+export type Intent = { target: Target } & ({ operation: Query } | { operation: 'write'; expected: Expected; payload: Payload } | { operation: 'retry-normal'; bootId: string });
 interface Attribution { userId: string; displayName: string }
 export interface Command {
-  id: string; domainId: string; target: Target; operation: Intent['operation']; requested: Payload | null;
+  id: string; domainId: string; target: Target; operation: Intent['operation']; requested: Payload | { bootId: string } | null;
   state: 'pending' | 'retrieved' | 'expired' | 'cancelled' | 'superseded' | 'invalidated';
   transport: 'http'; priority: number; acceptedAt: string; expiresAt: string; terminalAt: string | null;
   reason: string | null; submittedBy: Attribution; cancelledBy: Attribution | null;
@@ -23,7 +23,7 @@ export interface WriteObservation { expected: Expected; bytes: Uint8Array }
 export const addressFields = ['source', 'node', 'channel', 'param', 'priority'] as const;
 const addressLimits = [255, 255, 255, 63, 3];
 export const commandAddress = ({ nodeAddress, channel, param }: Target) => `${nodeAddress}>${channel}.${param}`;
-export const operationLabel = (kind: Intent['operation']) => ({ write: 'Write', 'query-value': 'Value query', 'query-name': 'Name query' })[kind];
+export const operationLabel = (kind: Intent['operation']) => ({ write: 'Write', 'query-value': 'Value query', 'query-name': 'Name query', 'retry-normal': 'Retry normal startup' })[kind];
 
 function visibleText(bytes: Uint8Array): string {
   return Array.from(bytes).slice(0, bytes.indexOf(0) < 0 ? bytes.length : bytes.indexOf(0)).map(code => {
@@ -90,7 +90,8 @@ export function typedPayload(expected: Pick<Expected, 'msgType' | 'payloadBytes'
     return value;
   }) };
 }
-export function requestedText(payload: Payload) {
+export function requestedText(payload: Payload | { bootId: string }) {
+  if ('bootId' in payload) return `Boot ${payload.bootId}`;
   if ('text' in payload) return JSON.stringify(payload.text);
   if ('values' in payload) return payload.values.join(', ');
   return payload.addresses.map(a => `${a.source}:${a.node}>${a.channel}.${a.param} (priority ${a.priority})`).join(', ');

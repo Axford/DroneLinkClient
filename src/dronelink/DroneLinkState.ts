@@ -19,6 +19,7 @@ export interface ParameterState {
   priority?: number;
   writeObservation?: WriteObservation;
   observationBytes?: Uint8Array;
+  directHttpObservation?: boolean;
   param: number;
   name?: string;
   timestamp?: number;
@@ -650,6 +651,8 @@ export class DroneLinkState {
           if (kind === 'name') { parameter.name = msg.payloadToString(); parameter.nameLastHeard = Date.parse(facet.lastReceivedAt); parameter.nameSource = facet.origin.kind === 'gateway' ? `Gateway ${facet.origin.forwarderAddress}` : 'HTTP'; }
           else {
             parameter.observationBytes = payload;
+            parameter.directHttpObservation = facet.origin.kind === 'http' &&
+              facet.origin.forwarderAddress === row.nodeAddress && facet.origin.sourceAddress === row.nodeAddress;
             parameter.msgType = type; parameter.bytesPerValue = msg.bytesPerValue(); parameter.numValues = msg.numValues();
             parameter.values = msg.valueArray() as number[] | string[]; parameter.writable = !!facet.writable;
             const priority = facet.priority;

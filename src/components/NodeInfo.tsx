@@ -11,6 +11,9 @@ import { receiptLabel } from '../dronelink/observedPositions';
 import { NodeState } from '../dronelink/DroneLinkState';
 import { moduleSummaries, spatialSummaries } from '../dronelink/moduleVisualizations';
 import { SummaryChips, SummaryDetails } from './NodeSummary';
+import NodeCredentials from '../commands/NodeCredentials';
+import CloudConfigRepair from '../commands/CloudConfigRepair';
+import CloudBootRecovery from '../commands/CloudBootRecovery';
 import { useVisualizationSettings } from './VisualizationSettings';
 
 interface NodeInfoProps {
@@ -115,6 +118,9 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
                         </div>
                     </Col>
                 </Row>
+                {details && node.interface === 'cloud' && <CloudBootRecovery key={node.id} node={node} now={currentTime} />}
+                {details && node.interface === 'cloud' && <NodeCredentials key={node.id} node={node.id} now={currentTime} />}
+                {details && node.interface === 'cloud' && <CloudConfigRepair key={node.id} node={node.id} />}
                 <SummaryDetails nodeId={node.id} summaries={summaries} now={currentTime} />
             </Card.Body>
         </Card>

@@ -23,7 +23,7 @@ function CommandSummary({ command }: { command: Command }) {
     <div className="dw-meta">Requested by {command.submittedBy.displayName} at {stamp(command.acceptedAt)}</div>
     {command.state === 'pending' && <div className="dw-meta">Expires {stamp(command.expiresAt)}</div>}
     {command.terminalAt && <div className="dw-meta">{stamp(command.terminalAt)}{command.reason && ` · ${command.reason.replace(/-/g, ' ')}`}{command.cancelledBy && ` · ${command.cancelledBy.displayName}`}</div>}
-    {command.state === 'retrieved' && <div className="dw-meta">Retrieved by the polling node. Check the observed value for changes.</div>}
+    {command.state === 'retrieved' && <div className="dw-meta">Retrieved by the polling node. {command.operation === 'retry-normal' ? 'Check Node details for a new boot report.' : 'Check the observed value for changes.'}</div>}
   </>;
 }
 

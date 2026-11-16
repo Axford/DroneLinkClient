@@ -292,3 +292,9 @@ On signed-in Home, choose **Cloud Replay** for a Domain. Pick a date and time, o
 The first visit to an older point may need preparation. The Server keeps preparing after navigation. Dragging uses the Client cache where data is available. A seek to an unloaded range fetches after release. **Refresh history** refreshes the cached data and reopens the same time. Open Replay from the archived Domain list to inspect retained records.
 
 Editors, Owners and Platform Admins can add a note at the playhead or bookmark the latest retained telemetry from Cloud Live. They can change the capture interval in Replay for active Domains. Viewers can open shared bookmarks.
+
+
+
+### Configuration repair on staging
+
+Open Cloud Node details for the enrolled node in the enabled staging Domain. Choose a replacement `config.ini` and use **Stage replacement**. Check that the device reports the staged digest before using **Retry with staged config**. **Confirm trial** appears after the device reports that startup probation passed. The result shows the installed digest when the device confirms commit or comes back in recovery. The [staging contract](../../DroneLinkDatastore/docs/contracts/http.md#remote-configuration-repair-staging-contract) describes the wire and authorization rules.
