@@ -299,6 +299,8 @@ In the signed-in Cloud workspace, open **Dreamer** on the Domain card. Choose **
 
 If someone else saves first, the editor keeps your draft open and asks you to reopen the latest revision before saving again. Analysis and Workbench can use the stable Domain, model and revision identifiers when those workflows are implemented.
 
+Choose **Stability** beside the latest saved model or **Stability for revision N** in **Revisions**. Salt water (1,025 kg/m³) is selected initially. Choose freshwater (1,000 kg/m³) as needed and select **Run and save**. Open either curve's **Sample values** for exact rows. Use **Saved analyses** to reopen the pair of curves, still-water equilibrium and water preset for this revision. Save another boat revision to change the loading. Correct any reported geometry, role, mass or centre-of-mass issues before running that revised model.
+
 For local development, start the Client from the Dreamer model-editor branch:
 
 ```sh

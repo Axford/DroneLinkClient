@@ -18,12 +18,55 @@ export interface Revision {
 export interface Snapshot extends Revision { model: BoatDocument }
 interface RevisionPage { data: Revision[]; nextCursor: string | null }
 
+export type WaterPreset = 'salt-water' | 'freshwater';
+
+export interface StabilityEquilibrium {
+  heel: number;
+  pitch: number;
+  draft: number;
+  displacedVolume: number;
+  heelMoment: number;
+  pitchMoment: number;
+  stability: 'restoring' | 'non-restoring' | 'indeterminate';
+}
+export type StabilityPoint = { angle: number } & (
+  { heelMoment: number; pitchMoment: number } | { diagnostic: string }
+);
+export interface StabilityResult {
+  settings: { water: WaterPreset; density: number };
+  diagnostics: { code: string; partId?: string; otherPartId?: string; partName?: string; otherPartName?: string }[];
+  mass: number | null;
+  equilibrium: StabilityEquilibrium | null;
+  heel: StabilityPoint[];
+  pitch: StabilityPoint[];
+}
+export interface StabilityMetadata {
+  analysisId: string;
+  modelId: string;
+  revisionId: string;
+  savedAt: string;
+  water: WaterPreset;
+}
+interface StabilityRecord extends StabilityMetadata { result: StabilityResult }
+type StabilityReply = { data: StabilityRecord } | { data: null; result: StabilityResult };
+
 export function cloudModels(domainId: string, signal?: AbortSignal) {
   const root = '/api/domains/' + encodeURIComponent(domainId) + '/dreamer-models';
   const history = (id: string) => root + '/' + encodeURIComponent(id) + '/revisions';
   const cursor = (after?: string) => after ? '?after=' + encodeURIComponent(after) : '';
   const revisionPath = (modelId: string, revisionId: string) => history(modelId) + '/' + encodeURIComponent(revisionId);
+  const stabilityPath = (modelId: string, revisionId: string) => revisionPath(modelId, revisionId) + '/stability';
+  const analysisPath = (modelId: string, revisionId: string, id: string) => stabilityPath(modelId, revisionId) + '/' + encodeURIComponent(id);
   return {
+    stability: {
+      list: (modelId: string, revisionId: string, after?: string): Promise<{ data: StabilityMetadata[]; nextCursor: string | null }> =>
+        authenticatedFetchJson(stabilityPath(modelId, revisionId) + cursor(after), { signal }),
+      async open(modelId: string, revisionId: string, id: string): Promise<StabilityRecord> {
+        return (await authenticatedFetchJson(analysisPath(modelId, revisionId, id), { signal })).data;
+      },
+      run: (modelId: string, revisionId: string, id: string, water: WaterPreset): Promise<StabilityReply> =>
+        authenticatedFetchJson(analysisPath(modelId, revisionId, id), { method: 'PUT', body: JSON.stringify({ water }), signal }),
+    },
     list: (after?: string): Promise<RevisionPage> => authenticatedFetchJson(root + cursor(after), { signal }),
     history: (modelId: string, after?: string): Promise<RevisionPage> => authenticatedFetchJson(history(modelId) + cursor(after), { signal }),
     async open(modelId: string, revisionId: string): Promise<Snapshot> {

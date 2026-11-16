@@ -6,10 +6,12 @@ import WorkspaceShell from '../components/WorkspaceShell';
 import PageFeedback from '../components/ui/PageFeedback';
 import { ApiError, accessEvent, affectsDomain, authenticatedFetchJson } from '../utils/api';
 import ModelEditor from './ModelEditor';
+import StabilityView from './StabilityView';
 import { Revision, Snapshot, cloudModels } from './cloudModels';
 
 function ModelLibrary({ domain, signal }: { domain: Domain; signal: AbortSignal }) {
   const [open, setOpen] = useState<{ snapshot?: Snapshot; historical?: boolean } | null>(null);
+  const [stability, setStability] = useState<Revision>();
   const [models, setModels] = useState<Revision[]>([]);
   const [next, setNext] = useState<string | null>(null);
   const [history, setHistory] = useState<{ modelId: string; rows: Revision[]; next: string | null }>();
@@ -60,6 +62,10 @@ function ModelLibrary({ domain, signal }: { domain: Domain; signal: AbortSignal 
     });
   }
 
+  if (stability) return <div className="dreamer-stability-root">
+    <StabilityView revision={stability} domainId={domain._id} signal={signal} editable={editable} back={() => setStability(undefined)} />
+  </div>;
+
   if (open) return <ModelEditor cloud={{
     domainId: domain._id, initial: open.snapshot, editable: editable && !open.historical,
     save: modelApi.save,
@@ -81,6 +87,7 @@ function ModelLibrary({ domain, signal }: { domain: Domain; signal: AbortSignal 
           <span><strong>{model.name}</strong> <span className="dw-meta">Revision {model.number}</span></span>
           <div className="dw-toolbar">
             <Button variant="outline-secondary" disabled={working} onClick={() => openRevision(model, model)}>Open latest</Button>
+            <Button variant="outline-secondary" disabled={working} onClick={() => setStability(model)}>Stability</Button>
             <Button variant="outline-secondary" disabled={working} aria-expanded={history?.modelId === model.modelId}
               onClick={() => history?.modelId === model.modelId ? setHistory(undefined) : showHistory(model.modelId)}>Revisions</Button>
           </div>
@@ -88,7 +95,10 @@ function ModelLibrary({ domain, signal }: { domain: Domain; signal: AbortSignal 
         {history?.modelId === model.modelId && <ul className="dreamer-library-list dreamer-library-history">
           {history.rows.map(revision => <li className="dreamer-library-row" key={revision.revisionId}>
             <span>Revision {revision.number} <span className="dw-meta">{new Date(revision.savedAt).toLocaleString()}</span></span>
-            <Button variant="outline-secondary" disabled={working} onClick={() => openRevision(revision, history.rows[0])}>Open revision {revision.number}</Button>
+            <div className="dw-toolbar">
+              <Button variant="outline-secondary" disabled={working} onClick={() => openRevision(revision, history.rows[0])}>Open revision {revision.number}</Button>
+              <Button variant="outline-secondary" disabled={working} onClick={() => setStability(revision)}>Stability for revision {revision.number}</Button>
+            </div>
           </li>)}
           {history.next && <li><Button variant="outline-secondary" disabled={working} onClick={() => showHistory(model.modelId, history.next ?? undefined)}>More revisions</Button></li>}
         </ul>}
