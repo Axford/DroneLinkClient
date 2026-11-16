@@ -20,7 +20,7 @@ export default function WaypointInstrument({ label, summary }: { label: string; 
             <Readout label={loop.label} value={value(loop)} />
         </dl>
         {routeProgress ? <div className="dw-waypoint-track" role="img"
-            aria-label={`Route progress. ${covered.text} estimated covered, ${remaining.text} remaining, ${total.text} total. ${leg.text} to next waypoint.`}>
+            aria-label={`Route progress. ${covered.text} estimated covered, ${remaining.text} remaining, ${total.text} ${total.label.toLowerCase()}. ${leg.text} to next waypoint.`}>
             <span className="dw-waypoint-completed" style={{ width: `${routeProgress.completed * 100}%` }} />
             <span className="dw-waypoint-next" style={{ left: `${routeProgress.next * 100}%` }} />
         </div> : <p className="dw-meta dw-waypoint-empty">Route progress unavailable</p>}

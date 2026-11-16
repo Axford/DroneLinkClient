@@ -7,9 +7,10 @@ export interface WorkspaceShellProps {
   user: User;
   activeDomain?: Domain;
   shortcuts?: Domain[];
+  scrollContent?: boolean;
   children: React.ReactNode;
 }
-export default function WorkspaceShell({ user, activeDomain, shortcuts, children }: WorkspaceShellProps) {
+export default function WorkspaceShell({ user, activeDomain, shortcuts, scrollContent, children }: WorkspaceShellProps) {
   const [domains, setDomains] = useState<Domain[]>([]);
   useEffect(() => {
     if (shortcuts) { setDomains(shortcuts); return; }
@@ -33,6 +34,6 @@ export default function WorkspaceShell({ user, activeDomain, shortcuts, children
   }, [shortcuts]);
   return <div className="dw-workspace" data-bs-theme="dark">
     <PrimaryNavBar user={user} domains={domains} activeDomainId={activeDomain?._id} workspaceTitle={activeDomain?.name} />
-    <main className={`content-wrapper ${activeDomain ? 'workspace-operations' : ''}`}>{children}</main>
+    <main className={`content-wrapper ${activeDomain ? 'workspace-operations' : ''}${scrollContent ? ' workspace-scroll' : ''}`}>{children}</main>
   </div>;
 }

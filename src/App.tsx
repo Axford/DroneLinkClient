@@ -130,6 +130,8 @@ function AppContent() {
   </WorkspaceShell>;
 }
 
+const DreamerModelEditor = React.lazy(() => import('./dreamer/ModelEditor'));
+const CloudDreamer = React.lazy(() => import('./dreamer/CloudDreamer'));
 const CloudReplay = React.lazy(() => import('./replay/CloudReplay'));
 
 function App() {
@@ -137,8 +139,12 @@ function App() {
     <ToastProvider>
       <Router>
         <Routes>
+          {process.env.NODE_ENV === 'development' && <Route path="/dreamer/model-editor" element={
+            <React.Suspense fallback={<p role="status">Opening the model editor…</p>}><DreamerModelEditor /></React.Suspense>
+          } />}
           <Route path="/workbench/" element={<WorkbenchPage />} />
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/private/domain/:domainId/dreamer" element={<React.Suspense fallback={<p role="status">Opening Dreamer…</p>}><CloudDreamer /></React.Suspense>} />
           <Route path="/private/domain/:domainId/replay" element={<React.Suspense fallback={<p role="status">Opening Cloud Replay…</p>}><CloudReplay /></React.Suspense>} />
           <Route path="/private/domain/:domainId" element={<DomainDetailPage />} />
           <Route path="/*" element={<AppContent />} />

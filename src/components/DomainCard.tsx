@@ -53,6 +53,7 @@ export default function DomainCard({ domain, user, onRefresh }: { domain: Domain
     <div className="dw-toolbar dw-domain-card-actions justify-content-end">
       {domain.status === 'active' && <Link to={`/private/domain/${domain._id}`}>Cloud Live</Link>}
       <Link to={`/private/domain/${domain._id}/replay`}>Cloud Replay</Link>
+      <Link to={`/private/domain/${domain._id}/dreamer`}>Dreamer</Link>
       <details className="dw-meta"><summary>Details</summary><p>Domain {domain._id}</p><p>Retained device identities · Accepted members</p><button className="btn btn-link p-0" onClick={loadPackets}>{packets}</button></details>
       <DomainCollaboration key={`${domain._id}:${domain.myRole}:${domain.status}`} domain={domain} user={user} onRefresh={onRefresh} />
     </div>

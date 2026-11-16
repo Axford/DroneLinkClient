@@ -1,6 +1,7 @@
 .dw-workspace { display: flex; height: 100dvh; overflow: hidden; }
 .content-wrapper { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: var(--dw-space-6); background: var(--dw-color-canvas); }
 .workspace-operations { padding: 0; overflow: hidden; }
+.workspace-operations.workspace-scroll { overflow: auto; }
 @media (orientation: portrait) { .dw-workspace { flex-direction: column; } }
 .domain-card-title { min-width: 0; overflow-wrap: anywhere; font-size: var(--dw-font-size-heading); }
 .domain-card-title a { text-decoration: none; }

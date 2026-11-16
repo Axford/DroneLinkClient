@@ -298,3 +298,66 @@ Editors, Owners and Platform Admins can add a note at the playhead or bookmark t
 ### Configuration repair on staging
 
 Open Cloud Node details for the enrolled node in the enabled staging Domain. Choose a replacement `config.ini` and use **Stage replacement**. Check that the device reports the staged digest before using **Retry with staged config**. **Confirm trial** appears after the device reports that startup probation passed. The result shows the installed digest when the device confirms commit or comes back in recovery. The [staging contract](../../DroneLinkDatastore/docs/contracts/http.md#remote-configuration-repair-staging-contract) describes the wire and authorization rules.
+
+## Dreamer model editor
+
+In the signed-in Cloud workspace, open **Dreamer** on the Domain card. Choose **New model**, import and configure the assembly, and select **Save revision**. Each successful save creates a numbered snapshot with its model settings and geometry. **Open latest** resumes editing. **Revisions** opens earlier snapshots in read-only mode. Owners, Editors and Platform Admins can save in active Domains. Viewers and archived Domains can reopen saved revisions.
+
+If someone else saves first, the editor keeps your draft open and asks you to reopen the latest revision before saving again. Analysis and Workbench can use the stable Domain, model and revision identifiers when those workflows are implemented.
+
+Open a saved revision and choose **Stability**, the fourth tab after **Import**, **Orient** and **Configure**. The tab always uses the saved assembly, including when Configure has unsaved edits. Salt water (1,025 kg/m³) is selected initially. Choose freshwater (1,000 kg/m³) as needed and select **Run and save**. Open either curve's **Sample values** for exact rows. Use **Saved analyses** above the results to reopen the pair of curves, still-water equilibrium and water preset for this revision. Scrub either curve or use the **Sample angle** slider to rotate the 3D preview and inspect the waterline, weight at the centre of gravity and buoyancy at the centre of pressure (the centre of buoyancy in still water). **Equilibrium** returns the preview to the solved still-water attitude. Save another boat revision to change the loading. Correct any reported geometry, role, mass or centre-of-mass issues before running that revised model.
+
+Open the **Sail** tab on a saved revision for manual testing. Choose **Flat calm**, **Smooth water · light wind** or **Chop · gusting wind**, and a numeric weather seed. Enable **Override wind speed** to enter a fixed speed in m/s. The preset still controls the waves and wind direction. **Run** starts the live 3D preview. Adjust each jointed foil or sail within its saved travel. **Pause** stops the clock, **Reset** starts from upright and stationary at water balance, and **Replay inputs** repeats the recorded control changes under the same conditions. Replay is kept in the open tab. Sail uses the saved geometry and loading. The cyan **Velocity** arrow points along horizontal travel. Its length is proportional to boat speed. **Heading** shows where the bow points and **Course** shows the direction of horizontal travel. **Fore/aft speed** shows the component of that motion along the heading, marked ahead or astern.
+
+The sea grid has fixed 1 m squares. The blue contour marks where the current water surface meets the displacement hull. The true and apparent wind arrows point with the airflow and share a linear speed scale. Air and water arrows show each component's resultant force in newtons at a representative centre of pressure. Sail labels show the area-weighted mean absolute incidence. On boats with multiple sails, the strips cast a wake along the apparent airflow. The wake spreads and weakens downstream, and the estimated speed loss is shown as a shadow percentage on affected sail force labels. The solver clips each rigid sail's mesh into eight spanwise bands and derives their area, orientation and geometric load centre. It rotates the bands at the saved pivot and calculates lift and drag from the airflow at each band, including the velocity from boat rotation. The symmetric coefficients approximate attached lift, stall and broadside drag. They and the wake coefficients need force calibration. Assign **Displacement body** to each sealed wet volume, including hulls and keel bulbs. This is the existing Displacement hull role in saved revisions. **Ballast (mass only)** still works for existing models and internal weights. Stability integrates the sealed bodies and Sail samples their submerged volume for buoyancy. Sail also derives sixteen fore-to-aft strips from each body mesh, samples their wetted surface and projected areas, and uses those for skin friction, directional pressure drag and a provisional side-lift term. Loads use the local water-relative velocity and act at the sampled surface. An immersed keel fin or rudder uses **Water foil**. Inertia and mass distribution use the neutral pose.
+
+In **Configure**, clear **Include in simulation** on a selected part to remove its mass, forces and controls from a saved revision. The eye button is a separate viewport control. Visual only parts remain available in Configure and are hidden in Sail. Save the revision to apply the change to Stability, both response tabs and Sail. Older revisions default to including each physical part.
+
+**Sail response** plots drive, side force and yaw against neutral-relative sail trim. Select the sail to sweep, wind speed and a fixed trim for a second sail. Two enabled jointed sails add heatmaps of combined drive, side force and yaw across their saved trim ranges. Hover over a cell to see both angles and the calculated load. **Hull response** plots drag, side force and yaw by part against speed or leeway, holding the other input fixed. Both tabs use the saved revision and recalculate locally. Open **Sample values** for exact rows, including wind shadow for sails or vertical force for water parts.
+
+For a local two-sail trim sweep, pass a boat model or saved revision JSON to the Client tool:
+
+```sh
+node tools/sweep-sail-trim.cjs revision.json sail-trim.csv 5
+```
+
+The tool evaluates each pair of neutral-relative angles at 5° intervals and includes both sails' exact travel endpoints. It holds the boat upright and stationary at heading 000° in wind from 045°. The optional speed in m/s defaults to 5. The CSV reports combined and per-sail forces in newtons, with positive drive forward and positive side force to port. Positive yaw moment in N·m turns the bow to port about the boat's centre of gravity. The CSV also reports each sail’s area-weighted apparent-wind speed loss as a fraction from 0 to 1. Sail 1 and Sail 2 follow their order in the model. Keep private model snapshots and generated sweeps outside the repository.
+
+To search for passive headings at 5 m/s, save a revision with two enabled jointed sails and exclude the rudder and any other actuated water foils in Configure. Pass its snapshot JSON to the local search:
+
+```sh
+node tools/search-passive-headings.cjs revision.json passive-5ms
+node tools/render-passive-headings.cjs passive-5ms
+```
+
+The search holds sail trim fixed and starts at several headings and speeds. It identifies steady forward motion and verifies recovery from yaw and velocity disturbances using the Sail solver. The report gives the fastest verified trim in each 10° bin, all verified outcomes and the snow-plough candidates ranked by upwind velocity made good. Open `passive-5ms/index.html` for the results. Keep the private snapshot and search output outside the repository. Empty heading bins indicate gaps in the verified search coverage.
+
+For a local displacement sweep, use a saved model or revision JSON:
+
+```sh
+node tools/sweep-displacement.cjs revision.json displacement-sweep.csv
+```
+
+The sweep holds the boat upright at its still-water flotation, with neutral joints and no wind. It covers 0–1.2 m/s in 0.2 m/s steps and −30° to +30° leeway in 5° steps. Positive leeway sends the boat to port of its heading. Drag opposes the track, side force is signed positive toward port across the track, and positive yaw turns the bow to port about the boat CG. The CSV also reports vertical water force. These are isolated load estimates with provisional coefficients.
+
+For local development, start the Client from the Dreamer model-editor branch:
+
+```sh
+HOST=127.0.0.1 PORT=8768 BROWSER=none npm start
+```
+
+Open [Dreamer model editor](http://127.0.0.1:8768/dreamer/model-editor). The development route reads 3MF files in the browser and keeps editing state in the tab. Reloading the development preview clears its working assembly.
+
+Open an Onshape 3MF in **Import**. Confirm source Forward and Up in **Orient**, then continue to **Configure** and select a part below the 3D view. Positions are in metres, masses in kilograms and display bounds in millimetres. Placement offsets and rotations use the configured boat axes. The centre of mass, pivot and joint axis use the selected mesh's local CAD frame.
+
+Use the eye button beside a part name to show or hide its geometry. Right-drag to orbit or middle-drag to pan. Scrolling moves the page, including over the canvas. Hold Alt or Option while scrolling to zoom. The zoom buttons and **Fit view** are available above the canvas. Orbiting, editing, replacing and importing parts retain the current camera scale. Use **Fit view** to reframe the visible assembly.
+
+On import, each closed part with a valid enclosed volume starts at its uniform-density volume centroid. Parts without a valid volume show that the CG needs manual entry. **Edit CG** shows the selected part's centre-of-mass handle. **Calculate CG** reapplies the mesh estimate and leaves the assigned mass intact. For a hollow or unevenly weighted part, enter the actual centre of mass. **Edit joint** shows its pivot and axis tip. Left-drag a handle in the current view plane or enter exact local values in the part settings. With a revolute joint enabled, **Pick joint vertices** places its pivot at the first visible vertex and points its positive axis toward the second. Orbit, zoom or temporarily hide other parts to expose the vertices.
+
+**Set zero** opens a joint protractor. Drag the Zero arm to rotate the part, then choose **Save zero** to keep that orientation. Saving a new zero keeps the existing physical stops and recalculates both limit angles from the confirmed zero. **Set limits** lets you drag Min and Max relative to the saved zero or enter exact values in degrees. **Look along joint axis** shows the protractor face-on. **Test joint motion** sweeps the selected part between those limits and shows the current relative angle. **Stop motion** returns the canvas to the neutral assembly pose. Changes to actuator bindings are a later slice.
+
+To update an existing part, choose **Replace mesh** and use a single-part 3MF exported with the same local origin and axes. The editor uses its geometry in the selected part's existing frame. It retains the name, placement, mass, centre of mass, role and joint settings. A failed replacement leaves the current assembly available for editing.
+
+The import accepts a single main model with local mesh objects, build instances and component references. It expands instance transforms, normalises lengths to metres, merges exactly coincident vertices and discards zero-area faces. The closure indication checks edge pairing and winding. It is an import diagnostic for the next physics slice.
+
+Run `CI=true npm test -- --watchAll=false --runInBand src/dreamer` for the independent fixture cases. See the [central Dreamer workflow](../../DroneLinkDatastore/docs/planning/workbench.md#advanced-dreamer-workflow) for the staged acceptance plan.

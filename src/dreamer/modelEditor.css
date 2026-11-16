@@ -1,0 +1,137 @@
+.dreamer-model {
+  min-height: 100dvh;
+  padding: var(--dw-space-6);
+  color: var(--dw-color-text);
+  background: var(--dw-color-canvas);
+}
+.dreamer-model-heading h1 { margin: 0; }
+.dreamer-model-heading p { margin: var(--dw-space-1) 0 0; overflow-wrap: anywhere; }
+.dreamer-model-toolbar {
+  margin-block: var(--dw-space-4);
+  background: var(--dw-color-panel);
+  border-radius: var(--dw-radius);
+  padding: var(--dw-space-2);
+}
+.dreamer-model-toolbar label { display: inline-flex; align-items: center; gap: var(--dw-space-2); }
+.dreamer-model-toolbar select { width: auto; }
+.dreamer-model-toolbar .btn svg { width: var(--dw-icon-size); height: var(--dw-icon-size); }
+.dreamer-model-status:not(:empty) { margin-block-end: var(--dw-space-2); }
+.dreamer-model-error, .dreamer-model-warning {
+  border-radius: var(--dw-radius-small);
+  padding: var(--dw-space-2);
+  margin-block: var(--dw-space-2);
+}
+.dreamer-model-error { background: var(--dw-color-danger-surface); color: var(--dw-color-danger); }
+.dreamer-model-warning { background: rgba(var(--dw-color-warning-bg-rgb), .36); color: var(--dw-color-warning); }
+.dreamer-model-workspace {
+  display: grid;
+  gap: var(--dw-space-4);
+  grid-template-columns: minmax(0, 1fr) minmax(calc(var(--dw-grid) * 77), calc(var(--dw-grid) * 86));
+  align-items: start;
+}
+.dreamer-model-scene { position: relative; overflow: hidden; padding: 0; }
+.dreamer-model-scene:only-child { grid-column: 1 / -1; }
+.dreamer-model-viewport {
+  display: block;
+  width: 100%;
+  height: clamp(calc(var(--dw-grid) * 85), 65vh, calc(var(--dw-grid) * 180));
+  background: var(--dw-color-instrument-face);
+  touch-action: pan-y pinch-zoom;
+}
+.dreamer-model-viewport:focus-visible { outline-offset: calc(-1 * var(--dw-space-1)); }
+.dreamer-model-viewport[data-gesture=orbit], .dreamer-model-viewport[data-gesture=pan] { cursor: grabbing; }
+.dreamer-model-viewport[data-gesture=handle] { cursor: move; }
+.dreamer-model-viewport.dreamer-picking:not([data-gesture]) { cursor: crosshair; }
+.dreamer-viewport-tools {
+  position: absolute;
+  top: var(--dw-space-3);
+  right: var(--dw-space-3);
+  gap: var(--dw-space-1);
+  padding: var(--dw-space-1);
+  border-radius: var(--dw-radius);
+  background: var(--dw-color-surface);
+}
+.dreamer-model-overlay-tools, .dreamer-model-parts { padding: var(--dw-space-2) var(--dw-space-3); }
+.dreamer-model-overlay-tools { background: var(--dw-color-panel); }
+.dreamer-model-overlay-tools output {
+  color: var(--dw-color-instrument-reading);
+  font-variant-numeric: tabular-nums;
+}
+.dreamer-model-overlay-tools .btn[aria-pressed=true],
+.dreamer-joint-tools .btn[aria-pressed=true],
+.dreamer-model-part[data-selected=true] {
+  background: var(--dw-color-primary);
+  color: var(--dw-color-text);
+}
+.dreamer-view-help-button { margin-inline-start: auto; }
+.dreamer-model-view-help { padding: 0 var(--dw-space-3) var(--dw-space-2); margin: 0; }
+.dreamer-model-parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dw-space-2);
+  background: var(--dw-color-raised);
+}
+.dreamer-model-part {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: var(--dw-radius-small);
+  background: var(--dw-color-panel);
+}
+.dreamer-model-part > .btn:first-child { min-width: 0; justify-content: start; overflow-wrap: anywhere; }
+.dreamer-model-part[data-selected=true] > .btn { color: inherit; }
+
+.dreamer-part-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--dw-space-2);
+}
+.dreamer-part-heading h2 {
+  margin: 0;
+  font-size: var(--dw-font-size-heading);
+  line-height: var(--dw-line-height-heading);
+  overflow-wrap: anywhere;
+}
+.dreamer-model-properties > p { margin: 0 0 var(--dw-space-2); }
+.dreamer-model-properties label { display: grid; gap: var(--dw-space-1); min-width: 0; }
+.dreamer-model-properties > label { margin-block: var(--dw-space-2); }
+.dreamer-model-properties :is(fieldset, details) { margin-block: var(--dw-space-3); min-width: 0; }
+.dreamer-model-properties legend {
+  font-size: var(--dw-font-size-base);
+  margin: 0 0 var(--dw-space-1);
+}
+.dreamer-model-properties label.dreamer-model-checkbox { display: flex; align-items: center; gap: var(--dw-space-2); }
+.dreamer-model-checkbox .form-check-input { margin: 0; }
+.dreamer-model-triple {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--dw-grid) * 16), 1fr));
+  gap: var(--dw-space-2);
+}
+.dreamer-part-detail { background: var(--dw-color-raised); padding: var(--dw-space-2); border-radius: var(--dw-radius-small); }
+.dreamer-part-detail summary { cursor: pointer; }
+@media (max-width: 767px) {
+  .dreamer-model { padding: var(--dw-space-3); }
+  .dreamer-model-workspace { grid-template-columns: 1fr; }
+}
+.dreamer-editor-tabs { margin-block-start: var(--dw-space-4); }
+.dreamer-editor-content { margin-block-start: var(--dw-space-3); }
+.dreamer-import-step { max-width: var(--dw-auth-width); }
+.dreamer-import-step h2 {
+  font-size: var(--dw-font-size-heading);
+  line-height: var(--dw-line-height-heading);
+}
+.dreamer-model-viewport[data-gesture=angle] { cursor: grabbing; }
+
+.dreamer-model-library { margin: var(--dw-space-4); }
+.dreamer-model-library header { justify-content: space-between; }
+.dreamer-model-library h1 { margin: 0; }
+.dreamer-library-list { display: grid; gap: var(--dw-space-2); list-style: none; padding: 0; }
+.dreamer-library-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--dw-space-2); padding: var(--dw-space-2); background: var(--dw-color-raised); border-radius: var(--dw-radius-small); }
+.dreamer-library-row > span { overflow-wrap: anywhere; }
+.dreamer-library-history { padding: var(--dw-space-2) 0 0 var(--dw-space-4); }
+.dreamer-cloud-actions { margin-block-start: var(--dw-space-3); }
+.dreamer-cloud-actions label { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; }
+.dreamer-cloud-actions input { min-width: 0; }
+.dreamer-model-fields > label { margin-block: var(--dw-space-2); }
