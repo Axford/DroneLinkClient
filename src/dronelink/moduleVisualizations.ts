@@ -81,6 +81,7 @@ export interface TurnRateSummary {
 }
 
 export interface ProaSummary {
+    modeValue?: 0 | 1;
     proaBearings: Record<'heading' | 'target' | 'course' | 'wind' | 'frame', ObservedSummary>;
     steering: Record<'wing' | 'left' | 'right' | 'bow', ObservedSummary>;
     polar?: number[];
@@ -942,6 +943,7 @@ function proaSummary(channel: ChannelState): ProaSummary {
     const speeds: ProaSummary['speeds'] = [byteArray(channel.params[19], 16), byteArray(channel.params[20], 16)];
     return {
         proaBearings, steering, polar, speeds,
+        modeValue: mode === 0 || mode === 1 ? mode : undefined,
         context: [crossTrack, tack, lock, lastTrack, operation, control],
         details: [
             proaBearings.heading, proaBearings.target, course, proaBearings.wind,

@@ -19,7 +19,7 @@ import AttitudeDials from './AttitudeDials';
 import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
 import PolarInstrument from './PolarInstrument';
-import PolarActions from './PolarActions';
+import SummaryModeActions from './SummaryModeActions';
 import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
 import TankSteerActions from './TankSteerActions';
@@ -32,6 +32,17 @@ import NavInstrument from './NavInstrument';
 import WindDials from './WindDials';
 import DepthTrace from './DepthTrace';
 import ServoInstrument from './ServoInstrument';
+
+const polarModes = [
+    { value: 0, label: 'Passive', action: { description: 'Pass through the reported heading' } },
+    { value: 1, label: 'Active', action: { description: 'Run polar sampling and allow Polar to adjust the heading' } },
+    { value: 2, label: 'Reset' },
+];
+
+const proaModes = [
+    { value: 0, label: 'Passive', action: { description: 'Center the wing and pontoon steering outputs' } },
+    { value: 1, label: 'Active', action: { description: 'Engage the Proa steering controller', warning: true } },
+];
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
@@ -68,7 +79,8 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
     if ('polarResponse' in summary) {
         return <>
             <PolarInstrument label={label} summary={summary} />
-            <PolarActions key={JSON.stringify([nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId} modeValue={summary.modeValue} />
+            <SummaryModeActions key={JSON.stringify(['Polar', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="Polar" param={9} observedMode={summary.modeValue} modes={polarModes} />
         </>;
     }
     if ('kiteVector' in summary) {
@@ -84,7 +96,11 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         return <TurnRateInstrument label={label} summary={summary} />;
     }
     if ('proaBearings' in summary) {
-        return <ProaInstrument label={label} summary={summary} />;
+        return <>
+            <ProaInstrument label={label} summary={summary} />
+            <SummaryModeActions key={JSON.stringify(['Proa', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="Proa" param={29} observedMode={summary.modeValue} modes={proaModes} />
+        </>;
     }
     if ('sailBearings' in summary) {
         return <SailorInstrument label={label} summary={summary} />;
