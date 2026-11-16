@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from 'react-bootstrap';
 import { ArrowRepeat, Bullseye, Crosshair, Crosshair2, Eye, EyeSlash, InfoCircle, PlayFill, StopFill, Upload, XLg } from 'react-bootstrap-icons';
 import IconButton from '../components/ui/IconButton';
-import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
+import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, rebaseJointZero, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
 import './modelEditor.css';
@@ -325,17 +325,17 @@ export default function ModelEditor() {
             <label>Zero draft (°) <NumberField value={neutralDraft} change={setNeutralDraft} /></label>
             <div className="dw-toolbar">
               <Button type="button" onClick={() => {
-                changeJoint({ neutral: neutralDraft });
+                changeJoint(rebaseJointZero(joint, neutralDraft));
                 stopPreview();
                 setTool('limits');
-                setNotice('Joint zero saved in this model.');
+                setNotice('Zero saved. Limits now read from the new zero.');
               }}>Save zero</Button>
               <Button type="button" variant="outline-secondary" onClick={() => { stopPreview(); setTool('joint'); }}>Cancel</Button>
             </div>
           </> : <p className="dw-meta">Zero offset {(joint.neutral ?? 0).toFixed(1)}°</p>}
           <div className="dreamer-model-triple">
-            <label>Minimum (°) <NumberField value={joint.minimum} change={minimum => changeJoint({ minimum })} /></label>
-            <label>Maximum (°) <NumberField value={joint.maximum} change={maximum => changeJoint({ maximum })} /></label>
+            <label>Minimum from zero (°) <NumberField value={joint.minimum} change={minimum => changeJoint({ minimum })} /></label>
+            <label>Maximum from zero (°) <NumberField value={joint.maximum} change={maximum => changeJoint({ maximum })} /></label>
           </div>
         </>}
       </section>}

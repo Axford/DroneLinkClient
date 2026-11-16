@@ -1,5 +1,5 @@
 import { angleDelta, protractorBasis, screenProtractor } from './jointProtractor';
-import { BoatPart, identity, jointPlacement } from './boatModel';
+import { BoatPart, identity, jointPlacement, rebaseJointZero } from './boatModel';
 
 test('protractor round-trips angles in an inclined view and detects edge-on views', () => {
   const plane = screenProtractor([120, 80, 0], [72, 14], [31, -38]);
@@ -29,4 +29,14 @@ test('joint travel is applied relative to saved zero, including legacy joints', 
   const maximum = jointPlacement(part, identity, 30)([1, 0, 0]);
   expect(maximum[0]).toBeCloseTo(0);
   expect(maximum[1]).toBeCloseTo(1);
+});
+
+test('re-zeroing preserves the physical stops and expresses both limits from the new zero', () => {
+  const joint: NonNullable<BoatPart['joint']> = { pivot: [0, 0, 0], axis: [0, 0, 1], minimum: -30, maximum: 50 };
+  const shifted = rebaseJointZero(joint, 10);
+  expect(shifted).toMatchObject({ neutral: 10, minimum: -40, maximum: 40 });
+  const revised = rebaseJointZero(shifted, -15);
+  expect(revised).toMatchObject({ neutral: -15, minimum: -15, maximum: 65 });
+  expect(revised.neutral + revised.minimum).toBe(joint.minimum);
+  expect(revised.neutral + revised.maximum).toBe(joint.maximum);
 });

@@ -135,6 +135,11 @@ export function jointPlacement(part: BoatPart, pose: MeshPose, angle = 0) {
     ? turnAboutJoint(vertex, frame.pivot, frame.axis, rotation) : vertex;
 }
 
+export function rebaseJointZero(joint: NonNullable<BoatPart['joint']>, neutral: number) {
+  const shift = (joint.neutral ?? 0) - neutral;
+  return { ...joint, neutral, minimum: joint.minimum + shift, maximum: joint.maximum + shift };
+}
+
 export function jointSweep(minimum: number, maximum: number, elapsedSeconds: number): number {
   const phase = (Math.max(0, elapsedSeconds) % 4) / 2;
   return minimum + (maximum - minimum) * (1 - Math.abs(phase - 1));
