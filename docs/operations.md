@@ -305,8 +305,14 @@ Open [Dreamer model editor](http://127.0.0.1:8768/dreamer/model-editor). The dev
 
 Import an Onshape assembly, confirm its source forward and up axes, and select a part below the 3D view. Positions are in metres, masses in kilograms and display bounds in millimetres. Placement offsets and rotations use the configured boat axes. The centre of mass, pivot and joint axis use the selected mesh's local CAD frame.
 
+Use the checkbox next to a part name to show or hide its geometry. Drag the view to orbit, hold Shift while dragging to pan, or scroll to zoom. The zoom buttons and **Fit view** are available above the canvas.
+
+**Edit CG** shows the selected part's centre-of-mass handle. **Edit joint** shows its pivot and axis tip. Drag a handle in the current view plane or enter exact local values in the part settings. With a revolute joint enabled, **Pick joint vertices** places its pivot at the first visible vertex and points its positive axis toward the second. Orbit, zoom or temporarily hide other parts to expose the vertices.
+
+Enter the joint's minimum and maximum angles in degrees. **Test joint motion** sweeps the selected part between those limits and shows the current angle. **Stop motion** returns the canvas to the neutral assembly pose. Changes to actuator bindings are a later slice.
+
 To update an existing part, choose **Replace mesh** and use a single-part 3MF exported with the same local origin and axes. The editor uses its geometry in the selected part's existing frame. It retains the name, placement, mass, centre of mass, role and joint settings. A failed replacement leaves the current assembly available for editing.
 
 The import accepts a single main model with local mesh objects, build instances and component references. It expands instance transforms, normalises lengths to metres, merges exactly coincident vertices and discards zero-area faces. The closure indication checks edge pairing and winding. It is an import diagnostic for the next physics slice.
 
-Run `CI=true npm test -- --watchAll=false --runInBand src/dreamer/import3mf.test.ts` for the independent fixture cases. See the [central Dreamer workflow](../../DroneLinkDatastore/docs/planning/workbench.md#advanced-dreamer-workflow) for the staged acceptance plan.
+Run `CI=true npm test -- --watchAll=false --runInBand src/dreamer` for the independent fixture cases. See the [central Dreamer workflow](../../DroneLinkDatastore/docs/planning/workbench.md#advanced-dreamer-workflow) for the staged acceptance plan.

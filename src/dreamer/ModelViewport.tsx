@@ -1,102 +1,272 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Axis, BoatPart, Vector, cross, dot, meshBounds, placedVertices } from './boatModel';
+import {
+  Axis, BoatPart, MeshPose, Vector, add, cross, direction, dot, jointFrame, localDirection,
+  meshBounds, partPose, scale, subtract, transformPoint, turnAboutJoint,
+} from './boatModel';
+import { nearestVisibleVertex } from './viewportPicking';
 
-interface Props { parts: BoatPart[]; selectedId: string; forward: Axis; up: Axis }
+export type Handle = 'centerOfMass' | 'pivot' | 'axis';
+export type EditTool = 'mass' | 'joint';
+export type JointPick = 'origin' | 'direction';
+type Point = [number, number];
+interface Props {
+  parts: BoatPart[];
+  selectedId: string;
+  hidden: ReadonlySet<string>;
+  forward: Axis;
+  up: Axis;
+  tool: EditTool;
+  pick: JointPick | null;
+  previewAngle: number | null;
+  onMoveHandle: (handle: Handle, value: Vector) => void;
+  onPickVertex: (vertex: Vector) => void;
+}
+interface Marker { handle: Handle; world: Vector; local: Vector; screen: Vector; color: string; label: string; }
+type Drag =
+  | { kind: 'handle'; marker: Marker; pose: MeshPose; pivot?: Vector; start: Point; pointer: number }
+  | { kind: 'orbit' | 'pan'; start: Point; last: Point; pointer: number; moved: boolean };
 
-export default function ModelViewport({ parts, selectedId, forward, up }: Props) {
+const colors = { centerOfMass: '#ffe095', pivot: '#83ddff', axis: '#83ddff' };
+
+export default function ModelViewport({
+  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, onMoveHandle, onPickVertex,
+}: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<Drag | undefined>(undefined);
+  const [[width, height], setSize] = useState<Point>([0, 0]);
   const [azimuth, yaw] = useState(-0.9);
   const [elevation, pitch] = useState(0.42);
-  const drag = useRef<{ x: number; y: number; pointer: number } | undefined>(undefined);
-  const scene = useMemo(() => parts.map(part => ({
-    id: part.id, vertices: placedVertices(part, forward, up), triangles: part.mesh.triangles,
-  })), [parts, forward, up]);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<Point>([0, 0]);
+  const [hover, setHover] = useState<{ id: string; index: number }>();
+  const scene = useMemo(() => parts.map(part => {
+    const pose = partPose(part, forward, up);
+    return { part, pose, vertices: part.mesh.vertices.map(vertex => transformPoint(pose, vertex)) };
+  }), [parts, forward, up]);
+  const selected = scene.find(entry => entry.part.id === selectedId && !hidden.has(selectedId));
 
   useEffect(() => {
     const element = canvas.current;
     if (!element) return;
-    const ctx = element.getContext('2d');
-    if (!ctx) return;
-    const context = ctx;
+    const observer = new ResizeObserver(([entry]) => {
+      setSize([entry.contentRect.width, entry.contentRect.height]);
+    });
+    observer.observe(element);
+    const wheel = (event: WheelEvent) => {
+      if (!scene.length) return;
+      event.preventDefault();
+      const units = event.deltaMode === 1 ? 16 : 1;
+      setZoom(value => Math.min(20, Math.max(0.5, value * Math.exp(-event.deltaY * units * 0.002))));
+    };
+    element.addEventListener('wheel', wheel, { passive: false });
+    return () => { observer.disconnect(); element.removeEventListener('wheel', wheel); };
+  }, [scene.length]);
+
+  const frame = useMemo(() => {
     const [ca, sa, ce, se] = [Math.cos(azimuth), Math.sin(azimuth), Math.cos(elevation), Math.sin(elevation)];
     const camera: Vector = [ce*ca, ce*sa, se];
     const right: Vector = [-sa, ca, 0], vertical = cross(camera, right);
-    const projected = scene.map(part => ({
-      ...part, screen: part.vertices.map((vertex): Vector => [dot(vertex, right), dot(vertex, vertical), dot(vertex, camera)]),
+    const view = (vertex: Vector): Vector => [dot(vertex, right), dot(vertex, vertical), dot(vertex, camera)];
+    const { min, max } = meshBounds(scene.flatMap(entry => entry.vertices.map(view)));
+    const pixels = Math.max(1, Math.min((width-48) / Math.max(0.01, max[0]-min[0]),
+      (height-70) / Math.max(0.01, max[1]-min[1]))) * zoom;
+    const cx = scene.length ? (min[0]+max[0])/2 : 0;
+    const cy = scene.length ? (min[1]+max[1])/2 : 0;
+    const screen = ([x, y, z]: Vector): Vector => [width/2 + (x-cx)*pixels + pan[0],
+      height/2 - (y-cy)*pixels + pan[1], z];
+    const project = (vertex: Vector) => screen(view(vertex));
+    const joint = selected && jointFrame(selected.part, selected.pose);
+    const jointAxis = joint?.axis;
+    const jointPivot = joint?.pivot;
+    const move = (vertex: Vector) => previewAngle !== null && jointAxis && jointPivot
+      ? turnAboutJoint(vertex, jointPivot, jointAxis, previewAngle) : vertex;
+
+    const visible = scene.filter(entry => !hidden.has(entry.part.id)).map(entry => ({
+      ...entry,
+      projected: entry === selected ? entry.vertices.map(vertex => project(move(vertex))) : entry.vertices.map(project),
     }));
-    const limits = meshBounds(projected.flatMap(part => part.screen));
-    const { min, max } = limits;
-    const faces = projected.flatMap(part => part.triangles.map(([a, b, c]) => {
-      const vertices = [part.screen[a], part.screen[b], part.screen[c]];
+    const faces = visible.flatMap(({ part, projected }) => part.mesh.triangles.map(([a, b, c]) => {
+      const vertices: [Vector, Vector, Vector] = [projected[a], projected[b], projected[c]];
       const [p, q, r] = vertices;
-      const normal = cross([q[0]-p[0], q[1]-p[1], q[2]-p[2]], [r[0]-p[0], r[1]-p[1], r[2]-p[2]]);
+      // Convert screen X and inverted Y to the same length scale as depth.
+      const normal = cross([(q[0]-p[0])/pixels, (p[1]-q[1])/pixels, q[2]-p[2]],
+        [(r[0]-p[0])/pixels, (p[1]-r[1])/pixels, r[2]-p[2]]);
       const norm = Math.hypot(...normal);
       const light = norm ? 0.48 + 0.5 * Math.abs(dot(normal, [-0.3, 0.5, 0.8]) / norm) : 0.48;
       const color = (part.id === selectedId ? [152, 236, 203] : [114, 163, 188]).map(value => Math.round(value * light));
       return { vertices, depth: (p[2]+q[2]+r[2])/3, fill: 'rgb(' + color.join(',') + ')' };
     })).sort((a, b) => a.depth - b.depth);
+    return { right, vertical, pixels, project, joint, move, visible, faces };
+  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, zoom, pan, previewAngle]);
+  const { right, vertical, pixels, project, joint, move, visible, faces } = frame;
+  const pickedPart = visible.find(entry => entry.part.id === selectedId);
 
-    function draw() {
-      if (!element) return;
-      const { width, height } = element.getBoundingClientRect();
-      const density = Math.min(window.devicePixelRatio || 1, 2);
-      element.width = Math.round(width * density);
-      element.height = Math.round(height * density);
-      context.setTransform(density, 0, 0, density, 0, 0);
-      context.fillStyle = '#142630';
-      context.fillRect(0, 0, width, height);
-      if (!faces.length) return;
-      const pixels = Math.min((width - 40) / Math.max(0.01, max[0]-min[0]), (height - 60) / Math.max(0.01, max[1]-min[1]));
-      const cx = (min[0]+max[0])/2, cy = (min[1]+max[1])/2;
-      for (const { vertices, fill } of faces) {
-        context.beginPath();
-        vertices.forEach(([x, y], index) => {
-          const dx = width/2 + (x-cx)*pixels, dy = height/2 - (y-cy)*pixels;
-          if (index === 0) context.moveTo(dx, dy);
-          else context.lineTo(dx, dy);
-        });
-        context.closePath();
-        context.fillStyle = fill;
-        context.fill();
-      }
-      const origin = [50, height - 45];
+  const markers: Marker[] = [];
+  function marker(handle: Handle, world: Vector, local: Vector, label: string) {
+    markers.push({ handle, world, local, screen: project(world), color: colors[handle], label });
+  }
+  if (selected && tool === 'mass') {
+    const { centerOfMass } = selected.part;
+    marker('centerOfMass', move(transformPoint(selected.pose, centerOfMass)), centerOfMass, 'CG');
+  }
+  if (selected?.part.joint && joint) {
+    marker('pivot', joint.pivot, selected.part.joint.pivot, 'Pivot');
+    if (joint.axis) marker('axis', add(joint.pivot, scale(joint.axis, 74 / pixels)), selected.part.joint.axis, 'Axis');
+  }
+
+  useEffect(() => {
+    const element = canvas.current;
+    const context = element?.getContext('2d');
+    if (!element || !context || !width || !height) return;
+    const density = Math.min(window.devicePixelRatio || 1, 2);
+    const bitmapWidth = Math.round(width * density), bitmapHeight = Math.round(height * density);
+    if (element.width !== bitmapWidth) element.width = bitmapWidth;
+    if (element.height !== bitmapHeight) element.height = bitmapHeight;
+    context.setTransform(density, 0, 0, density, 0, 0);
+    context.fillStyle = '#142630';
+    context.fillRect(0, 0, width, height);
+    for (const { vertices, fill } of faces) {
+      context.beginPath();
+      context.moveTo(vertices[0][0], vertices[0][1]);
+      context.lineTo(vertices[1][0], vertices[1][1]);
+      context.lineTo(vertices[2][0], vertices[2][1]);
+      context.closePath();
+      context.fillStyle = fill;
+      context.fill();
+    }
+
+    function line(from: Point, to: Point, color: string, width = 1) {
+      if (!context) return;
+      context.beginPath();
+      context.moveTo(...from);
+      context.lineTo(...to);
+      context.strokeStyle = color;
+      context.lineWidth = width;
+      context.stroke();
+    }
+    if (scene.length) {
+      const origin: Point = [50, height - 45];
       context.font = '12px system-ui';
       for (const [axis, color, label] of [
         [[1, 0, 0], '#a9ebc8', 'Fwd'], [[0, 1, 0], '#9cc6f4', 'Port'], [[0, 0, 1], '#f6d7a0', 'Up'],
       ] as [Vector, string, string][]) {
         const x = origin[0] + 26 * dot(axis, right), y = origin[1] - 26 * dot(axis, vertical);
-        context.beginPath();
-        context.moveTo(origin[0], origin[1]);
-        context.lineTo(x, y);
-        context.strokeStyle = color;
-        context.stroke();
+        line(origin, [x, y], color);
         context.fillStyle = color;
         context.fillText(label, x + 4, y);
       }
     }
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [scene, selectedId, azimuth, elevation]);
+    const pivot = markers.find(item => item.handle === 'pivot');
+    const axis = markers.find(item => item.handle === 'axis');
+    if (pivot && axis) line([pivot.screen[0], pivot.screen[1]], [axis.screen[0], axis.screen[1]], axis.color, 2);
+    for (const item of markers) {
+      const active = item.handle === 'centerOfMass' ? tool === 'mass' : tool === 'joint';
+      const [x, y] = item.screen;
+      const radius = active && !pick ? 7 : 4;
+      context.beginPath();
+      context.arc(x, y, radius, 0, 2*Math.PI);
+      context.fillStyle = item.color;
+      context.fill();
+      context.strokeStyle = '#142630';
+      context.lineWidth = 2;
+      context.stroke();
+      context.font = '600 12px system-ui';
+      context.strokeStyle = '#142630';
+      context.lineWidth = 4;
+      context.strokeText(item.label, x + 10, y - 8);
+      context.fillText(item.label, x + 10, y - 8);
+    }
+    const candidate = pick && hover && pickedPart?.part.id === hover.id
+      ? pickedPart.projected[hover.index] : undefined;
+    if (candidate) {
+      context.beginPath();
+      context.arc(candidate[0], candidate[1], 8, 0, 2*Math.PI);
+      context.strokeStyle = '#fff4ae';
+      context.lineWidth = 2;
+      context.stroke();
+    }
+  });
 
-  return <canvas ref={canvas} className="dreamer-model-viewport" aria-label="3D boat assembly, drag to orbit" tabIndex={0}
-    onKeyDown={event => {
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      event.preventDefault();
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') yaw(previous => previous + (event.key === 'ArrowLeft' ? 0.12 : -0.12));
-      else pitch(previous => Math.max(-1.2, Math.min(1.2, previous + (event.key === 'ArrowUp' ? 0.1 : -0.1))));
-    }}
-    onPointerDown={event => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY };
-    }}
-    onLostPointerCapture={() => { drag.current = undefined; }}
-    onPointerMove={event => {
-      if (drag.current?.pointer !== event.pointerId) return;
-      const dx = event.clientX - drag.current.x, dy = event.clientY - drag.current.y;
-      drag.current = { pointer: event.pointerId, x: event.clientX, y: event.clientY };
-      yaw(previous => previous - dx * 0.007);
-      pitch(previous => Math.max(-1.2, Math.min(1.2, previous + dy * 0.007)));
-    }} />;
+  function position(event: React.PointerEvent<HTMLCanvasElement>): Point {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return [event.clientX - rect.left, event.clientY - rect.top];
+  }
+
+  const zoomBy = (amount: number) => setZoom(previous => Math.min(20, Math.max(0.5, previous * amount)));
+  return <>
+    <div className="dreamer-viewport-tools" role="group" aria-label="View controls">
+      <button type="button" aria-label="Zoom in" disabled={!scene.length || zoom >= 20} onClick={() => zoomBy(1.4)}>+</button>
+      <button type="button" aria-label="Zoom out" disabled={!scene.length || zoom <= 0.5} onClick={() => zoomBy(1/1.4)}>−</button>
+      <button type="button" disabled={!scene.length} onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit view</button>
+    </div>
+    <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
+      aria-label="3D boat assembly. Drag to orbit, Shift-drag to pan, scroll to zoom." tabIndex={0}
+      onKeyDown={event => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-'].includes(event.key)) return;
+        event.preventDefault();
+        if (event.key === '+' || event.key === '=') zoomBy(1.4);
+        else if (event.key === '-') zoomBy(1/1.4);
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') yaw(previous => previous + (event.key === 'ArrowLeft' ? 0.12 : -0.12));
+        else pitch(previous => Math.max(-1.5, Math.min(1.5, previous + (event.key === 'ArrowUp' ? 0.1 : -0.1))));
+      }}
+      onPointerDown={event => {
+        if (event.button !== 0 || drag.current) return;
+        const start = position(event);
+        const handle = !pick && !event.shiftKey && previewAngle === null
+          ? markers.filter(item => tool === 'mass' ? item.handle === 'centerOfMass' : item.handle !== 'centerOfMass')
+            .map(item => ({ item, distance: Math.hypot(item.screen[0]-start[0], item.screen[1]-start[1]) }))
+            .filter(hit => hit.distance <= 11).sort((a, b) => a.distance - b.distance)[0]?.item : undefined;
+        drag.current = handle && selected
+          ? { kind: 'handle', marker: handle, pose: selected.pose, pivot: joint?.pivot, start, pointer: event.pointerId }
+          : { kind: event.shiftKey ? 'pan' : 'orbit', start, last: start, pointer: event.pointerId, moved: false };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerUp={event => {
+        const gesture = drag.current;
+        if (gesture?.pointer !== event.pointerId) return;
+        drag.current = undefined;
+        if (pick && gesture.kind === 'orbit' && !gesture.moved && pickedPart) {
+          const index = nearestVisibleVertex(...position(event), pickedPart.projected, faces);
+          if (index !== undefined) onPickVertex(pickedPart.part.mesh.vertices[index]);
+          setHover(undefined);
+        }
+      }}
+      onLostPointerCapture={() => { drag.current = undefined; }}
+      onPointerLeave={() => setHover(undefined)}
+      onPointerMove={event => {
+        const point = position(event);
+        const gesture = drag.current;
+        if (!gesture) {
+          if (pick && pickedPart) {
+            const index = nearestVisibleVertex(...point, pickedPart.projected, faces);
+            setHover(previous => index === undefined ? undefined :
+              previous?.id === selectedId && previous.index === index ? previous : { id: selectedId, index });
+          }
+          return;
+        }
+        if (gesture.pointer !== event.pointerId) return;
+        if (gesture.kind === 'handle') {
+          const dx = (point[0] - gesture.start[0]) / pixels;
+          const dy = (gesture.start[1] - point[1]) / pixels;
+          const delta = add(scale(right, dx), scale(vertical, dy));
+          const { marker: item, pivot, pose } = gesture;
+          const target = item.handle === 'axis' && pivot ? subtract(add(item.world, delta), pivot) : delta;
+          const local = localDirection(pose, target);
+          if (!local) return;
+          const value = item.handle === 'axis' ? direction(local) : add(item.local, local);
+          if (value) onMoveHandle(item.handle, value);
+          return;
+        }
+        if (!gesture.moved && Math.hypot(point[0]-gesture.start[0], point[1]-gesture.start[1]) < 4) return;
+        const [dx, dy] = [point[0]-gesture.last[0], point[1]-gesture.last[1]];
+        gesture.moved = true;
+        gesture.last = point;
+        setHover(undefined);
+        if (gesture.kind === 'pan') setPan(previous => [previous[0]+dx, previous[1]+dy]);
+        else {
+          yaw(previous => previous - dx * 0.007);
+          pitch(previous => Math.max(-1.5, Math.min(1.5, previous + dy * 0.007)));
+        }
+      }} />
+  </>;
 }

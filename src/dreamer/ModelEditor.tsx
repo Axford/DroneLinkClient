@@ -1,13 +1,17 @@
-import React, { useRef, useState } from 'react';
-import { Axis, BoatPart, Vector, axes, meshBounds, placedVertices, replacePartMesh, roles } from './boatModel';
+import React, { useEffect, useRef, useState } from 'react';
+import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
-import ModelViewport from './ModelViewport';
+import ModelViewport, { EditTool, Handle, JointPick } from './ModelViewport';
 import './modelEditor.css';
 
 interface VectorFieldsProps { label: string; value: Vector; change: (value: Vector) => void }
 
 function NumberField({ value, label, change }: { value: number; label?: string; change: (value: number) => void }) {
-  return <input type="number" step="any" aria-label={label} defaultValue={value}
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (input.current && document.activeElement !== input.current) input.current.value = String(Number(value.toFixed(6)));
+  }, [value]);
+  return <input ref={input} type="number" step="any" aria-label={label} defaultValue={value}
     onBlur={event => {
       const input = event.currentTarget;
       const next = input.valueAsNumber;
@@ -39,13 +43,77 @@ export default function ModelEditor() {
   const [selectedId, select] = useState('');
   const [forward, setForward] = useState<Axis>('+X');
   const [up, setUp] = useState<Axis>('+Z');
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const [tool, setTool] = useState<EditTool>('mass');
+  const [pick, setPick] = useState<JointPick | null>(null);
+  const [animating, setAnimating] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [pending, setPending] = useState(false);
   const importing = useRef(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const part = parts.find(item => item.id === selectedId);
+  const joint = part?.joint;
+  const jointValid = joint && direction(joint.axis) !== undefined && joint.minimum <= joint.maximum;
+  const selectedVisible = Boolean(part && !hidden.has(part.id));
+  const previewAngle = animating && joint && jointValid && selectedVisible
+    ? jointSweep(joint.minimum, joint.maximum, elapsed) : null;
   const changePart = (changes: Partial<BoatPart>) => setParts(current =>
     current.map(item => item.id === selectedId ? { ...item, ...changes } : item));
+  const changeJoint = (changes: Partial<NonNullable<BoatPart['joint']>>) => setParts(current =>
+    current.map(item => item.id === selectedId && item.joint ? { ...item, joint: { ...item.joint, ...changes } } : item));
+
+  useEffect(() => {
+    if (!animating) return;
+    const start = performance.now();
+    let frame: number;
+    let lastUpdate = 0;
+    function animate(now: number) {
+      if (now - lastUpdate >= 32) {
+        setElapsed((now - start) / 1000);
+        lastUpdate = now;
+      }
+      frame = requestAnimationFrame(animate);
+    }
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [animating]);
+
+  function stopPreview() {
+    setPick(null);
+    setAnimating(false);
+    setElapsed(0);
+  }
+
+  function selectPart(id: string) {
+    if (id === selectedId) return;
+    stopPreview();
+    const selected = parts.find(item => item.id === id);
+    setTool(selected?.joint ? 'joint' : 'mass');
+    select(id);
+  }
+
+  function moveHandle(handle: Handle, value: Vector) {
+    if (handle === 'centerOfMass') changePart({ centerOfMass: value });
+    else changeJoint({ [handle]: value });
+  }
+
+  function pickVertex(vertex: Vector) {
+    if (!joint) return;
+    if (pick === 'origin') {
+      moveHandle('pivot', vertex);
+      setPick('direction');
+    } else {
+      const axis = direction(subtract(vertex, joint.pivot));
+      if (!axis) {
+        setNotice('Choose a second vertex distinct from the pivot.');
+        return;
+      }
+      moveHandle('axis', axis);
+      setPick(null);
+      setNotice('Joint pivot and axis placed.');
+    }
+  }
 
   async function load(file: File | undefined, replacement?: BoatPart) {
     if (!file || importing.current) return;
@@ -56,6 +124,7 @@ export default function ModelEditor() {
     try {
       if (file.size > max3mfBytes) throw new Error('Choose a 3MF file under 12 MiB.');
       const imported = import3mf(new Uint8Array(await file.arrayBuffer()));
+      stopPreview();
       if (replacement) {
         const next = replacePartMesh(replacement, imported);
         setParts(current => current.map(item => item.id === next.id ? { ...item, mesh: next.mesh } : item));
@@ -63,6 +132,8 @@ export default function ModelEditor() {
       } else {
         setName(file.name.replace(/\.3mf$/i, ''));
         setParts(imported);
+        setHidden(new Set());
+        setTool('mass');
         setAssemblyVersion(version => version + 1);
         select(imported[0].id);
         setNotice('Imported ' + imported.length + ' parts.');
@@ -76,7 +147,6 @@ export default function ModelEditor() {
   }
 
   const { min, max } = part ? meshBounds(placedVertices(part, forward, up)) : { min: [], max: [] };
-  const joint = part?.joint;
   return <main className="dreamer-model">
     <header className="dreamer-model-heading">
       <h1>Dreamer model editor</h1>
@@ -98,12 +168,48 @@ export default function ModelEditor() {
     {error && <p className="dreamer-model-error" role="alert">{error}</p>}
     <div className="dreamer-model-workspace">
       <section className="dreamer-model-scene" aria-label="Assembly preview">
-        <ModelViewport parts={parts} selectedId={selectedId} forward={forward} up={up} />
-        <p className="dreamer-model-hint">Drag or use arrow keys to orbit</p>
-        {parts.length > 0 && <div className="dreamer-model-parts" role="group" aria-label="Parts">
-          {parts.map(item => <button type="button" key={item.id} aria-pressed={item.id === selectedId}
-            onClick={() => select(item.id)}>{item.name}</button>)}
-        </div>}
+        <ModelViewport key={assemblyVersion} parts={parts} selectedId={selectedId} hidden={hidden} forward={forward} up={up}
+          tool={tool} pick={pick} previewAngle={previewAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
+        {parts.length > 0 && <>
+          <div className="dreamer-model-overlay-tools" role="group" aria-label="Selected part controls">
+            <button type="button" disabled={!selectedVisible} aria-pressed={tool === 'mass'}
+              onClick={() => { stopPreview(); setTool('mass'); }}>Edit CG</button>
+            <button type="button" disabled={!selectedVisible || !joint} aria-pressed={tool === 'joint'}
+              onClick={() => { stopPreview(); setTool('joint'); }}>Edit joint</button>
+            <button type="button" disabled={!selectedVisible || !joint} aria-pressed={pick !== null}
+              onClick={() => { stopPreview(); setTool('joint'); setPick(pick ? null : 'origin'); }}>
+              {pick ? 'Cancel picking' : 'Pick joint vertices'}
+            </button>
+            <button type="button" disabled={!animating && (!selectedVisible || !jointValid)}
+              aria-pressed={animating} onClick={() => {
+                if (animating) stopPreview();
+                else { setPick(null); setTool('joint'); setElapsed(0); setAnimating(true); }
+              }}>{animating ? 'Stop motion' : 'Test joint motion'}</button>
+            {previewAngle !== null && <output aria-label="Joint preview angle">{previewAngle.toFixed(1)}°</output>}
+          </div>
+          <p className="dreamer-model-view-help" role={pick ? 'status' : undefined}>
+            {pick === 'origin' ? 'Click a vertex on the selected part for the pivot.' :
+              pick === 'direction' ? 'Click a second vertex to point the joint axis.' :
+              selectedVisible && tool === 'mass' ? 'Drag the CG handle. Orbit or Shift-drag to change the view.' :
+              selectedVisible && joint ? 'Drag the pivot or axis tip. Orbit or Shift-drag to change the view.' :
+              'Drag to orbit, Shift-drag to pan or scroll to zoom.'}
+          </p>
+          <div className="dreamer-model-parts" role="group" aria-label="Parts">
+            {parts.map(item => <div className="dreamer-model-part" key={item.id}>
+              <button type="button" aria-pressed={item.id === selectedId} onClick={() => selectPart(item.id)}>{item.name}</button>
+              <input type="checkbox" checked={!hidden.has(item.id)} aria-label={'Show ' + item.name}
+                onChange={event => {
+                  const show = event.target.checked;
+                  if (!show && item.id === selectedId) stopPreview();
+                  setHidden(previous => {
+                    const next = new Set(previous);
+                    if (show) next.delete(item.id); else next.add(item.id);
+                    return next;
+                  });
+                }} />
+            </div>)}
+          </div>
+        </>}
       </section>
       {part && <section className="dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
         <h2>{part.name}</h2>
@@ -125,16 +231,20 @@ export default function ModelEditor() {
         <VectorFields label="Placement offset (m)" value={part.translation} change={translation => changePart({ translation })} />
         <VectorFields label="Placement rotation (°)" value={part.rotation} change={rotation => changePart({ rotation })} />
         <VectorFields label="Local centre of mass (m)" value={part.centerOfMass} change={centerOfMass => changePart({ centerOfMass })} />
-        <label className="dreamer-model-checkbox"><input type="checkbox" checked={Boolean(joint)} onChange={event =>
-          changePart({ joint: event.target.checked ? { pivot: [0, 0, 0], axis: [0, 0, 1], minimum: -30, maximum: 30 } : null })}
+        <label className="dreamer-model-checkbox"><input type="checkbox" checked={Boolean(joint)} onChange={event => {
+          const enabled = event.target.checked;
+          stopPreview();
+          setTool(enabled ? 'joint' : 'mass');
+          changePart({ joint: enabled ? { pivot: part.centerOfMass, axis: [0, 0, 1], minimum: -30, maximum: 30 } : null });
+        }}
         /> Revolute joint</label>
         {joint && <>
-          {(!joint.axis.some(Boolean) || joint.minimum > joint.maximum) && <p className="dreamer-model-error">Use a nonzero axis and an ordered joint range.</p>}
-          <VectorFields label="Local pivot (m)" value={joint.pivot} change={pivot => changePart({ joint: { ...joint, pivot } })} />
-          <VectorFields label="Local joint axis" value={joint.axis} change={axis => changePart({ joint: { ...joint, axis } })} />
+          {!jointValid && <p className="dreamer-model-error">Use a nonzero axis and an ordered joint range.</p>}
+          <VectorFields label="Local pivot (m)" value={joint.pivot} change={pivot => changeJoint({ pivot })} />
+          <VectorFields label="Local joint axis" value={joint.axis} change={axis => changeJoint({ axis })} />
           <div className="dreamer-model-triple">
-            <label>Minimum (°) <NumberField value={joint.minimum} change={minimum => changePart({ joint: { ...joint, minimum } })} /></label>
-            <label>Maximum (°) <NumberField value={joint.maximum} change={maximum => changePart({ joint: { ...joint, maximum } })} /></label>
+            <label>Minimum (°) <NumberField value={joint.minimum} change={minimum => changeJoint({ minimum })} /></label>
+            <label>Maximum (°) <NumberField value={joint.maximum} change={maximum => changeJoint({ maximum })} /></label>
           </div>
         </>}
       </section>}

@@ -19,7 +19,6 @@
 .dreamer-model-scene:only-child { grid-column: 1 / -1; }
 .dreamer-model-viewport { display: block; width: 100%; height: clamp(340px, 65vh, 720px); touch-action: none; cursor: grab; }
 .dreamer-model-viewport:active { cursor: grabbing; }
-.dreamer-model-hint { position: absolute; top: 12px; right: 14px; pointer-events: none; font-size: 0.85rem; }
 .dreamer-model-parts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-top: 1px solid var(--model-line); }
 .dreamer-model-properties { min-width: 0; padding: 14px; }
 .dreamer-model-properties h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
@@ -39,3 +38,16 @@
 @media (max-width: 740px) {
   .dreamer-model-workspace { grid-template-columns: 1fr; }
 }
+.dreamer-viewport-tools {
+  position: absolute; top: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+.dreamer-model-overlay-tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px 2px;
+  border-top: 1px solid var(--model-line);
+}
+.dreamer-model-view-help { margin: 0; padding: 5px 12px 9px; font-size: 0.85rem; color: var(--model-muted); }
+.dreamer-model-part { display: flex; align-items: center; border: 1px solid var(--model-line); border-radius: 6px; }
+.dreamer-model-part button { border: 0; border-radius: 5px 0 0 5px; }
+.dreamer-model-part input { margin: 0 8px; accent-color: #9cebc9; cursor: pointer; }
+.dreamer-model button:disabled { opacity: 0.5; }
+.dreamer-model-viewport.dreamer-picking { cursor: crosshair; }
