@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Card, Badge, Row, Col } from 'react-bootstrap';
 import { Wifi, WifiOff, Cpu, Hash, InfoCircle } from 'react-bootstrap-icons';
 import IconButton from './ui/IconButton';
-import { commandRequest, root, useCommandScope } from '../commands/session';
+import { GroupingContext, nodeLabel } from '../drones/grouping';
 import SettingsDialog from './ui/SettingsDialog';
 import SurfacePanel from './ui/SurfacePanel';
 import MapBindings from './MapBindings';
@@ -19,21 +19,9 @@ interface NodeInfoProps {
 
 const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
     const [details, setDetails] = useState(false);
-    const scope = useCommandScope();
-    const [transport, setTransport] = useState<'http'>();
-    const domainId = scope?.domainId;
-    const droneId = node.droneId;
-    useEffect(() => {
-        setTransport(undefined);
-        if (!details || !domainId || !droneId) return;
-        const controller = new AbortController();
-        void commandRequest<{ data: { drones: Array<{ _id: string; activeCommandTransport?: 'http' }> } }>(
-            root(domainId) + '/identities', { signal: controller.signal }
-        ).then(({ data }) => {
-            if (!controller.signal.aborted) setTransport(data.drones.find(drone => drone._id === droneId)?.activeCommandTransport);
-        }).catch(() => {});
-        return () => controller.abort();
-    }, [details, domainId, droneId]);
+    const { grouping, nodes } = useContext(GroupingContext);
+    const droneId = grouping?.assignments[node.id] ?? node.droneId;
+    const drone = grouping?.drones.find(item => item.droneId === droneId);
     const [currentTime, setCurrentTime] = useState(Date.now());
     const settings = useVisualizationSettings();
     const summaries = [...moduleSummaries(node, settings?.get), ...spatialSummaries(node)];
@@ -76,7 +64,7 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
             <div className="dw-meta">Node {node.id} · {getLastHeardText()} · {channelCount} {channelCount === 1 ? 'channel' : 'channels'} · {parameterCount} {parameterCount === 1 ? 'parameter' : 'parameters'}</div>
             <SummaryChips nodeId={node.id} summaries={summaries} now={currentTime} />
             <SettingsDialog title="Node details" show={details} onHide={() => setDetails(false)}>
-                {transport === 'http' && <p className="dw-meta">Command transport: HTTP</p>}
+                {drone?.transport === 'http' && <p className="dw-meta">Command transport: HTTP</p>}
         <Card className="bg-dark border-secondary">
             <Card.Header className="py-2 bg-dark border-secondary">
                 <div className="d-flex justify-content-between align-items-center">
@@ -94,7 +82,11 @@ const NodeInfo: React.FC<NodeInfoProps> = ({ node }) => {
                 </div>
             </Card.Header>
             <Card.Body className="py-2 bg-dark">
-                <p className="small text-white">Drone: {node.droneId || 'Identity unavailable'} · Singleton master: Node {node.id}</p>
+                <p className="small text-white text-break">Drone: {droneId || 'Identity unavailable'}</p>
+                {drone && <dl className="small">
+                    <dt>Master</dt><dd>{nodeLabel(nodes, drone.masterAddress)}</dd>
+                    <dt>Members</dt><dd>{drone.memberAddresses.map(address => nodeLabel(nodes, address)).join(', ')}</dd>
+                </dl>}
                 <Row className="g-2">
                     <Col xs={6}>
                         <div className="d-flex align-items-center gap-1">

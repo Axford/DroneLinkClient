@@ -22,6 +22,7 @@ function Harness() {
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 const sharedSnapshot = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { schemaVersion: 1, activationEpoch: 'm1-c-1', nodes: [], channels: [], startCursor: 'start', catchUpCursor: 'final' }, pagination: { nextCursor: null } }) });
 function observationReply(url: string): any {
+  if (url.endsWith('/identities')) return { ok: true, status: 200, json: async () => ({ data: { nodes: [], drones: [] } }) };
   if (url.includes('/visualization-settings?')) return { ok: true, status: 200, json: async () => ({ data: { items: [] }, pagination: { nextCursor: null } }) };
   if (url.startsWith('/api/domains?')) return { ok: true, status: 200, json: async () => ({ data: [], pagination: { nextCursor: null } }) };
   if (url.endsWith('/observations')) return sharedSnapshot();

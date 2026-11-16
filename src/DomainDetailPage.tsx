@@ -5,6 +5,8 @@ import type { RouteTraceResult } from './workbench/RouteTrace';
 import React, { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
+import ManageDrones from './drones/ManageDrones';
+import { applyDroneAssignments, GroupingContext, useGrouping } from './drones/grouping';
 import LiveBookmarkButton from './replay/LiveBookmarkButton';
 import WorkspaceShell from './components/WorkspaceShell';
 import PageFeedback from './components/ui/PageFeedback';
@@ -43,6 +45,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
     const [error, setError] = useState<string | null>(null);
     const [mapboxToken, setMapboxToken] = useState<string | null>(null);
     const [gatewayOpen, setGatewayOpen] = useState(false);
+    const [groupingOpen, setGroupingOpen] = useState(false);
     const [lens, setLens] = useState<DomainLens>('map');
     const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
     
@@ -77,7 +80,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
         const controller = new AbortController();
         let active = true;
         refreshGeneration.current++;
-        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); setLens('map'); setGatewayOpen(false); reset();
+        setLoading(true); setError(null); setDomain(null); setSelectedNodeId(null); setLens('map'); setGatewayOpen(false); setGroupingOpen(false); reset();
         const fetchData = async () => {
             if (!domainId) {
                 setError('Domain ID not provided');
@@ -167,9 +170,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
 
     const { mixed, usesLocal, transport: localPath } = workbench;
     const gatewayId = workbench.networkSession?.gatewayId;
-    const state = useMemo(() => mixed(droneLinkState.state), [mixed, droneLinkState.state]);
     const trailScope = !loading && !error && domain?._id === domainId && domain && user
         ? JSON.stringify([user._id, domain._id, domain.status]) : undefined;
+    const { grouping, error: groupingError, refresh: refreshGrouping } = useGrouping(domainId, trailScope);
+    const state = useMemo(() => applyDroneAssignments(mixed(droneLinkState.state), grouping), [mixed, droneLinkState.state, grouping]);
     const trailSource = useCallback((id: number) => {
         if (usesLocal(id)) {
             const transport = localPath(id);
@@ -254,7 +258,10 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
             });
         }}>
         <VisualizationSettingsProvider key={`${user._id}:${domain._id}`} domainId={domain._id} canEdit={domain.canEdit === true && domain.status !== 'archived'}>
-            <DomainWorkspace name={domain.name} activeLens={lens} onLensChange={setLens} status={
+            <DomainWorkspace name={domain.name} activeLens={lens} onLensChange={setLens}
+                lensAction={<button type="button" className="nav-link" onClick={() => setGroupingOpen(true)}>
+                    {editableDomain ? 'Manage Drones' : 'Drones'}
+                </button>} status={
                 <WorkspaceStatus
                     label={statusLabel}
                     shortLabel={shortStatus}
@@ -262,7 +269,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     {!archived && <p>Shared updates: {sharedUpdates}</p>}
                     {editableDomain && <LiveBookmarkButton key={domain._id} domainId={domain._id} />}
                     {archived && <p>Archived domain · Read-only retained history. Live updates are stopped.</p>}
-                    <p className="dw-meta">{droneLinkState.nodeCount} {droneLinkState.nodeCount === 1 ? 'Drone' : 'Drones'} · {droneLinkState.stats.received} parameters</p>
+                    <p className="dw-meta">{grouping ? `${grouping.drones.length} ${grouping.drones.length === 1 ? 'Drone' : 'Drones'} · ` : ''}{droneLinkState.stats.received} parameters</p>
                     {showGateway && <>
                         {gatewayStatus && <p>{gatewayStatus}</p>}
                         <Dropdown.Item as="button" eventKey="gateway" onClick={() => setGatewayOpen(true)}>
@@ -271,8 +278,12 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                     </>}
                 </WorkspaceStatus>
             } notices={<VisualizationSettingsNotice />}>
+                    {groupingOpen && <ManageDrones key={`${domain._id}:${!!editableDomain}`} domainId={domain._id} canEdit={!!editableDomain}
+                        grouping={grouping} error={groupingError} nodes={state} refresh={refreshGrouping} refreshAccess={refreshDomain}
+                        onClose={() => setGroupingOpen(false)} />}
                     {showGateway && <GatewayConnection workbench={workbench} open={gatewayOpen} onClose={() => setGatewayOpen(false)} />}
                     <NodeMapSettingsProvider key={`${user._id}:${domain._id}`} userId={user._id} domainId={domain._id}>
+                    <GroupingContext.Provider value={{ grouping, nodes: state }}>
                     <InspectorSessionProvider key={`${user._id}:${domain._id}`} nodes={state} inventoryComplete={!droneLinkState.isLoading && ['ready', 'retrying'].includes(droneLinkState.observationStatus)}>
                         <DomainLensPanels nodeSelected={selectedNodeId !== null} overMap={lens === 'map'} lens={lensContent}
                             inspector={<InspectorPanel key={`${domain._id}:${selectedNodeId}`} selectedNodeId={selectedNodeId}
@@ -286,6 +297,7 @@ const DomainDetailPage: React.FC<DomainDetailPageProps> = () => {
                                 localActions={selectedNodeId !== null && <NodeMapSettings nodeId={selectedNodeId} />}
                                 files={files} />} />
                     </InspectorSessionProvider>
+                    </GroupingContext.Provider>
                     </NodeMapSettingsProvider>
             </DomainWorkspace>
         </VisualizationSettingsProvider>
