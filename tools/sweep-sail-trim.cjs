@@ -33,20 +33,19 @@ function main([input, output, wind = '5']) {
   const weather = makeWeather(weatherPresets['Smooth water · light wind'], 1, Number(wind));
   const state = initialState(boat, weather);
   const neutral = neutralControls(boat);
-  const rows = ['sail_1_deg,sail_2_deg,drive_n,side_port_n,yaw_port_nm,sail_1_drive_n,sail_1_side_port_n,sail_1_yaw_port_nm,sail_2_drive_n,sail_2_side_port_n,sail_2_yaw_port_nm'];
+  const rows = ['sail_1_deg,sail_2_deg,drive_n,side_port_n,yaw_port_nm,sail_1_drive_n,sail_1_side_port_n,sail_1_yaw_port_nm,sail_2_drive_n,sail_2_side_port_n,sail_2_yaw_port_nm,sail_1_shadow_fraction,sail_2_shadow_fraction'];
   for (const a of angles(first.joint)) {
     for (const b of angles(second.joint)) {
       const controls = { ...neutral, [first.id]: a, [second.id]: b };
       const { components } = loads(boat, state, controls, weather, true);
-      const perSail = sails.map(({ id }) => {
-        const load = components.find(component => component.partId === id);
-        return load ? [load.force[0], load.force[1], load.moment[2]] : [0, 0, 0];
-      });
+      const sailLoads = sails.map(({ id }) => components.find(component => component.partId === id));
+      const perSail = sailLoads.map(load => load ? [load.force[0], load.force[1], load.moment[2]] : [0, 0, 0]);
+      const shadows = sailLoads.map(load => load?.shadow ?? 0);
       const [one, two] = perSail;
       const totals = one.map((value, i) => value + two[i]);
-      if (![...one, ...two, ...totals].every(Number.isFinite))
+      if (![...one, ...two, ...totals, ...shadows].every(Number.isFinite))
         throw new Error(`Non-finite sail load at ${a}°, ${b}°.`);
-      rows.push([a, b, ...totals, ...one, ...two].join(','));
+      rows.push([a, b, ...totals, ...one, ...two, ...shadows].join(','));
     }
   }
   fs.writeFileSync(output, rows.join('\n') + '\n');

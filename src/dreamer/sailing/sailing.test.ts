@@ -222,3 +222,39 @@ test('mesh-derived body strips conserve wetted geometry under retessellation', (
     .components.find(part => part.partId === hull.id)!;
   expect(yawing.moment[2]).toBeLessThan(0);
 });
+
+test('wind shadow follows the upstream sail and weakens with partial overlap and distance', () => {
+  const weather = makeWeather(weatherPresets['Flat calm'], 1);
+  const vertices: Vector[] = [[0,-0.3,0.2], [0,0.3,0.2], [0,0.3,1.2], [0,-0.3,1.2]];
+  const template = model.parts.find(part => part.role === 'Rigid sail')!;
+  const source = { ...template, translation: [0,0,0] as Vector, rotation: [0,0,0] as Vector, joint: null,
+    mesh: { ...template.mesh, vertices, triangles: [[0,1,2], [0,2,3]] as Vector[], closed: false } };
+  function evaluate(position: Vector, wind: Vector, trim = 0, reverseOrder = false) {
+    const receiver = { ...source, id: '6', translation: position };
+    const emitter = { ...source, joint: { pivot: [0,0,0] as Vector, axis: [0,0,1] as Vector, minimum: 0, maximum: 90 } };
+    const rig = reverseOrder ? [receiver,emitter] : [emitter,receiver];
+    const prepared = prepareSailingBoat({ ...model, parts: [
+      ...model.parts.filter(part => part.role !== 'Rigid sail'), ...rig,
+    ] });
+    const state = initialState(prepared, weather);
+    const { components } = loads(prepared, state, { [source.id]: trim }, { ...weather, wind: () => wind }, true);
+    return [source.id, receiver.id].map(id => components.find(load => load.partId === id)!);
+  }
+  const airflow: Vector = [5,0,0];
+  const [upwind, downwind] = evaluate([0.6,0,0], airflow);
+  expect(upwind.shadow).toBe(0);
+  expect(downwind.shadow).toBeGreaterThan(0.25);
+  expect(downwind.force[0]).toBeCloseTo(upwind.force[0]*(1-downwind.shadow!)**2, 6);
+  const [formerlyUpwind, formerlyDownwind] = evaluate([0.6,0,0], [-5,0,0]);
+  expect(formerlyDownwind.shadow).toBe(0);
+  expect(formerlyUpwind.shadow).toBeCloseTo(downwind.shadow!, 8);
+  const partial = evaluate([0.6,0.45,0], airflow)[1];
+  const far = evaluate([2,0,0], airflow)[1];
+  expect(partial.shadow).toBeGreaterThan(0);
+  expect(partial.shadow!).toBeLessThan(downwind.shadow!);
+  expect(far.shadow).toBeGreaterThan(0);
+  expect(far.shadow!).toBeLessThan(downwind.shadow!);
+  expect(evaluate([0,1,0], airflow).map(load => load.shadow)).toEqual([0,0]);
+  expect(evaluate([0.6,0,0], airflow, 90)[1].shadow).toBeCloseTo(0, 8);
+  expect(evaluate([0.6,0,0], airflow, 0, true)[1].shadow).toBeCloseTo(downwind.shadow!, 8);
+});

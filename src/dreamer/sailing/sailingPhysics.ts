@@ -2,6 +2,7 @@
 import { Vector, add, cross, dot, scale, subtract as sub } from '../boatModel';
 import { bodyPatchForce } from './bodyStrips';
 import { sailCoefficients } from './sailStrips';
+import { WakeStrip, windShadow } from './sailWake';
 import { Controls, SailingBoat, SailingPart, jointAngle, waterDensity } from './sailingModel';
 
 type Quaternion = [number, number, number, number];
@@ -20,6 +21,7 @@ export interface ForceVector {
   force: Vector;
   moment: Vector; // World-space torque about the boat CG, including residual couples.
   incidence?: number;
+  shadow?: number; // Fractional speed deficit, averaged over the sail area.
 }
 
 const gravity = 9.80665;
@@ -117,7 +119,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
   const up = abs(rotate(toBody, [0, 0, 1]));
   const force: Vector = [0, 0, -boat.mass * gravity], torque: Vector = [0, 0, 0];
   let displaced = 0;
-  const sailIncidence = report ? new Map<SailingPart, number>() : undefined;
+  const sailReport = report ? new Map<SailingPart, { incidence: number; shadow: number }>() : undefined;
   const byPart = report ? new Map<SailingPart, { force: Vector; moment: Vector; weightedArm: Vector; weight: number }>() : null;
   function apply(f: Vector, arm: Vector, part: SailingPart) {
     const moment = cross(arm, f);
@@ -151,6 +153,50 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     apply([0, 0, waterDensity * gravity * volume], arm, cell.part);
   }
   const wind = weather.wind(state.time);
+  const rig = boat.parts.flatMap(part => {
+    if (!part.sailStrips) return [];
+    const joint = part.joint;
+    const frame = joint ? axisAngle(joint.axis, radians(jointAngle(joint, controls[part.id]))) : null;
+    const orientation = frame ? compose(q, frame) : q;
+    const origin = joint?.pivot ?? boat.center;
+    const originArm = rotate(q, sub(origin, boat.center));
+    const strips = part.sailStrips.map(strip => {
+      const chord = rotate(orientation, strip.chord);
+      const span = rotate(orientation, strip.span);
+      return {
+        area: strip.area, chord, span, normal: cross(span, chord),
+        arm: add(originArm, rotate(orientation, sub(strip.center, origin))),
+        spanLength: strip.spanLength, chordLength: strip.area/strip.spanLength,
+      };
+    });
+    return [{ part, strips }];
+  });
+  for (const { part, strips } of rig) {
+    const others: WakeStrip[] = rig.flatMap(sail => sail.part === part ? [] : sail.strips);
+    let weightedIncidence = 0, weightedShadow = 0, area = 0;
+    for (const strip of strips) {
+      const { arm, span, chord, normal } = strip;
+      const relative = sub(wind, localVelocity(arm));
+      const flow = sub(relative, scale(span, dot(relative, span)));
+      const speed = norm(flow);
+      if (speed < 1e-6) continue;
+      const direction = scale(flow, 1 / speed);
+      const angle = Math.atan2(dot(flow, normal), Math.abs(dot(flow, chord)));
+      const coefficients = sailCoefficients(angle);
+      const liftDirection = sub(normal, scale(direction, dot(normal, direction)));
+      const lift: Vector = norm(liftDirection) < 1e-6 ? [0, 0, 0] : scale(unit(liftDirection), coefficients.lift);
+      const drag = scale(direction, coefficients.drag);
+      const shadow = others.length ? windShadow(strip, others, unit(relative)) : 0;
+      const localSpeed = speed * (1-shadow);
+      apply(scale(add(lift, drag), 0.5*airDensity*localSpeed**2*strip.area), arm, part);
+      if (sailReport) {
+        weightedIncidence += strip.area * Math.abs(angle);
+        weightedShadow += strip.area * shadow;
+        area += strip.area;
+      }
+    }
+    if (area) sailReport?.set(part, { incidence: degrees(weightedIncidence / area), shadow: weightedShadow / area });
+  }
   for (const part of boat.parts) {
     if (part.displacementSurface) {
       const { strips, sideLiftSlope } = part.displacementSurface;
@@ -167,37 +213,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
       }
       continue;
     }
-    if (part.sailStrips) {
-      const joint = part.joint;
-      const frame = joint ? axisAngle(joint.axis, radians(jointAngle(joint, controls[part.id]))) : null;
-      const orientation = frame ? compose(q, frame) : q;
-      const origin = joint?.pivot ?? boat.center;
-      const originArm = rotate(q, sub(origin, boat.center));
-      let weightedIncidence = 0, area = 0;
-      for (const strip of part.sailStrips) {
-        const arm = add(originArm, rotate(orientation, sub(strip.center, origin)));
-        const chord = rotate(orientation, strip.chord);
-        const span = rotate(orientation, strip.span);
-        const normal = cross(span, chord);
-        const relative = sub(wind, localVelocity(arm));
-        const flow = sub(relative, scale(span, dot(relative, span)));
-        const speed = norm(flow);
-        if (speed < 1e-6) continue;
-        const direction = scale(flow, 1 / speed);
-        const angle = Math.atan2(dot(flow, normal), Math.abs(dot(flow, chord)));
-        const coefficients = sailCoefficients(angle);
-        const liftDirection = sub(normal, scale(direction, dot(normal, direction)));
-        const lift: Vector = norm(liftDirection) < 1e-6 ? [0, 0, 0] : scale(unit(liftDirection), coefficients.lift);
-        const drag = scale(direction, coefficients.drag);
-        apply(scale(add(lift, drag), 0.5*airDensity*speed**2*strip.area), arm, part);
-        if (sailIncidence) {
-          weightedIncidence += strip.area * Math.abs(angle);
-          area += strip.area;
-        }
-      }
-      if (area) sailIncidence?.set(part, degrees(weightedIncidence / area));
-      continue;
-    }
+    if (part.sailStrips) continue;
     const foil = part.foil;
     if (!foil) continue;
     const center = partPoint(part, part.center, controls);
@@ -240,7 +256,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     const center = add(state.position, add(reference, correction));
     components.push({
       name: part.name, partId: part.id, medium: part.foil?.medium ?? 'water',
-      center, force: entry.force, moment: entry.moment, incidence: sailIncidence?.get(part),
+      center, force: entry.force, moment: entry.moment, ...sailReport?.get(part),
     });
   }
   return { ...result, components };

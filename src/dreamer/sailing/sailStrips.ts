@@ -6,6 +6,7 @@ export interface SailStrip {
   chord: Vector;
   span: Vector;
   area: number;
+  spanLength: number;
 }
 
 export function fitSurfaceNormal(faces: Vector[]): Vector {
@@ -79,7 +80,7 @@ export function buildSailStrips(
     // contributes one. Cross products above measure twice the triangle area.
     const area = area2/(closed ? 4 : 2);
     if (area > 1e-10)
-      strips.push({ center: add(origin, scale(moment,1/area2)), chord, span: localSpan, area });
+      strips.push({ center: add(origin, scale(moment,1/area2)), chord, span: localSpan, area, spanLength: width });
   }
   return strips;
 }
