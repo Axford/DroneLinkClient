@@ -148,7 +148,12 @@ export interface HorizonReadings {
     rollDegrees?: number;
 }
 
-export interface Mpu6050Summary extends HorizonReadings {
+interface CalibrationModeReadings {
+    calibrationMode: ObservedSummary;
+    calibrationModeValue?: number;
+}
+
+export interface Mpu6050Summary extends HorizonReadings, CalibrationModeReadings {
     temperature: ObservedSummary;
     scene: DiagnosticSceneData;
     diagnosticReadings: ObservedSummary[];
@@ -157,9 +162,7 @@ export interface Mpu6050Summary extends HorizonReadings {
 
 export const calibrationModeLabels = ['Online', 'Fixed', 'Reset', 'Store'] as const;
 
-export interface Hmc5883lSummary extends HorizonReadings {
-    calibrationMode: ObservedSummary;
-    calibrationModeValue?: number;
+export interface Hmc5883lSummary extends HorizonReadings, CalibrationModeReadings {
     magneticHeading: ObservedSummary;
     quality: ObservedSummary;
     vector: ObservedSummary;
@@ -638,6 +641,14 @@ function horizonReadings(channel: ChannelState, pitchId: number, rollId: number)
     };
 }
 
+function calibrationModeReadings(channel: ChannelState, param: number): CalibrationModeReadings {
+    const value = byteArray(channel.params[param], 1)?.[0];
+    return {
+        calibrationMode: field(channel, param, 'Calibration mode', value === undefined ? undefined : calibrationModeLabels[value]),
+        calibrationModeValue: value,
+    };
+}
+
 function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
     const magneticHeading = headingReading(channel, 11);
     const attitude = horizonReadings(channel, 22, 24);
@@ -666,17 +677,15 @@ function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
         ...[x, y, z].map((axis, index) => field(channel, 13 + index, `${'XYZ'[index]} calibration`,
             axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} · Centre ${axis.centre.toFixed(2)}`))
     ];
-    const calibrationModeValue = byteArray(channel.params[20], 1)?.[0];
-    const calibrationMode = field(channel, 20, 'Calibration mode',
-        calibrationModeValue === undefined ? undefined : calibrationModeLabels[calibrationModeValue]);
+    const mode = calibrationModeReadings(channel, 20);
     return {
-        ...attitude, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings, calibrationMode, calibrationModeValue,
+        ...attitude, ...mode, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings,
         scene: { extent: 1, calibration, vector: raw ? { from: centre, to: raw } : undefined },
         details: [
             magneticHeading, pitch, roll,
             { ...vector, label: 'Calibrated vector and calibration quality', text: values ? `${vector.text} · Quality ${quality.text}` : vector.text,
                 status: quality.status ?? vector.status },
-            calibrationMode, ...diagnosticReadings
+            mode.calibrationMode, ...diagnosticReadings
         ]
     };
 }
@@ -692,6 +701,7 @@ function mpu6050Temperature(channel: ChannelState, decimals = 0): ObservedSummar
 function mpu6050Summary(channel: ChannelState): Mpu6050Summary {
     const attitude = horizonReadings(channel, 13, 14);
     const temperature = mpu6050Temperature(channel, 1);
+    const mode = calibrationModeReadings(channel, 19);
     const acceleration = observedFloatVector(channel.params[10], 3);
     const vector = acceleration && {
         from: [0, 0, 0] as DiagnosticVector,
@@ -710,9 +720,9 @@ function mpu6050Summary(channel: ChannelState): Mpu6050Summary {
             axis && `Radius ${((axis.max - axis.min) / 2).toFixed(2)} · Centre ${axis.centre.toFixed(2)} m/s²`))
     ];
     return {
-        ...attitude, temperature, scene: { extent: 1, vector, calibration },
+        ...attitude, ...mode, temperature, scene: { extent: 1, vector, calibration },
         diagnosticReadings: [attitude.pitch, attitude.roll, ...diagnosticReadings],
-        details: [attitude.pitch, attitude.roll, temperature, ...diagnosticReadings]
+        details: [attitude.pitch, attitude.roll, temperature, mode.calibrationMode, ...diagnosticReadings]
     };
 }
 

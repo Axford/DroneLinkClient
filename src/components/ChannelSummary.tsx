@@ -53,7 +53,7 @@ const calibrationModes = [
     { value: 0, label: calibrationModeLabels[0], action: { description: 'Update calibration from new readings' } },
     { value: 1, label: calibrationModeLabels[1], action: { description: 'Use the current calibration without updating it' } },
     { value: 2, label: calibrationModeLabels[2], action: {
-        label: 'Reset calibration', description: 'Reset the live bounds and return to Online mode', warning: true, oneShot: true,
+        label: 'Reset calibration', description: 'Reset the live calibration and return to Online mode', warning: true, oneShot: true,
     } },
     { value: 3, label: calibrationModeLabels[3], action: {
         label: 'Store calibration', description: 'Save the current calibration on the device and switch to Fixed mode', warning: true, oneShot: true,
@@ -141,7 +141,11 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         return <DepthTrace label={label} summary={summary} scope={sampleScope} />;
     }
     if ('temperature' in summary) {
-        return <Mpu6050Instrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} />;
+        return <>
+            <Mpu6050Instrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} />
+            <SummaryModeActions key={JSON.stringify(['MPU6050', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="MPU6050 calibration" param={19} observedMode={summary.calibrationModeValue} modes={calibrationModes} />
+        </>;
     }
     if ('magneticHeading' in summary) {
         return <>

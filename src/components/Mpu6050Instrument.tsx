@@ -11,7 +11,7 @@ export default function Mpu6050Instrument({ nodeId, label, summary }: {
     label: string;
     summary: Mpu6050Summary;
 }) {
-    const { pitch, roll, temperature } = summary;
+    const { pitch, roll, temperature, calibrationMode } = summary;
     return <section aria-label={label}>
         <dl className="dw-channel-summary dw-mpu-readings">
             <div className="dw-mpu-graphic">
@@ -19,7 +19,7 @@ export default function Mpu6050Instrument({ nodeId, label, summary }: {
                 <dd><ArtificialHorizon attitude={summary} /></dd>
             </div>
             <div className="dw-mpu-values">
-                {[pitch, roll, temperature].map(reading => <React.Fragment key={reading.parameterId}>
+                {[pitch, roll, temperature, calibrationMode].map(reading => <React.Fragment key={reading.parameterId}>
                     <dt className="dw-meta">{reading.label}</dt>
                     <dd data-unavailable={reading.unavailable || undefined} data-severity={reading.severity}>
                         {reading.text}

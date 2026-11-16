@@ -199,7 +199,9 @@ The Summary also shows observed calibration mode at parameter 20. **Online** and
 
 ### MPU6050 attitude and acceleration
 
-MPU6050 shares the artificial horizon with HMC5883L and displays signed pitch and roll from parameters 13 and 14. Temperature at parameter 12 drives both the Summary and node chip. The legacy chip thresholds are above 30 °C for warning and above 40 °C for danger. The diagnostic projects the calibrated acceleration at parameter 10 from the origin. Its calibration ellipsoid uses the reported centres and half-spans from parameters 16–18. Invalid calibration hides the ellipsoid while independently observed acceleration remains visible. Calibration mode stays in the generic parameter workflow.
+MPU6050 shares the artificial horizon with HMC5883L and displays signed pitch and roll from parameters 13 and 14. Temperature at parameter 12 drives both the Summary and node chip. The legacy chip thresholds are above 30 °C for warning and above 40 °C for danger. The diagnostic projects the calibrated acceleration at parameter 10 from the origin. Its calibration ellipsoid uses the reported centres and half-spans from parameters 16–18. Invalid calibration hides the ellipsoid while independently observed acceleration remains visible.
+
+The Summary shows observed mode from parameter 19 and offers the same **Online**, **Fixed**, **Reset calibration** and **Store calibration** controls as the compass. Reset reinitializes accelerometer bounds and clears gyro calibration before returning to Online. Store saves the current accelerometer limits and gyro bias on the device and switches to Fixed. The status line reports the next stable observed mode while the action outcome remains unconfirmed.
 
 ### INA219 voltage and usage
 
