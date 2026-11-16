@@ -4,15 +4,15 @@
 .dw-mpu-graphic .dw-meta { text-align: center; }
 .dw-mpu-values {
     display: grid;
-    grid-template-columns: auto minmax(0, max-content);
+    grid-template-columns: minmax(0, auto) max-content;
     justify-content: center;
     align-content: center;
     align-items: baseline;
     gap: 0 var(--dw-space-1);
 }
-.dw-mpu-values dt { font-weight: 400; }
+.dw-mpu-values dt { font-weight: 400; overflow-wrap: anywhere; }
 .dw-mpu-values dd > svg { flex: none; }
-.dw-mpu-values dd { padding: 0 var(--dw-space-1); border-radius: var(--dw-radius-small); }
+.dw-mpu-values dd { padding: 0 var(--dw-space-1); border-radius: var(--dw-radius-small); white-space: nowrap; }
 .dw-mpu-values dd[data-severity="warning"] { background: rgb(var(--dw-color-warning-bg-rgb)); }
 .dw-mpu-values dd[data-severity="danger"] { background: rgb(var(--dw-color-danger-bg-rgb)); }
 .dw-mpu-actions { display: flex; justify-content: center; margin-top: var(--dw-space-1); }
