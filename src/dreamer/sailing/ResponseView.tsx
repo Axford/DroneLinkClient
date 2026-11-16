@@ -7,7 +7,8 @@ import { CanvasRenderer } from 'echarts/renderers';
 
 import type { BoatDocument } from '../cloudModels';
 import { SailingBoat, jointAngle, prepareSailingBoat } from './sailingModel';
-import { hullResponse, ResponseLoad, sailResponse, sweepLeeway, sweepSpeeds, trimAngles } from './responseSweeps';
+import TrimHeatmaps from './TrimHeatmaps';
+import { hullResponse, JointedSail, ResponseLoad, sailResponse, sweepLeeway, sweepSpeeds, trimAngles } from './responseSweeps';
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
@@ -24,7 +25,7 @@ export default function ResponseView({ model, mode }: { model: BoatDocument; mod
 }
 
 function SailResponse({ boat }: { boat: SailingBoat }) {
-  const jointed = boat.parts.filter(part => part.sailStrips && part.joint);
+  const jointed = boat.parts.filter((part): part is JointedSail => Boolean(part.sailStrips && part.joint));
   const [windInput, setWindInput] = useState('5');
   const wind = Number(windInput);
   const [primary, setPrimary] = useState(jointed[0]?.id);
@@ -33,8 +34,8 @@ function SailResponse({ boat }: { boat: SailingBoat }) {
   const response = useMemo(() => sailResponse(boat, wind), [boat, wind]);
   const swept = jointed.find(part => part.id === primary);
   const held = jointed.find(part => part.id === secondary && part.id !== primary);
-  const heldAngle = held ? jointAngle(held.joint!, trimOverrides[held.id]) : 0;
-  const samples = useMemo(() => swept ? trimAngles(swept.joint!).map(x => {
+  const heldAngle = held ? jointAngle(held.joint, trimOverrides[held.id]) : 0;
+  const samples = useMemo(() => swept ? trimAngles(swept.joint).map(x => {
     const result = response.at({ ...trimOverrides, [swept.id]: x });
     return { x, loads: [result.total, ...result.byPart] };
   }) : [], [response, swept, trimOverrides]);
@@ -60,11 +61,13 @@ function SailResponse({ boat }: { boat: SailingBoat }) {
         </select></label>}
         {held && <label>{held.name} angle (°)<select className="form-select" value={heldAngle} onChange={event =>
           setTrimOverrides({ [held.id]: Number(event.target.value) })}>
-          {trimAngles(held.joint!).map(angle => <option value={angle} key={angle}>{angle.toFixed(2).replace(/\.?0+$/, '')}°</option>)}
+          {trimAngles(held.joint).map(angle => <option value={angle} key={angle}>{angle.toFixed(2).replace(/\.?0+$/, '')}°</option>)}
         </select></label>}
       </div>
       <p className="dw-meta">Upright and stationary, heading 000° with wind from 045°. Positive drive is forward. Side force and yaw are positive to port.</p>
     </section>
+    {jointed.length === 2 && <TrimHeatmaps response={response} first={swept}
+      second={jointed[0] === swept ? jointed[1] : jointed[0]} />}
     <ResponseResults samples={samples} parts={['Total', ...response.parts.map(part => part.name)]}
       axis={swept.name + ' angle (°)'} mode="sail" />
   </div>;

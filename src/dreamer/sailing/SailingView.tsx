@@ -4,7 +4,7 @@ import { Button } from 'react-bootstrap';
 import { Vector, add, scale } from '../boatModel';
 import type { BoatDocument } from '../cloudModels';
 import ModelViewport from '../ModelViewport';
-import { Controls, SailingBoat, jointAngle, prepareSailingBoat } from './sailingModel';
+import { Controls, SailingBoat, jointAngle, prepareSailingBoat, sailingParts } from './sailingModel';
 import { WeatherPreset, instruments, loads, stepSeconds, weatherPresets, windVectors } from './sailingPhysics';
 import { SailingRun, SailingTrace, neutralControls } from './sailingRun';
 import { SailingPose, sailingForces, velocityArrow } from './sailingScene';
@@ -101,7 +101,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
     return { state, center: boat.center, angles: controls, water: run.conditions.water, vectors: arrows };
   }, [boat, run, state, controls, vectors]);
 
-  const visibleParts = useMemo(() => model.parts.filter(part => part.simulationEnabled !== false), [model]);
+  const visibleParts = useMemo(() => sailingParts(model), [model]);
   const jointed = boat.parts.filter(part => part.joint);
   const traceToPlay = lastTrace ?? (run.tick ? run.trace() : undefined);
   return <div className="dreamer-sailing">

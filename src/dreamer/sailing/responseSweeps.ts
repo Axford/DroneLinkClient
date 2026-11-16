@@ -1,5 +1,5 @@
 import { Vector } from '../boatModel';
-import { SailingBoat, SailingJoint } from './sailingModel';
+import { SailingBoat, SailingJoint, SailingPart } from './sailingModel';
 import { initialState, loads, makeWeather, weatherPresets } from './sailingPhysics';
 import { neutralControls } from './sailingRun';
 
@@ -32,10 +32,12 @@ export function sailResponse(boat: SailingBoat, windSpeed: number) {
   const state = initialState(boat, weather);
   const neutral = neutralControls(boat);
   const parts = boat.parts.filter(part => part.sailStrips);
+  // The upright pose comes from the full boat. Only air loads enter the trim response.
+  const rig = { ...boat, parts, cells: [] };
   return {
     parts,
     at(angles: Record<string, number>) {
-      const { components } = loads(boat, state, { ...neutral, ...angles }, weather, true);
+      const { components } = loads(rig, state, { ...neutral, ...angles }, weather, true);
       const byPart = parts.map(part => {
         const load = components.find(component => component.partId === part.id);
         return load ? { longitudinal: load.force[0], side: load.force[1], yaw: load.moment[2],
@@ -48,6 +50,17 @@ export function sailResponse(boat: SailingBoat, windSpeed: number) {
       return { byPart, total };
     },
   };
+}
+
+export type JointedSail = SailingPart & { joint: SailingJoint };
+
+export function sailTrimGrid(response: ReturnType<typeof sailResponse>, first: JointedSail, second: JointedSail) {
+  const xAngles = trimAngles(first.joint);
+  const yAngles = trimAngles(second.joint);
+  const samples = xAngles.flatMap((a, x) => yAngles.map((b, y) => ({
+    x, y, ...response.at({ [first.id]: a, [second.id]: b }),
+  })));
+  return { xAngles, yAngles, samples };
 }
 
 export function hullResponse(boat: SailingBoat) {

@@ -126,12 +126,15 @@ function foilGeometry(part: BoatPart, vertices: Vector[], origin: Vector) {
   };
 }
 
+export function sailingParts(model: BoatDocument) {
+  return model.parts.filter(part => part.simulationEnabled !== false && part.role !== 'Visual only');
+}
+
 export function prepareSailingBoat(model: BoatDocument): SailingBoat {
   const parts: SailingPart[] = [], cells: DisplacementCell[] = [];
   const loads: { mass: number; cg: Vector; size: Vector }[] = [];
   const hullBounds: ReturnType<typeof meshBounds>[] = [];
-  for (const part of model.parts) {
-    if (part.simulationEnabled === false || part.role === 'Visual only') continue;
+  for (const part of sailingParts(model)) {
     if (part.role === 'Unassigned') throw new Error(part.name + ' needs a physics role.');
     if (part.mass === null || !Number.isFinite(part.mass) || part.mass < 0)
       throw new Error(part.name + ' needs a mass or an explicit zero.');

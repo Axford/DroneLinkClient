@@ -1,9 +1,10 @@
 import { Vector, add, scale } from '../boatModel';
 import type { BoatDocument } from '../cloudModels';
 import fixture from './__fixtures__/sloop.json';
-import { jointAngle, prepareSailingBoat } from './sailingModel';
+import { jointAngle, prepareSailingBoat, sailingParts } from './sailingModel';
 import { initialState, instruments, loads, makeWeather, weatherPresets } from './sailingPhysics';
 import { SailingRun, neutralControls } from './sailingRun';
+import { JointedSail, sailResponse, sailTrimGrid } from './responseSweeps';
 import { velocityArrow, waterGrid } from './sailingScene';
 
 const model = fixture as BoatDocument;
@@ -304,4 +305,25 @@ test('the velocity arrow points along travel and scales linearly with speed', ()
   expect(first.end[1] - first.start[1]).toBeCloseTo(0.2);
   expect(first.end[2]).toBe(first.start[2]);
   expect(second.end[0] - second.start[0]).toBeCloseTo(2*(first.end[0]-first.start[0]));
+});
+
+test('the Sail viewport and solver share the same physical parts', () => {
+  const preview = { ...model.parts[0], id: '6', name: 'Reference mesh', role: 'Visual only' as const };
+  const assembly = { ...model, parts: [...model.parts, preview] };
+  expect(sailingParts(assembly).map(part => part.id)).toEqual(model.parts.map(part => part.id));
+  expect(prepareSailingBoat(assembly)).toEqual(boat());
+});
+
+test('two-sail trim sweeps cover every sample pair and report the same loads as the individual response', () => {
+  const main = model.parts.find(part => part.role === 'Rigid sail')!;
+  const second = { ...main, id: '6', translation: [0.65,0,0] as Vector,
+    joint: { ...main.joint!, minimum: -3.5, maximum: 11.5 } };
+  const prepared = prepareSailingBoat({ ...model, parts: [...model.parts, second] });
+  const response = sailResponse(prepared, 5);
+  const [first, other] = response.parts as JointedSail[];
+  const { xAngles, yAngles, samples } = sailTrimGrid(response, first, other);
+  expect(yAngles).toEqual([-3.5, 0, 5, 10, 11.5]);
+  expect(samples).toHaveLength(xAngles.length*yAngles.length);
+  for (const { x,y,total } of samples)
+    expect(total).toEqual(response.at({ [first.id]: xAngles[x], [other.id]: yAngles[y] }).total);
 });
