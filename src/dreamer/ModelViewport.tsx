@@ -76,7 +76,7 @@ export default function ModelViewport({
     });
     observer.observe(element);
     const wheel = (event: WheelEvent) => {
-      if (!scene.length) return;
+      if (!scene.length || !event.altKey) return;
       event.preventDefault();
       const units = event.deltaMode === 1 ? 16 : 1;
       setPixels(value => clampScale(value * Math.exp(-event.deltaY * units * 0.002)));
@@ -377,7 +377,7 @@ export default function ModelViewport({
       <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={() => fitView(hydrostatic ? 0.75 : 1)} />
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
-      aria-label={(hydrostatic ? '3D hydrostatic preview.' : '3D boat assembly.') + ' Right-drag to orbit, middle-drag to pan, scroll to zoom.'} tabIndex={0}
+      aria-label={(hydrostatic ? '3D hydrostatic preview.' : '3D boat assembly.') + ' Right-drag to orbit, middle-drag to pan, Alt or Option plus scroll to zoom.'} tabIndex={0}
       onContextMenu={event => event.preventDefault()}
       onAuxClick={event => event.preventDefault()}
       onKeyDown={event => {

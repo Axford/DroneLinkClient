@@ -147,7 +147,7 @@ function DomainModels({ domainId }: { domainId: string }) {
   }, [domainId]);
   if (error) return <PageFeedback message={error}><Link to="/private">Return to Domains</Link></PageFeedback>;
   if (!session) return <PageFeedback loading message="Opening Dreamer…" />;
-  return <WorkspaceShell user={session.user} activeDomain={session.domain}>
+  return <WorkspaceShell user={session.user} activeDomain={session.domain} scrollContent>
     <ModelLibrary domain={session.domain} signal={session.signal} />
   </WorkspaceShell>;
 }

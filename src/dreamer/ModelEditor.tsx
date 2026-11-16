@@ -317,7 +317,7 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
               aria-expanded={showHelp} aria-controls="dreamer-view-help" onClick={() => setShowHelp(previous => !previous)} />
           </div>}
           <p id="dreamer-view-help" className="dreamer-model-view-help dw-meta" hidden={!showHelp}>
-            Left-drag handles, middle-drag to pan, right-drag to orbit, or scroll to zoom.
+            Left-drag handles, middle-drag to pan, right-drag to orbit, or hold Alt or Option while scrolling to zoom.
           </p>
           {(tool === 'neutral' || tool === 'limits') && <p className="dreamer-model-view-help dw-meta">
             {tool === 'neutral' ? 'Drag the Zero arm, then save zero.' : 'Drag Min and Max to set travel from zero.'}

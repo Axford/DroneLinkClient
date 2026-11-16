@@ -36,7 +36,7 @@
   width: 100%;
   height: clamp(calc(var(--dw-grid) * 85), 65vh, calc(var(--dw-grid) * 180));
   background: var(--dw-color-instrument-face);
-  touch-action: none;
+  touch-action: pan-y pinch-zoom;
 }
 .dreamer-model-viewport:focus-visible { outline-offset: calc(-1 * var(--dw-space-1)); }
 .dreamer-model-viewport[data-gesture=orbit], .dreamer-model-viewport[data-gesture=pan] { cursor: grabbing; }
