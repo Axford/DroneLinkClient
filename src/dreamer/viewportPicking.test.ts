@@ -23,7 +23,7 @@ test('drag deltas can be converted back to CAD coordinates without changing the 
 });
 
 test('joint motion sweeps the configured bounds around a fixed world pivot', () => {
-  expect([0, 1, 2, 3, 4].map(time => jointSweep(-18, 42, time))).toEqual([-18, 12, 42, 12, -18]);
+  expect([-0.01, 0, 1, 2, 3, 4].map(time => jointSweep(-18, 42, time))).toEqual([-18, -18, 12, 42, 12, -18]);
   const pivot: Vector = [7, 2, 0];
   const rotated = turnAboutJoint([8, 2, 0], pivot, [0, 0, 1], 90);
   expect(meshBounds([rotated, pivot]).max).toEqual([7, 3, 0]);

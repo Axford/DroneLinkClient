@@ -4,7 +4,7 @@ import { ArrowRepeat, Bullseye, Crosshair, Crosshair2, Eye, EyeSlash, InfoCircle
 import IconButton from '../components/ui/IconButton';
 import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
-import ModelViewport, { EditTool, Handle, JointPick } from './ModelViewport';
+import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
 import './modelEditor.css';
 
 const origin: Vector = [0, 0, 0];
@@ -44,6 +44,8 @@ function VectorFields({ label, value, change }: VectorFieldsProps) {
 export default function ModelEditor() {
   const assemblyInput = useRef<HTMLInputElement>(null);
   const replacementInput = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<'import' | 'orient' | 'configure'>('import');
+  const [neutralDraft, setNeutralDraft] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [parts, setParts] = useState<BoatPart[]>([]);
   const [name, setName] = useState('');
@@ -89,6 +91,7 @@ export default function ModelEditor() {
 
   function stopPreview() {
     setPick(null);
+    setNeutralDraft(null);
     setAnimating(false);
     setElapsed(0);
   }
@@ -123,6 +126,26 @@ export default function ModelEditor() {
     }
   }
 
+  function moveAngle(handle: AngleHandle, angle: number) {
+    if (!joint) return;
+    if (handle === 'neutral') setNeutralDraft(angle);
+    else if (handle === 'minimum') changeJoint({ minimum: Math.min(angle, joint.maximum) });
+    else changeJoint({ maximum: Math.max(angle, joint.minimum) });
+  }
+
+  function setZero() {
+    if (!joint || !jointValid || !selectedVisible) return;
+    stopPreview();
+    setTool('neutral');
+    setNeutralDraft(joint.neutral ?? 0);
+  }
+
+  function changeStep(next: 'import' | 'orient' | 'configure') {
+    stopPreview();
+    setTool(joint ? 'joint' : 'mass');
+    setStep(next);
+  }
+
   async function load(file: File | undefined, replacement?: BoatPart) {
     if (!file || importing.current) return;
     importing.current = true;
@@ -138,6 +161,7 @@ export default function ModelEditor() {
         setParts(current => current.map(item => item.id === next.id ? { ...item, mesh: next.mesh } : item));
         setNotice('Replaced the mesh for ' + replacement.name + '.');
       } else {
+        setStep('orient');
         setName(file.name.replace(/\.3mf$/i, ''));
         setParts(imported);
         setHidden(new Set());
@@ -160,26 +184,42 @@ export default function ModelEditor() {
       <h1>Dreamer model editor</h1>
       <p className="dw-meta">{name ? name + ' · ' : ''}Local preview</p>
     </header>
-    <div className="dreamer-model-toolbar dw-toolbar">
-      <Button type="button" disabled={pending} onClick={() => assemblyInput.current?.click()}><Upload /> Import assembly</Button>
-      <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
-        void load(event.currentTarget.files?.[0]);
-        event.currentTarget.value = '';
-      }} />
-      <label>Forward <select className="form-select" value={forward} onChange={event => setForward(event.target.value as Axis)}>
-        {axes.filter(axis => axis[1] !== up[1]).map(axis => <option key={axis}>{axis}</option>)}
-      </select></label>
-      <label>Up <select className="form-select" value={up} onChange={event => setUp(event.target.value as Axis)}>
-        {axes.filter(axis => axis[1] !== forward[1]).map(axis => <option key={axis}>{axis}</option>)}
-      </select></label>
-    </div>
+    <ol className="dreamer-editor-steps" aria-label="Model setup">
+      <li aria-current={step === 'import' ? 'step' : undefined}>Import</li>
+      <li aria-current={step === 'orient' ? 'step' : undefined}>Orient</li>
+      <li aria-current={step === 'configure' ? 'step' : undefined}>Configure</li>
+    </ol>
+    <input ref={assemblyInput} type="file" accept=".3mf" hidden aria-label="Assembly 3MF" disabled={pending} onChange={event => {
+      void load(event.currentTarget.files?.[0]);
+      event.currentTarget.value = '';
+    }} />
+    {step === 'import' && <section className="dw-panel dreamer-import-step">
+      <h2>Import a model</h2>
+      <p className="dw-meta">Choose an Onshape assembly in 3MF format.</p>
+      <div className="dw-toolbar">
+        <Button type="button" disabled={pending} onClick={() => assemblyInput.current?.click()}><Upload /> Import assembly</Button>
+        {parts.length > 0 && <Button type="button" variant="outline-secondary" onClick={() => changeStep('orient')}>Use current assembly</Button>}
+      </div>
+    </section>}
+    {step !== 'import' && <div className="dreamer-model-toolbar dw-toolbar">
+      <Button type="button" variant="outline-secondary" onClick={() => changeStep(step === 'orient' ? 'import' : 'orient')}>Back</Button>
+      {step === 'orient' && <>
+        <label>Forward <select className="form-select" value={forward} onChange={event => setForward(event.target.value as Axis)}>
+          {axes.filter(axis => axis[1] !== up[1]).map(axis => <option key={axis}>{axis}</option>)}
+        </select></label>
+        <label>Up <select className="form-select" value={up} onChange={event => setUp(event.target.value as Axis)}>
+          {axes.filter(axis => axis[1] !== forward[1]).map(axis => <option key={axis}>{axis}</option>)}
+        </select></label>
+        <Button type="button" onClick={() => changeStep('configure')}>Continue to configure</Button>
+      </>}
+    </div>}
     <div className="dreamer-model-status dw-meta" role="status">{pending ? 'Reading 3MF…' : notice}</div>
     {error && <p className="dreamer-model-error" role="alert">{error}</p>}
-    <div className="dreamer-model-workspace">
+    {step !== 'import' && <div className="dreamer-model-workspace">
       <section className="dw-panel dreamer-model-scene" aria-label="Assembly preview">
-        <ModelViewport parts={parts} selectedId={selectedId} hidden={hidden} forward={forward} up={up}
-          tool={tool} pick={pick} previewAngle={previewAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
-        {parts.length > 0 && <>
+        <ModelViewport parts={parts} selectedId={step === 'configure' ? selectedId : ''} hidden={hidden} forward={forward} up={up}
+          tool={tool} pick={pick} previewAngle={previewAngle} neutralDraft={neutralDraft} onMoveAngle={moveAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
+        {step === 'configure' && <>
           <div className="dreamer-model-overlay-tools dw-toolbar" role="group" aria-label="Selected part controls">
             <IconButton type="button" label="Edit CG" disabled={!selectedVisible} aria-pressed={tool === 'mass'} icon={<Bullseye />}
               onClick={() => { stopPreview(); setTool('mass'); }} />
@@ -201,6 +241,10 @@ export default function ModelEditor() {
           <p id="dreamer-view-help" className="dreamer-model-view-help dw-meta" hidden={!showHelp}>
             Left-drag handles, middle-drag to pan, right-drag to orbit, or scroll to zoom.
           </p>
+          {(tool === 'neutral' || tool === 'limits') && <p className="dreamer-model-view-help dw-meta">
+            {tool === 'neutral' ? 'Drag the Zero arm, then save zero.' : 'Drag Min and Max to set travel from zero.'}
+            {' Use Look along joint axis for a face-on view.'}
+          </p>}
           {pick && <p className="dreamer-model-view-help dw-meta" role="status">
             {pick === 'origin' ? 'Select the pivot vertex.' : 'Select a second vertex to set the axis.'}
           </p>}
@@ -220,7 +264,7 @@ export default function ModelEditor() {
           </div>
         </>}
       </section>
-      {part && <section className="dw-panel dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
+      {step === 'configure' && part && <section className="dw-panel dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
         <div className="dreamer-part-heading">
           <h2>{part.name}</h2>
           <IconButton type="button" label="Replace mesh" icon={<ArrowRepeat />} disabled={pending}
@@ -264,19 +308,37 @@ export default function ModelEditor() {
           const enabled = event.target.checked;
           stopPreview();
           setTool(enabled ? 'joint' : 'mass');
-          changePart({ joint: enabled ? { pivot: part.centerOfMass ?? origin, axis: [0, 0, 1], minimum: -30, maximum: 30 } : null });
+          changePart({ joint: enabled ? { pivot: part.centerOfMass ?? origin, axis: [0, 0, 1], neutral: 0, minimum: -30, maximum: 30 } : null });
         }}
         /> Revolute joint</label>
         {joint && <>
           {!jointValid && <p className="dreamer-model-error">Use a nonzero axis and an ordered joint range.</p>}
           <VectorFields label="Local pivot (m)" value={joint.pivot} change={pivot => changeJoint({ pivot })} />
           <VectorFields label="Local joint axis" value={joint.axis} change={axis => changeJoint({ axis })} />
+          <div className="dw-toolbar dreamer-joint-tools">
+            <Button type="button" variant="outline-secondary" disabled={!jointValid || !selectedVisible}
+              aria-pressed={tool === 'neutral'} onClick={setZero}>Set zero</Button>
+            <Button type="button" variant="outline-secondary" disabled={!jointValid || !selectedVisible}
+              aria-pressed={tool === 'limits'} onClick={() => { stopPreview(); setTool('limits'); }}>Set limits</Button>
+          </div>
+          {neutralDraft !== null ? <>
+            <label>Zero draft (°) <NumberField value={neutralDraft} change={setNeutralDraft} /></label>
+            <div className="dw-toolbar">
+              <Button type="button" onClick={() => {
+                changeJoint({ neutral: neutralDraft });
+                stopPreview();
+                setTool('limits');
+                setNotice('Joint zero saved in this model.');
+              }}>Save zero</Button>
+              <Button type="button" variant="outline-secondary" onClick={() => { stopPreview(); setTool('joint'); }}>Cancel</Button>
+            </div>
+          </> : <p className="dw-meta">Zero offset {(joint.neutral ?? 0).toFixed(1)}°</p>}
           <div className="dreamer-model-triple">
             <label>Minimum (°) <NumberField value={joint.minimum} change={minimum => changeJoint({ minimum })} /></label>
             <label>Maximum (°) <NumberField value={joint.maximum} change={maximum => changeJoint({ maximum })} /></label>
           </div>
         </>}
       </section>}
-    </div>
+    </div>}
   </main>;
 }

@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowsFullscreen, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
+import { ArrowsFullscreen, Compass, ZoomIn, ZoomOut } from 'react-bootstrap-icons';
 import IconButton from '../components/ui/IconButton';
 import {
-  Axis, BoatPart, MeshPose, Vector, add, cross, direction, dot, jointFrame, localDirection,
-  meshBounds, partPose, scale, subtract, transformPoint, turnAboutJoint,
+  Axis, BoatPart, MeshPose, Vector, add, cross, direction, dot, jointFrame, jointPlacement, localDirection,
+  meshBounds, partPose, scale, subtract, transformPoint,
 } from './boatModel';
+import { angleDelta, protractorBasis, screenProtractor } from './jointProtractor';
 import { nearestVisibleVertex } from './viewportPicking';
 
 export type Handle = 'centerOfMass' | 'pivot' | 'axis';
-export type EditTool = 'mass' | 'joint';
+export type AngleHandle = 'neutral' | 'minimum' | 'maximum';
+export type EditTool = 'mass' | 'joint' | 'neutral' | 'limits';
 export type JointPick = 'origin' | 'direction';
 type Point = [number, number];
 interface Props {
@@ -20,11 +22,14 @@ interface Props {
   tool: EditTool;
   pick: JointPick | null;
   previewAngle: number | null;
+  neutralDraft: number | null;
+  onMoveAngle: (handle: AngleHandle, angle: number) => void;
   onMoveHandle: (handle: Handle, value: Vector) => void;
   onPickVertex: (vertex: Vector) => void;
 }
 interface Marker { handle: Handle; world: Vector; local: Vector; screen: Vector; color: string; label: string; }
 type Drag =
+  | { kind: 'angle'; handle: AngleHandle; pointerAngle: number; angle: number; pointer: number }
   | { kind: 'handle'; marker: Marker; pose: MeshPose; pivot?: Vector; start: Point; pointer: number }
   | { kind: 'orbit' | 'pan' | 'pick'; start: Point; last: Point; pointer: number; moved: boolean };
 
@@ -42,7 +47,7 @@ function editorPalette() {
 }
 
 export default function ModelViewport({
-  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, onMoveHandle, onPickVertex,
+  parts, selectedId, hidden, forward, up, tool, pick, previewAngle, neutralDraft, onMoveAngle, onMoveHandle, onPickVertex,
 }: Props) {
   const [palette] = useState(editorPalette);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -52,6 +57,7 @@ export default function ModelViewport({
   const [elevation, pitch] = useState(0.42);
   const [pixels, setPixels] = useState(250);
   const [target, setTarget] = useState<Vector>([0, 0, 0]);
+  const [limitPreview, setLimitPreview] = useState<number | null>(null);
   const [hover, setHover] = useState<{ id: string; index: number }>();
   const scene = useMemo(() => parts.map(part => {
     const pose = partPose(part, forward, up);
@@ -86,15 +92,15 @@ export default function ModelViewport({
       return [width/2 + x*pixels, height/2 - y*pixels, z];
     };
     const joint = selected && jointFrame(selected.part, selected.pose);
-    const jointAxis = joint?.axis;
-    const jointPivot = joint?.pivot;
-    const move = (vertex: Vector) => previewAngle !== null && jointAxis && jointPivot
-      ? turnAboutJoint(vertex, jointPivot, jointAxis, previewAngle) : vertex;
+    const move = selected ? jointPlacement(selected.part, selected.pose,
+      neutralDraft !== null ? neutralDraft - (selected.part.joint?.neutral ?? 0) :
+        previewAngle ?? limitPreview ?? 0) : (vertex: Vector) => vertex;
 
-    const visible = scene.filter(entry => !hidden.has(entry.part.id)).map(entry => ({
-      ...entry,
-      projected: entry === selected ? entry.vertices.map(vertex => project(move(vertex))) : entry.vertices.map(project),
-    }));
+    const visible = scene.filter(entry => !hidden.has(entry.part.id)).map(entry => {
+      const placement = entry === selected ? move : jointPlacement(entry.part, entry.pose);
+      const vertices = entry.vertices.map(placement);
+      return { ...entry, vertices, projected: vertices.map(project) };
+    });
     const faces = visible.flatMap(({ part, projected }) => part.mesh.triangles.map(([a, b, c]) => {
       const vertices: [Vector, Vector, Vector] = [projected[a], projected[b], projected[c]];
       const [p, q, r] = vertices;
@@ -108,10 +114,11 @@ export default function ModelViewport({
       return { vertices, depth: (p[2]+q[2]+r[2])/3, fill };
     })).sort((a, b) => a.depth - b.depth);
     return { right, vertical, camera, view, project, joint, move, visible, faces };
-  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle, palette]);
+  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle, neutralDraft, limitPreview, palette]);
   const { right, vertical, camera, view, project, joint, move, visible, faces } = frame;
   const pickedPart = visible.find(entry => entry.part.id === selectedId);
 
+  const angleMode = tool === 'neutral' || tool === 'limits';
   const markers: Marker[] = [];
   function marker(handle: Handle, world: Vector, local: Vector, label: string) {
     markers.push({ handle, world, local, screen: project(world), color: handle === 'centerOfMass' ? palette.cg : palette.highlight, label });
@@ -121,10 +128,25 @@ export default function ModelViewport({
     marker('centerOfMass', move(transformPoint(selected.pose, centerOfMass)), centerOfMass,
       selected.part.centerOfMass ? 'CG' : 'Set CG');
   }
-  if (selected?.part.joint && joint) {
+  if (!angleMode && selected?.part.joint && joint) {
     marker('pivot', joint.pivot, selected.part.joint.pivot, 'Pivot');
     if (joint.axis) marker('axis', add(joint.pivot, scale(joint.axis, 74 / pixels)), selected.part.joint.axis, 'Axis');
   }
+
+  const settings = selected?.part.joint;
+  const savedZero = settings?.neutral ?? 0;
+  const protractor = angleMode && joint?.axis && settings ? (() => {
+    const center = project(joint.pivot);
+    const basis = protractorBasis(joint.axis).map(vector =>
+      subtract(project(add(joint.pivot, scale(vector, 92 / pixels))), center));
+    return screenProtractor(center, [basis[0][0], basis[0][1]], [basis[1][0], basis[1][1]]);
+  })() : undefined;
+  const angleHandles = protractor && settings ? (tool === 'neutral'
+    ? [{ handle: 'neutral' as const, angle: neutralDraft ?? savedZero, point: protractor.point(neutralDraft ?? savedZero), label: 'Zero' }]
+    : [
+      { handle: 'minimum' as const, angle: settings.minimum, point: protractor.point(savedZero + settings.minimum, 0.82), label: 'Min' },
+      { handle: 'maximum' as const, angle: settings.maximum, point: protractor.point(savedZero + settings.maximum), label: 'Max' },
+    ]) : [];
 
   useEffect(() => {
     const element = canvas.current;
@@ -188,6 +210,55 @@ export default function ModelViewport({
       context.strokeText(item.label, x + 10, y - 8);
       context.fillText(item.label, x + 10, y - 8);
     }
+    if (protractor && settings) {
+      const center: Point = [protractor.center[0], protractor.center[1]];
+      const arc = (start: number, span: number, color: string, width: number) => {
+        if (!context) return;
+        const segments = Math.max(2, Math.ceil(Math.abs(span) / 5));
+        context.beginPath();
+        for (let i = 0; i <= segments; i++) {
+          const [x, y] = protractor!.point(start + span * i / segments);
+          if (!i) context.moveTo(x, y); else context.lineTo(x, y);
+        }
+        context.strokeStyle = color;
+        context.lineWidth = width;
+        context.stroke();
+      };
+      context.font = '600 ' + palette.font;
+      context.strokeStyle = palette.outline;
+      arc(0, 360, palette.mesh, 1);
+      context.beginPath();
+      context.arc(center[0], center[1], 3, 0, 2*Math.PI);
+      context.fillStyle = palette.up;
+      context.fill();
+      for (let degree = 0; degree < 360; degree += 15) {
+        const [a, b] = protractor.point(savedZero + degree, degree % 45 === 0 ? 0.87 : 0.94);
+        const [x, y] = protractor.point(savedZero + degree);
+        line([a, b], [x, y], palette.mesh);
+      }
+      if (tool === 'limits') {
+        const [x, y] = protractor.point(savedZero);
+        line(center, [x, y], palette.up);
+        context.fillStyle = palette.up;
+        context.fillText('0°', x+4, y-6);
+        if (settings.maximum >= settings.minimum)
+          arc(savedZero + settings.minimum, Math.min(360, settings.maximum - settings.minimum), palette.highlight, 3);
+      }
+      for (const { point, label, angle } of angleHandles) {
+        const [x, y] = point;
+        const color = label === 'Min' ? palette.cg : palette.highlight;
+        line(center, [x, y], color, 2);
+        context.beginPath();
+        context.arc(x, y, 7, 0, 2*Math.PI);
+        context.fillStyle = color;
+        context.fill();
+        const text = label + ' ' + angle.toFixed(1) + '°';
+        context.strokeStyle = palette.outline;
+        context.lineWidth = 4;
+        context.strokeText(text, x+10, y-8);
+        context.fillText(text, x+10, y-8);
+      }
+    }
     const candidate = pick && hover && pickedPart?.part.id === hover.id
       ? pickedPart.projected[hover.index] : undefined;
     if (candidate) {
@@ -219,6 +290,12 @@ export default function ModelViewport({
     <div className="dreamer-viewport-tools dw-toolbar" role="group" aria-label="View controls">
       <IconButton type="button" label="Zoom in" icon={<ZoomIn />} disabled={!scene.length || pixels >= maxScale} onClick={() => zoomBy(1.4)} />
       <IconButton type="button" label="Zoom out" icon={<ZoomOut />} disabled={!scene.length || pixels <= minScale} onClick={() => zoomBy(1/1.4)} />
+      {angleMode && joint?.axis && <IconButton type="button" label="Look along joint axis" icon={<Compass />} onClick={() => {
+        if (!joint?.axis) return;
+        yaw(Math.atan2(joint.axis[1], joint.axis[0]));
+        pitch(Math.asin(Math.max(-1, Math.min(1, joint.axis[2]))));
+        setTarget(joint.pivot);
+      }} />}
       <IconButton type="button" label="Fit view" icon={<ArrowsFullscreen />} disabled={!visible.length} onClick={fitView} />
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
@@ -236,12 +313,23 @@ export default function ModelViewport({
       onPointerDown={event => {
         if (event.button < 0 || event.button > 2 || drag.current) return;
         const start = position(event);
-        const handle = event.button === 0 && !pick && previewAngle === null
+        const handle = event.button === 0 && !pick && !angleMode && previewAngle === null
           ? markers.filter(item => tool === 'mass' ? item.handle === 'centerOfMass' : item.handle !== 'centerOfMass')
             .map(item => ({ item, distance: Math.hypot(item.screen[0]-start[0], item.screen[1]-start[1]) }))
             .filter(hit => hit.distance <= 11).sort((a, b) => a.distance - b.distance)[0]?.item : undefined;
-        if (handle && selected) {
-          drag.current = { kind: 'handle', marker: handle, pose: selected.pose, pivot: joint?.pivot, start, pointer: event.pointerId };
+        const angular = event.button === 0 && protractor?.draggable
+          ? angleHandles.map(item => ({ item, distance: Math.hypot(item.point[0]-start[0], item.point[1]-start[1]) }))
+            .filter(hit => hit.distance <= 12).sort((a, b) => a.distance - b.distance)[0]?.item : undefined;
+        const pointerAngle = angular && protractor?.angle(start);
+        if (angular && pointerAngle !== undefined) {
+          drag.current = { kind: 'angle', handle: angular.handle, angle: angular.angle, pointerAngle, pointer: event.pointerId };
+        } else if (handle && selected) {
+          const pose = selected.pose;
+          const handlePose: MeshPose = handle.handle === 'centerOfMass' && joint?.axis
+            ? [subtract(move(add(pose[0], pose[3])), move(pose[3])),
+              subtract(move(add(pose[1], pose[3])), move(pose[3])),
+              subtract(move(add(pose[2], pose[3])), move(pose[3])), pose[3]] : pose;
+          drag.current = { kind: 'handle', marker: handle, pose: handlePose, pivot: joint?.pivot, start, pointer: event.pointerId };
         } else {
           if (event.button === 0 && !pick) return;
           const kind = event.button === 1 ? 'pan' : event.button === 2 ? 'orbit' : 'pick';
@@ -255,6 +343,7 @@ export default function ModelViewport({
         const gesture = drag.current;
         if (gesture?.pointer !== event.pointerId) return;
         drag.current = undefined;
+        setLimitPreview(null);
         if (pick && gesture.kind === 'pick' && !gesture.moved && pickedPart) {
           const index = nearestVisibleVertex(...position(event), pickedPart.projected, faces);
           if (index !== undefined) onPickVertex(pickedPart.part.mesh.vertices[index]);
@@ -263,6 +352,7 @@ export default function ModelViewport({
       }}
       onLostPointerCapture={event => {
         drag.current = undefined;
+        setLimitPreview(null);
         delete event.currentTarget.dataset.gesture;
       }}
       onPointerLeave={() => setHover(undefined)}
@@ -278,6 +368,21 @@ export default function ModelViewport({
           return;
         }
         if (gesture.pointer !== event.pointerId) return;
+        if (gesture.kind === 'angle' && settings) {
+          const angle = protractor?.angle(point);
+          if (angle === undefined) return;
+          const next = gesture.angle + angleDelta(gesture.pointerAngle, angle);
+          gesture.pointerAngle = angle;
+          gesture.angle = gesture.handle === 'minimum' ? Math.min(next, settings.maximum) :
+            gesture.handle === 'maximum' ? Math.max(next, settings.minimum) : next;
+          const rounded = Math.round(gesture.angle * 10) / 10;
+          const value = gesture.handle === 'minimum' ? Math.min(rounded, settings.maximum) :
+            gesture.handle === 'maximum' ? Math.max(rounded, settings.minimum) : rounded;
+          onMoveAngle(gesture.handle, value);
+          if (gesture.handle !== 'neutral') setLimitPreview(value);
+          return;
+        }
+        if (gesture.kind === 'angle') return;
         if (gesture.kind === 'handle') {
           const dx = (point[0] - gesture.start[0]) / pixels;
           const dy = (gesture.start[1] - point[1]) / pixels;

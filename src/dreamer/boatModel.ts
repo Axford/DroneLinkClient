@@ -24,7 +24,7 @@ export interface BoatPart {
   role: typeof roles[number];
   mass: number | null;
   centerOfMass: Vector | null;
-  joint: null | { pivot: Vector; axis: Vector; minimum: number; maximum: number };
+  joint: null | { pivot: Vector; axis: Vector; neutral?: number; minimum: number; maximum: number };
 }
 
 export function transformPoint([x, y, z, position]: MeshPose, point: Vector): Vector {
@@ -101,7 +101,8 @@ export function partPose(part: BoatPart, forward: Axis, up: Axis): MeshPose {
 
 export function placedVertices(part: BoatPart, forward: Axis, up: Axis): Vector[] {
   const pose = partPose(part, forward, up);
-  return part.mesh.vertices.map(vertex => transformPoint(pose, vertex));
+  const place = jointPlacement(part, pose);
+  return part.mesh.vertices.map(vertex => place(transformPoint(pose, vertex)));
 }
 
 export function localDirection([x, y, z]: MeshPose, world: Vector): Vector | undefined {
@@ -127,8 +128,15 @@ export function turnAboutJoint(point: Vector, pivot: Vector, axis: Vector, angle
     scale(axis, dot(axis, arm) * (1-cos))));
 }
 
+export function jointPlacement(part: BoatPart, pose: MeshPose, angle = 0) {
+  const frame = jointFrame(part, pose);
+  const rotation = (part.joint?.neutral ?? 0) + angle;
+  return (vertex: Vector): Vector => frame?.axis && rotation
+    ? turnAboutJoint(vertex, frame.pivot, frame.axis, rotation) : vertex;
+}
+
 export function jointSweep(minimum: number, maximum: number, elapsedSeconds: number): number {
-  const phase = (elapsedSeconds % 4) / 2;
+  const phase = (Math.max(0, elapsedSeconds) % 4) / 2;
   return minimum + (maximum - minimum) * (1 - Math.abs(phase - 1));
 }
 

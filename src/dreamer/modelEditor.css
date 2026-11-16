@@ -58,6 +58,7 @@
   font-variant-numeric: tabular-nums;
 }
 .dreamer-model-overlay-tools .btn[aria-pressed=true],
+.dreamer-joint-tools .btn[aria-pressed=true],
 .dreamer-model-part[data-selected=true] {
   background: var(--dw-color-primary);
   color: var(--dw-color-text);
@@ -114,3 +115,19 @@
   .dreamer-model { padding: var(--dw-space-3); }
   .dreamer-model-workspace { grid-template-columns: 1fr; }
 }
+.dreamer-editor-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dw-space-4);
+  padding-inline-start: var(--dw-space-6);
+  margin-block: var(--dw-space-4);
+  color: var(--dw-color-muted);
+}
+.dreamer-editor-steps li { margin-inline-end: var(--dw-space-4); }
+.dreamer-editor-steps [aria-current=step] { color: var(--dw-color-accent); font-weight: 600; }
+.dreamer-import-step { max-width: var(--dw-auth-width); }
+.dreamer-import-step h2 {
+  font-size: var(--dw-font-size-heading);
+  line-height: var(--dw-line-height-heading);
+}
+.dreamer-model-viewport[data-gesture=angle] { cursor: grabbing; }
