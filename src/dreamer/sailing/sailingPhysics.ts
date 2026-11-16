@@ -10,7 +10,7 @@ export interface SailingState {
   velocity: Vector;
   angular: Vector;
 }
-export interface ForceVector { name: string; medium: 'air' | 'water'; center: Vector; force: Vector }
+export interface ForceVector { name: string; medium: 'air' | 'water'; center: Vector; force: Vector; incidence?: number }
 
 const gravity = 9.80665;
 const airDensity = 1.225;
@@ -107,6 +107,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
   const up = abs(rotate(toBody, [0, 0, 1]));
   const force: Vector = [0, 0, -boat.mass * gravity], torque: Vector = [0, 0, 0];
   let displaced = 0;
+  const sailIncidence = report ? new Map<SailingPart, number>() : undefined;
   const byPart = report ? new Map<SailingPart, { force: Vector; moment: Vector; weightedArm: Vector; weight: number }>() : null;
   function apply(f: Vector, arm: Vector, part: SailingPart) {
     const moment = cross(arm, f);
@@ -148,7 +149,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     if (!foil) continue;
     const center = partPoint(part, part.center, controls);
     const chordTip = partPoint(part, add(part.center, foil.chord), controls);
-    const spanTip = partPoint(part, add(part.center, [0, 0, 1]), controls);
+    const spanTip = partPoint(part, add(part.center, foil.span), controls);
     const chord = rotate(q, sub(chordTip, center));
     const span = rotate(q, sub(spanTip, center));
     const normal = cross(span, chord);
@@ -168,6 +169,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
       const direction = scale(flow, 1 / speed);
       const liftDirection = sub(normal, scale(direction, dot(normal, direction)));
       const angle = Math.atan2(dot(flow, normal), Math.abs(dot(flow, chord)));
+      if (aero) sailIncidence?.set(part, degrees(Math.abs(angle)));
       const pressureArea = 0.5 * (aero ? airDensity : waterDensity) * speed**2 * foil.area * fraction / strips;
       const lift: Vector = norm(liftDirection) < 1e-6 ? [0, 0, 0] : scale(unit(liftDirection), 1.1 * Math.sin(2 * angle));
       const drag = scale(direction, 0.012 + 1.1 * Math.sin(angle)**2);
@@ -185,7 +187,7 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     const reference = scale(entry.weightedArm, 1 / entry.weight);
     const correction = scale(cross(entry.force, sub(entry.moment, cross(reference, entry.force))), 1 / forceSquared);
     const center = add(state.position, add(reference, correction));
-    components.push({ name: part.name, medium: part.foil?.medium ?? 'water', center, force: entry.force });
+    components.push({ name: part.name, medium: part.foil?.medium ?? 'water', center, force: entry.force, incidence: sailIncidence?.get(part) });
   }
   return { ...result, components };
 }

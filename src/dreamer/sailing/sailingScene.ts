@@ -28,13 +28,13 @@ export function waterGrid(position: Vector, time: number, water: Weather['water'
 }
 
 export function sailingForces(components: ForceVector[], mass: number, extent: number): SailingPose['vectors'] {
-  return components.flatMap(({ name, medium, force, center }) => {
+  return components.flatMap(({ name, medium, force, center, incidence }) => {
     const axis = direction(force);
     if (!axis) return [];
     const magnitude = Math.hypot(...force);
     const length = extent * Math.sqrt(magnitude/(mass*9.80665)) * 0.55;
     return [{
-      label: name + ' · ' + magnitude.toFixed(magnitude < 10 ? 1 : 0) + ' N',
+      label: name + ' · ' + magnitude.toFixed(magnitude < 10 ? 1 : 0) + ' N' + (incidence === undefined ? '' : ' · ' + incidence.toFixed(0) + '° incidence'),
       color: medium === 'air' ? 'cg' : 'highlight',
       start: center, end: add(center, scale(axis, length)),
     }];

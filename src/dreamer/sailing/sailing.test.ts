@@ -85,3 +85,19 @@ test('a fixed true wind override preserves the waves, supports zero and is repla
   expect(replay.windSpeed).toBe(7.5);
   expect(replay.state).toEqual(override.state);
 });
+
+test('a tall canted sail keeps its projected plate area, span and centre through rig rotation', () => {
+  const underTest = model.parts.find(part => part.role === 'Rigid sail')!;
+  const baseline = boat().parts.find(part => part.id === underTest.id)!;
+  const raked = prepareSailingBoat({ ...model, parts: model.parts.map(part =>
+    part.id === underTest.id ? { ...part, rotation: [50,0,0] } : part,
+  ) }).parts.find(part => part.id === underTest.id)!;
+  const foil = raked.foil!;
+  expect(foil.area).toBeCloseTo(0.65 * 1.12, 8);
+  expect(foil.area).toBeCloseTo(baseline.foil!.area, 8);
+  expect(foil.height).toBeCloseTo(1.12, 8);
+  expect(Math.abs(foil.chord[0])).toBeCloseTo(1, 8);
+  expect(foil.span[1]).toBeCloseTo(-Math.sin(50*Math.PI/180), 8);
+  expect(foil.span[2]).toBeCloseTo(Math.cos(50*Math.PI/180), 8);
+  raked.center.forEach((value, axis) => expect(value).toBeCloseTo(baseline.center[axis], 8));
+});
