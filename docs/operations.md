@@ -317,6 +317,15 @@ node tools/sweep-sail-trim.cjs revision.json sail-trim.csv 5
 
 The tool evaluates each pair of neutral-relative angles at 5° intervals and includes both sails' exact travel endpoints. It holds the boat upright and stationary at heading 000° in wind from 045°. The optional speed in m/s defaults to 5. The CSV reports combined and per-sail forces in newtons, with positive drive forward and positive side force to port. Positive yaw moment in N·m turns the bow to port about the boat's centre of gravity. The CSV also reports each sail’s area-weighted apparent-wind speed loss as a fraction from 0 to 1. Sail 1 and Sail 2 follow their order in the model. Keep private model snapshots and generated sweeps outside the repository.
 
+To search for passive headings at 5 m/s, save a revision with two enabled jointed sails and exclude the rudder and any other actuated water foils in Configure. Pass its snapshot JSON to the local search:
+
+```sh
+node tools/search-passive-headings.cjs revision.json passive-5ms
+node tools/render-passive-headings.cjs passive-5ms
+```
+
+The search holds sail trim fixed and starts at several headings and speeds. It identifies steady forward motion and verifies recovery from yaw and velocity disturbances using the Sail solver. The report gives the fastest verified trim in each 10° bin, all verified outcomes and the snow-plough candidates ranked by upwind velocity made good. Open `passive-5ms/index.html` for the results. Keep the private snapshot and search output outside the repository. Empty heading bins indicate gaps in the verified search coverage.
+
 For a local displacement sweep, use a saved model or revision JSON:
 
 ```sh

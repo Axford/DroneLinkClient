@@ -5,6 +5,7 @@ import { jointAngle, prepareSailingBoat, sailingParts } from './sailingModel';
 import { initialState, instruments, loads, makeWeather, weatherPresets } from './sailingPhysics';
 import { SailingRun, neutralControls } from './sailingRun';
 import { JointedSail, sailResponse, sailTrimGrid } from './responseSweeps';
+import { createPassiveSearch, headingDifference } from './passiveHeading';
 import { velocityArrow, waterGrid } from './sailingScene';
 
 const model = fixture as BoatDocument;
@@ -326,4 +327,20 @@ test('two-sail trim sweeps cover every sample pair and report the same loads as 
   expect(samples).toHaveLength(xAngles.length*yAngles.length);
   for (const { x,y,total } of samples)
     expect(total).toEqual(response.at({ [first.id]: xAngles[x], [other.id]: yAngles[y] }).total);
+});
+
+test('the passive-heading search requires a sail-only control setup and reports wind-relative heading', () => {
+  const main = model.parts.find(part => part.role === 'Rigid sail')!;
+  const twin = { ...model, parts: [...model.parts, { ...main, id: '6', translation: [-0.6,0,0] as Vector }] };
+  expect(() => createPassiveSearch(prepareSailingBoat(twin))).toThrow('Exclude the rudder');
+  const rudderless = prepareSailingBoat({ ...twin, parts: twin.parts.map(part =>
+    part.name === 'Rudder' ? { ...part, simulationEnabled: false } : part) });
+  const search = createPassiveSearch(rudderless);
+  const run = new SailingRun(rudderless, 'Smooth water · light wind', 1, undefined, 5);
+  const sample = search.describe(run.state, { first: 0, second: 0 });
+  expect(sample.windAngle).toBe(-45);
+  expect(sample.course).toBeNull();
+  expect(sample.windwardSail).toBe(main.name);
+  expect(headingDifference(359, 1)).toBe(-2);
+  expect(headingDifference(1, 359)).toBe(2);
 });
