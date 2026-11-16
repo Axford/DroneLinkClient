@@ -495,8 +495,13 @@ test('Waypoint keeps route progress and ETA distinct across first, last, empty a
     const inspect = () => channelVisualization(observed)?.inspector?.(observed);
     expect(inspect()).toMatchObject({
         waypoint: { text: '1 of 6' }, loop: { text: 'Loop' }, eta: undefined,
-        routeProgress: { completed: 0, next: 0 }
+        total: { label: 'First to last', text: '4.2 km' }, routeProgress: { completed: 0, next: 0 },
+        details: expect.arrayContaining([expect.objectContaining({
+            label: 'Route distances', text: expect.stringContaining('First to last: 4.2 km')
+        })])
     });
+    observed.params[14] = byte(14, 0);
+    expect(inspect()).toMatchObject({ loop: { text: 'Once' }, total: { label: 'Total', text: '4.2 km' } });
     observed.params[10] = byte(10, 5);
     observed.params[15] = distances([0, 0, 4200]);
     expect(inspect()).toMatchObject({ waypoint: { text: '6 of 6' }, routeProgress: { completed: 1, next: 1 } });

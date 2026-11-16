@@ -805,7 +805,7 @@ function waypointSummary(channel: ChannelState): WaypointSummary {
         field(channel, 15, label, count === 0 ? undefined : waypointDistance(metres));
     const leg = distance('To next waypoint', legMetres);
     const remaining = distance('Remaining', remainingMetres);
-    const total = distance('Total', totalMetres);
+    const total = distance(loopMode === 1 ? 'First to last' : 'Total', totalMetres);
     // Remaining includes the approach to the first waypoint, which can exceed the planned route length.
     const validLeg = distances !== undefined && legMetres <= remainingMetres;
     const onRouteScale = active && validLeg && totalMetres > 0;
@@ -831,7 +831,7 @@ function waypointSummary(channel: ChannelState): WaypointSummary {
             field(channel, 9, 'Waypoint count', count?.toString()),
             loop,
             field(channel, 15, 'Route distances', distances ?
-                `To next waypoint: ${waypointDistance(legMetres)} · Remaining: ${waypointDistance(remainingMetres)} · Total: ${waypointDistance(totalMetres)}` : undefined),
+                `To next waypoint: ${waypointDistance(legMetres)} · Remaining: ${waypointDistance(remainingMetres)} · ${total.label}: ${waypointDistance(totalMetres)}` : undefined),
             speed
         ]
     };
