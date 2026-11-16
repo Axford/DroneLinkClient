@@ -16,7 +16,7 @@ interface Request {
     action: string;
     write: WriteTarget;
     value: number;
-    readback: (observed: number, requested: number) => string;
+    readback: (observed: number, requested: number) => string | undefined;
     delivery?: Delivery;
     error?: string;
     outcome?: string;

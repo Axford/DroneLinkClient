@@ -155,7 +155,11 @@ export interface Mpu6050Summary extends HorizonReadings {
     details: ObservedSummary[];
 }
 
+export const calibrationModeLabels = ['Online', 'Fixed', 'Reset', 'Store'] as const;
+
 export interface Hmc5883lSummary extends HorizonReadings {
+    calibrationMode: ObservedSummary;
+    calibrationModeValue?: number;
     magneticHeading: ObservedSummary;
     quality: ObservedSummary;
     vector: ObservedSummary;
@@ -662,14 +666,17 @@ function hmc5883lSummary(channel: ChannelState): Hmc5883lSummary {
         ...[x, y, z].map((axis, index) => field(channel, 13 + index, `${'XYZ'[index]} calibration`,
             axis && `${axis.min.toFixed(2)} to ${axis.max.toFixed(2)} · Centre ${axis.centre.toFixed(2)}`))
     ];
+    const calibrationModeValue = byteArray(channel.params[20], 1)?.[0];
+    const calibrationMode = field(channel, 20, 'Calibration mode',
+        calibrationModeValue === undefined ? undefined : calibrationModeLabels[calibrationModeValue]);
     return {
-        ...attitude, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings,
+        ...attitude, magneticHeading, quality, vector, calibrated, rawReading, diagnosticReadings, calibrationMode, calibrationModeValue,
         scene: { extent: 1, calibration, vector: raw ? { from: centre, to: raw } : undefined },
         details: [
             magneticHeading, pitch, roll,
             { ...vector, label: 'Calibrated vector and calibration quality', text: values ? `${vector.text} · Quality ${quality.text}` : vector.text,
                 status: quality.status ?? vector.status },
-            ...diagnosticReadings
+            calibrationMode, ...diagnosticReadings
         ]
     };
 }

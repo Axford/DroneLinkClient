@@ -14,7 +14,7 @@ export default function Hmc5883lInstrument({ nodeId, label, summary, scope }: {
     summary: Hmc5883lSummary;
     scope?: string;
 }) {
-    const { magneticHeading, pitch, roll, pitchDegrees, rollDegrees, quality, vector, calibrated } = summary;
+    const { magneticHeading, pitch, roll, pitchDegrees, rollDegrees, quality, vector, calibrated, calibrationMode } = summary;
     const samples = useProjectedSamples(scope, summary.rawReading, hmc5883lRawVector)
         .flatMap(sample => sample.value === null ? [] : [sample.value]);
     const horizonAttitude = {
@@ -42,6 +42,8 @@ export default function Hmc5883lInstrument({ nodeId, label, summary, scope }: {
                 <dt className="dw-meta">Roll</dt><dd data-unavailable={roll.unavailable || undefined}>{roll.text}</dd>
             </div>
             <div className="dw-hmc-vector">
+                <dt className="dw-meta">{calibrationMode.label}</dt>
+                <dd data-unavailable={calibrationMode.unavailable || undefined}>{calibrationMode.text}</dd>
                 <dt className="dw-meta">{quality.label}</dt>
                 <dd data-unavailable={quality.unavailable || undefined}>{quality.text}{quality.status && !quality.unavailable &&
                     <span className="dw-meta dw-hmc-warning">Low</span>}</dd>

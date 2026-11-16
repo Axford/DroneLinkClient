@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ExclamationOctagon, ExclamationTriangle, InfoCircle } from 'react-bootstrap-icons';
-import type { InspectorSummary, ObservedSummary } from '../dronelink/moduleVisualizations';
+import { calibrationModeLabels, type InspectorSummary, type ObservedSummary } from '../dronelink/moduleVisualizations';
 import { SummaryDetails } from './NodeSummary';
 import IconButton from './ui/IconButton';
 import { useCommandScope } from '../commands/session';
@@ -47,6 +47,17 @@ const proaModes = [
 const kiteControllerModes = [
     { value: 0, label: 'Manual', action: { description: 'Use the manual turn-rate input for steering' } },
     { value: 1, label: 'Auto', action: { description: 'Engage automatic waypoint steering', warning: true } },
+];
+
+const calibrationModes = [
+    { value: 0, label: calibrationModeLabels[0], action: { description: 'Update calibration from new readings' } },
+    { value: 1, label: calibrationModeLabels[1], action: { description: 'Use the current calibration without updating it' } },
+    { value: 2, label: calibrationModeLabels[2], action: {
+        label: 'Reset calibration', description: 'Reset the live bounds and return to Online mode', warning: true, oneShot: true,
+    } },
+    { value: 3, label: calibrationModeLabels[3], action: {
+        label: 'Store calibration', description: 'Save the current calibration on the device and switch to Fixed mode', warning: true, oneShot: true,
+    } },
 ];
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
@@ -133,7 +144,11 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         return <Mpu6050Instrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} />;
     }
     if ('magneticHeading' in summary) {
-        return <Hmc5883lInstrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} scope={sampleScope} />;
+        return <>
+            <Hmc5883lInstrument key={sampleScope} nodeId={nodeId} label={label} summary={summary} scope={sampleScope} />
+            <SummaryModeActions key={JSON.stringify(['Compass calibration', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="Compass calibration" param={20} observedMode={summary.calibrationModeValue} modes={calibrationModes} />
+        </>;
     }
     if ('servoPosition' in summary) {
         return <ServoInstrument label={label} summary={summary} />;
