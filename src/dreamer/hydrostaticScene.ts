@@ -17,17 +17,33 @@ export function hydrostaticRotation(heel: number, pitch: number) {
   };
 }
 
-export function waterlineSegment(vertices: readonly Vector[], waterline: number): [Vector, Vector] | undefined {
+export function surfaceSegment(vertices: readonly Vector[], heights: readonly number[],
+  surface?: (point: Vector) => number): [Vector, Vector] | undefined {
   const crossings: Vector[] = [];
   for (let index = 0; index < vertices.length; index++) {
-    const from = vertices[index];
-    const to = vertices[(index + 1) % vertices.length];
-    if (from[2] === waterline) crossings.push(from);
-    if ((from[2] < waterline && to[2] > waterline) || (from[2] > waterline && to[2] < waterline)) {
-      crossings.push(add(from, scale(subtract(to, from), (waterline - from[2]) / (to[2] - from[2]))));
+    const next = (index + 1) % vertices.length;
+    const from = vertices[index], to = vertices[next];
+    const start = heights[index], finish = heights[next];
+    if (start === 0) crossings.push(from);
+    if ((start < 0 && finish > 0) || (start > 0 && finish < 0)) {
+      const edge = subtract(to, from);
+      if (!surface) crossings.push(add(from, scale(edge, -start / (finish - start))));
+      else {
+        let left = 0, right = 1;
+        for (let iteration = 0; iteration < 10; iteration++) {
+          const mid = (left + right) / 2;
+          if ((surface(add(from, scale(edge, mid))) < 0) === (start < 0)) left = mid;
+          else right = mid;
+        }
+        crossings.push(add(from, scale(edge, (left + right) / 2)));
+      }
     }
   }
   if (crossings.length === 2) return [crossings[0], crossings[1]];
+}
+
+export function waterlineSegment(vertices: readonly Vector[], waterline: number) {
+  return surfaceSegment(vertices, vertices.map(point => point[2] - waterline));
 }
 
 export function nearestSampleIndex(points: readonly { angle: number }[], angle: number) {

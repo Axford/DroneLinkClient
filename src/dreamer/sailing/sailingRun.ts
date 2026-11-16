@@ -5,6 +5,7 @@ interface InputChange { tick: number; angles: Controls }
 export interface SailingTrace {
   weather: WeatherPreset;
   seed: number;
+  windSpeed?: number;
   ticks: number;
   inputs: readonly InputChange[];
 }
@@ -17,6 +18,7 @@ export function neutralControls(boat: SailingBoat): Controls {
 // display cadence and uses the original weather and seed.
 export class SailingRun {
   readonly conditions: Weather;
+  readonly windSpeed?: number;
   state: SailingState;
   tick = 0;
   angles: Controls;
@@ -24,8 +26,9 @@ export class SailingRun {
   private cursor = 0;
 
   constructor(readonly boat: SailingBoat, readonly weather: WeatherPreset, readonly seed: number,
-    private readonly playback?: SailingTrace) {
-    this.conditions = makeWeather(weatherPresets[weather], seed);
+    private readonly playback?: SailingTrace, windSpeed?: number) {
+    this.windSpeed = playback ? playback.windSpeed : windSpeed;
+    this.conditions = makeWeather(weatherPresets[weather], seed, this.windSpeed);
     this.state = initialState(boat, this.conditions);
     this.angles = neutralControls(boat);
   }
@@ -53,6 +56,6 @@ export class SailingRun {
   }
 
   trace(): SailingTrace {
-    return this.playback ?? { weather: this.weather, seed: this.seed, ticks: this.tick, inputs: [...this.history] };
+    return this.playback ?? { weather: this.weather, seed: this.seed, windSpeed: this.windSpeed, ticks: this.tick, inputs: [...this.history] };
   }
 }

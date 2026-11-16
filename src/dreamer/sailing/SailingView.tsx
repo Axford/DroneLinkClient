@@ -35,9 +35,9 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
   const [error, setError] = useState('');
   const [vectors, setVectors] = useState({ wind: true, apparent: true, water: true, air: true });
 
-  function reset(weather = run.weather, seed = run.seed, playback?: SailingTrace) {
+  function reset(weather = run.weather, seed = run.seed, playback?: SailingTrace, wind = { speed: run.windSpeed }) {
     if (run.tick) setLastTrace(run.trace());
-    const next = new SailingRun(boat, weather, seed, playback);
+    const next = new SailingRun(boat, weather, seed, playback, wind.speed);
     requested.current = next.angles;
     setControls(next.angles);
     setRun(next);
@@ -112,6 +112,18 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
             const value = event.currentTarget.valueAsNumber;
             if (Number.isSafeInteger(value) && value >= 0 && value <= 4294967295) reset(run.weather,value);
           }} /></label>
+        <label><input className="form-check-input" type="checkbox" checked={run.windSpeed !== undefined} disabled={running}
+          onChange={event => reset(run.weather, run.seed, undefined, { speed: event.target.checked ? weatherPresets[run.weather].wind : undefined })} />
+          Override wind speed</label>
+        {run.windSpeed !== undefined && <label>Wind speed (m/s)
+          <input className="form-control" type="number" min="0" step="any" key={run.windSpeed}
+            defaultValue={run.windSpeed} disabled={running} onBlur={event => {
+              const input = event.currentTarget;
+              const speed = input.valueAsNumber;
+              if (!Number.isFinite(speed) || speed < 0) input.value = String(run.windSpeed);
+              else if (speed !== run.windSpeed) reset(run.weather, run.seed, undefined, { speed });
+            }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+        </label>}
         <Button disabled={Boolean(error) || run.finished} onClick={() => {
           if (running) {
             setState(run.state);
@@ -122,7 +134,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
         <Button variant="outline-secondary" onClick={() => reset()}>Reset</Button>
         <Button variant="outline-secondary" disabled={running || !traceToPlay} onClick={() => {
           const trace = traceToPlay;
-          if (trace) reset(trace.weather, trace.seed, trace);
+          if (trace) reset(trace.weather, trace.seed, trace, { speed: trace.windSpeed });
         }}>Replay inputs</Button>
       </div>
       {error && <p className="dreamer-model-error" role="alert">{error}</p>}
@@ -164,6 +176,7 @@ function ManualSailing({ model, boat }: { model: BoatDocument; boat: SailingBoat
             onChange={event => setVectors({ ...vectors, [key]: event.target.checked })} /> {label}
         </label>)}
         <span className="dw-meta">Sea grid · 1 m</span>
+        <span className="dreamer-sailing-vector highlight">Hull waterline</span>
       </div>
       <div className="dreamer-sailing-canvas">
         <ModelViewport parts={model.parts} selectedId="" hidden={hidden} forward={model.forward} up={model.up}

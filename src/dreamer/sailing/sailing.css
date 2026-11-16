@@ -1,6 +1,6 @@
 .dreamer-sailing { display: grid; gap: var(--dw-space-3); }
 .dreamer-sailing-weather label { display: inline-flex; align-items: center; gap: var(--dw-space-2); }
-.dreamer-sailing-weather input { width: 9rem; }
+.dreamer-sailing-weather input[type=number] { width: 9rem; }
 .dreamer-sailing-joints {
   display: grid;
   gap: var(--dw-space-2);

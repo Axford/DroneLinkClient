@@ -42,7 +42,7 @@ export const weatherPresets = Object.freeze({
   'Chop · gusting wind': { wind: 5, gust: 2, swell: 0.11 },
 });
 
-export function makeWeather(preset: typeof weatherPresets[WeatherPreset], seed: number) {
+export function makeWeather(preset: typeof weatherPresets[WeatherPreset], seed: number, windSpeed?: number) {
   const waves: Vector[] = [[0.35, 0.10, 0.9], [-0.5, 0.9, 1.8], [0.8, 1.6, 2.5]];
   let random = seed >>> 0;
   const phases = waves.map(() => {
@@ -62,7 +62,7 @@ export function makeWeather(preset: typeof weatherPresets[WeatherPreset], seed: 
     },
     wind(time: number): Vector {
       // The local compass is north along +X and east along -Y. Wind comes FROM 45 degrees.
-      const speed = preset.wind + preset.gust * (0.65*Math.sin(0.37*time + phases[0]) + 0.35*Math.sin(0.9*time));
+      const speed = windSpeed ?? (preset.wind + preset.gust * (0.65*Math.sin(0.37*time + phases[0]) + 0.35*Math.sin(0.9*time)));
       const from = radians(45 + preset.gust * 8 * Math.sin(0.24*time + phases[1]));
       return [-speed * Math.cos(from), speed * Math.sin(from), 0];
     },

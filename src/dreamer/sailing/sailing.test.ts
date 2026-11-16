@@ -67,3 +67,21 @@ test('the sea grid keeps one metre cells anchored in world coordinates', () => {
   expect(line[1][0] - line[0][0]).toBe(1);
   expect(line[1][2]).toBe(run.conditions.water(line[1][0], line[1][1], 4).height);
 });
+
+test('a fixed true wind override preserves the waves, supports zero and is replayed with the original inputs', () => {
+  const sloop = boat();
+  const preset = 'Chop · gusting wind';
+  const normal = new SailingRun(sloop, preset, 18);
+  const override = new SailingRun(sloop, preset, 18, undefined, 7.5);
+  const zero = new SailingRun(sloop, preset, 18, undefined, 0);
+  for (const time of [0,1,4,8]) {
+    expect(Math.hypot(...override.conditions.wind(time))).toBeCloseTo(7.5, 12);
+    expect(Math.hypot(...zero.conditions.wind(time))).toBe(0);
+    expect(override.conditions.water(1,2,time)).toEqual(normal.conditions.water(1,2,time));
+  }
+  override.advance(120, override.angles);
+  const replay = new SailingRun(sloop, preset, 18, override.trace());
+  replay.advance(120, {});
+  expect(replay.windSpeed).toBe(7.5);
+  expect(replay.state).toEqual(override.state);
+});

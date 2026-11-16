@@ -6,7 +6,7 @@ import {
   meshBounds, partPose, scale, subtract, transformPoint,
 } from './boatModel';
 import { angleDelta, protractorBasis, screenProtractor } from './jointProtractor';
-import { HydrostaticPose, hydrostaticRotation, waterlineSegment } from './hydrostaticScene';
+import { HydrostaticPose, hydrostaticRotation, surfaceSegment, waterlineSegment } from './hydrostaticScene';
 import { SailingPose, waterGrid } from './sailing/sailingScene';
 import { rotate } from './sailing/sailingPhysics';
 import { nearestVisibleVertex } from './viewportPicking';
@@ -112,18 +112,23 @@ export default function ModelViewport({
       const vertices = attitude ? entry.vertices.map(vertex => attitude(placement(vertex))) : entry.vertices.map(placement);
       return { ...entry, vertices, projected: vertices.map(project) };
     });
-    const faces = visible.flatMap(({ part, projected }) => part.mesh.triangles.map(([a, b, c]) => {
-      const vertices: [Vector, Vector, Vector] = [projected[a], projected[b], projected[c]];
-      const [p, q, r] = vertices;
-      // Convert screen X and inverted Y to the same length scale as depth.
-      const normal = cross([(q[0]-p[0])/pixels, (p[1]-q[1])/pixels, q[2]-p[2]],
-        [(r[0]-p[0])/pixels, (p[1]-r[1])/pixels, r[2]-p[2]]);
-      const norm = Math.hypot(...normal);
-      const light = norm ? 0.48 + 0.5 * Math.abs(dot(normal, [-0.3, 0.5, 0.8]) / norm) : 0.48;
-      const base = part.id === selectedId ? palette.highlight : palette.mesh;
-      const fill = `color-mix(in srgb, ${base} ${Math.round(light * 100)}%, black)`;
-      return { vertices, depth: (p[2]+q[2]+r[2])/3, fill };
-    })).sort((a, b) => a.depth - b.depth);
+    const surface = sailing && (([x,y,z]: Vector) => z - sailing.water(x,y,sailing.state.time).height);
+    const faces = visible.flatMap(({ part, projected, vertices: world }) => {
+      const heights = surface && part.role === 'Displacement hull' ? world.map(surface) : undefined;
+      return part.mesh.triangles.map(([a, b, c]) => {
+        const vertices: [Vector, Vector, Vector] = [projected[a], projected[b], projected[c]];
+        const [p, q, r] = vertices;
+        // Convert screen X and inverted Y to the same length scale as depth.
+        const normal = cross([(q[0]-p[0])/pixels, (p[1]-q[1])/pixels, q[2]-p[2]],
+          [(r[0]-p[0])/pixels, (p[1]-r[1])/pixels, r[2]-p[2]]);
+        const norm = Math.hypot(...normal);
+        const light = norm ? 0.48 + 0.5 * Math.abs(dot(normal, [-0.3, 0.5, 0.8]) / norm) : 0.48;
+        const base = part.id === selectedId ? palette.highlight : palette.mesh;
+        const fill = `color-mix(in srgb, ${base} ${Math.round(light * 100)}%, black)`;
+        const contour = heights && surfaceSegment([world[a],world[b],world[c]], [heights[a],heights[b],heights[c]], surface || undefined);
+        return { vertices, depth: (p[2]+q[2]+r[2])/3, fill, contour: contour?.map(project) };
+      });
+    }).sort((a, b) => a.depth - b.depth);
     const waterline = hydrostatic?.water?.waterline;
     const sections = waterline === undefined ? [] : visible
       .filter(({ part }) => hydrostatic?.water?.displacementIds.includes(part.id))
@@ -221,7 +226,7 @@ export default function ModelViewport({
         context.stroke();
       }
     }
-    for (const { vertices, fill } of faces) {
+    for (const { vertices, fill, contour } of faces) {
       context.beginPath();
       context.moveTo(vertices[0][0], vertices[0][1]);
       context.lineTo(vertices[1][0], vertices[1][1]);
@@ -229,6 +234,11 @@ export default function ModelViewport({
       context.closePath();
       context.fillStyle = fill;
       context.fill();
+      if (contour) {
+        const [from,to] = contour;
+        line([from[0],from[1]], [to[0],to[1]], palette.outline, 4);
+        line([from[0],from[1]], [to[0],to[1]], palette.highlight, 2.5);
+      }
     }
 
     function line(from: Point, to: Point, color: string, width = 1) {

@@ -52,7 +52,6 @@ interface CloudEditor {
   initial?: Snapshot;
   editable: boolean;
   analysisEditable: boolean;
-  startInStability?: boolean;
   signal: AbortSignal;
   save: (modelId: string, revisionId: string, baseRevisionId: string | null, model: BoatDocument) => Promise<Revision>;
   back: () => void;
@@ -69,7 +68,7 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
   const assemblyInput = useRef<HTMLInputElement>(null);
   const replacementInput = useRef<HTMLInputElement>(null);
   const tabsId = useId();
-  const [step, setStep] = useState<Step>(cloud?.startInStability && initial ? 'stability' : initial ? 'configure' : 'import');
+  const [step, setStep] = useState<Step>(initial ? 'configure' : 'import');
   const [configured, setConfigured] = useState(Boolean(initial));
   const [neutralDraft, setNeutralDraft] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
