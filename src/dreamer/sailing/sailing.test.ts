@@ -6,6 +6,7 @@ import { initialState, instruments, loads, makeWeather, weatherPresets } from '.
 import { SailingRun, neutralControls } from './sailingRun';
 import { JointedSail, sailResponse, sailTrimGrid } from './responseSweeps';
 import { createPassiveSearch, headingDifference } from './passiveHeading';
+import { passiveTrials, reflectVerified, symmetricTrials, trimReflection } from './passiveStudy';
 import { velocityArrow, waterGrid } from './sailingScene';
 
 const model = fixture as BoatDocument;
@@ -343,4 +344,41 @@ test('the passive-heading search requires a sail-only control setup and reports 
   expect(sample.windwardSail).toBe(main.name);
   expect(headingDifference(359, 1)).toBe(-2);
   expect(headingDifference(1, 359)).toBe(2);
+});
+
+test('symmetric search mirrors joint angles and headings and preserves asymmetric limits', () => {
+  const rudder = boat().parts.find(part => part.name === 'Rudder')!;
+  const sail = boat().parts.find(part => part.sailStrips)!;
+  const first = { ...sail, joint: { ...rudder.joint!, pivot: [0.2,0,0] as Vector, axis: [0,0,1] as Vector, minimum: -75, maximum: 60 } };
+  const second = { ...first, joint: { ...first.joint, pivot: [-0.2,0,0] as Vector, minimum: -75, maximum: 75 } };
+  const reflect = trimReflection([first,second],1.2)!;
+  expect(reflect({ first: 25, second: -45 })).toEqual({ first: -25, second: 45 });
+  expect(reflect({ first: -75, second: 0 })).toBeNull();
+  const starts = passiveTrials([first,second]).trials;
+  const retained = symmetricTrials(starts,reflect);
+  expect(retained.length).toBeLessThan(starts.length);
+  expect(retained.some(trial => trial.trim.first === -75 && trial.initialHeading === 285)).toBe(true);
+
+  const source = model.parts.find(part => part.role === 'Rigid sail')!;
+  const twin = prepareSailingBoat({ ...model, parts: [...model.parts.filter(part => part.name !== 'Rudder'),
+    { ...source,id:'6',translation:[-0.6,0,0] }] });
+  const search = createPassiveSearch(twin);
+  const run = new SailingRun(twin, 'Smooth water · light wind', 1, undefined, 5);
+  const state = { ...run.state, velocity: [0.5,0,0] as Vector };
+  const trim = { first:0, second:0 };
+  const mirror = reflectVerified({ trim,state,outcome:search.describe(state,trim),starts:[],evidence:'simulated' },trim,search.describe);
+  expect(mirror.evidence).toBe('mirrored');
+  expect(mirror.disturbances).toBeUndefined();
+  expect(mirror.outcome.heading).toBeCloseTo(90);
+  expect(mirror.outcome.course).toBeCloseTo(90);
+  expect(mirror.outcome.windAngle).toBeCloseTo(45);
+});
+
+test('a mirrored off-centre sail can map to the opposite sail', () => {
+  const sail = boat().parts.find(part => part.sailStrips)!;
+  const joint = { ...sail.joint!, axis: [0,0,1] as Vector, minimum: -60, maximum: 60 };
+  const port = { ...sail, joint: { ...joint, pivot: [0,0.2,0] as Vector } };
+  const starboard = { ...sail, joint: { ...joint, pivot: [0,-0.2,0] as Vector } };
+  const reflect = trimReflection([port,starboard],1.2)!;
+  expect(reflect({ first: 15, second: -30 })).toEqual({ first: 30, second: -15 });
 });

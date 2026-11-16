@@ -29,3 +29,15 @@
 .dreamer-response-charts > section { min-width: 0; }
 .dreamer-response-charts h3 { font-size: var(--dw-font-size-heading); }
 .dreamer-response-table-select { display: inline-grid; gap: var(--dw-space-1); margin-block: var(--dw-space-2); }
+
+.dreamer-trim-results { display: grid; gap: var(--dw-space-3); }
+.dreamer-trim-results > p { margin: 0; }
+.dreamer-trim-results label { max-width: 58rem; }
+.dreamer-trim-coverage { display: grid; grid-template-columns: repeat(auto-fit,minmax(4rem,1fr)); gap: var(--dw-space-1); }
+.dreamer-trim-coverage button {
+  background: var(--dw-color-raised); color: var(--dw-color-text); border: 1px solid var(--dw-color-border);
+  border-radius: var(--dw-radius-small); min-height: 2rem;
+}
+.dreamer-trim-coverage button[data-evidence=verified] { background: rgba(var(--dw-color-success-bg-rgb),.45); }
+.dreamer-trim-coverage button[data-evidence=mirrored] { background: rgba(var(--dw-color-info-bg-rgb),.55); }
+.dreamer-trim-coverage button[aria-pressed=true] { border-color: var(--dw-color-accent); }
