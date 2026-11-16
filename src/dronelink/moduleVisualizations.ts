@@ -50,6 +50,7 @@ export interface PolarSummary {
 }
 
 export interface KiteControllerSummary {
+    modeValue?: 0 | 1;
     kiteVector: { yaw: number; pitch: number; distance: number; roll: number } | undefined;
     kiteWaypoint?: { yaw: number; pitch: number; radius: number };
     vectorReading?: ParameterState;
@@ -1032,6 +1033,7 @@ function kiteControllerSummary(channel: ChannelState): KiteControllerSummary {
         { label: 'Estimated roll', text: vector && `${vector.roll.toFixed(0)}°` }
     ];
     return { kiteVector: vector, kiteWaypoint: waypoint, vectorReading,
+        modeValue: modeValue === 0 || modeValue === 1 ? modeValue : undefined,
         readings: [...vectorReadings.map(reading => reading.label === 'Estimated roll' ? { ...reading, label: 'Est. roll' } : reading),
             ...[trim, payoutTarget, left, right, mode].map(reading =>
             ({ label: reading.label, text: reading.unavailable ? undefined : reading.text }))],

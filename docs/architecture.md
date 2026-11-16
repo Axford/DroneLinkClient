@@ -221,6 +221,8 @@ The Polar Summary offers **Passive** and **Active** through the selected Cloud o
 
 KiteController projects the reported yaw, pitch, payout distance and estimated roll at parameter 14 into a 2D plot. Positive yaw points left and positive pitch points up. The waypoint's angular radius comes from 16. The recent trail uses the shared receipt window, with gaps at invalid samples. The payout target and rate limit at 13 describe configuration, while distance in the flight vector is actual payout. Reading Details preserves the independent vector, waypoint and control receipts. The legacy disabled 3D scene stays in separate scope.
 
+**Manual** and **Auto** request a write to the observed writable mode at parameter 10 through the selected Cloud or Workbench path. Manual steers using the turn-rate input. Auto steers toward the current kite waypoint. Both modes continue to use the configured payout target. Request and delivery feedback appear below the instrument, while mode, flight vector and payout continue to show observations.
+
 ### TankSteer drive comparison
 
 TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale. Heading at 22 and signed target at 20 share a north-referenced dial. Distance at 24 sets the length of the observed target vector up to the 20 m ring, while the readout keeps the full distance. Mode at 10 reports Manual or Automatic. Reading Details preserves independent receipts.

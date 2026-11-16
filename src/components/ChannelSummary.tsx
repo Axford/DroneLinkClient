@@ -44,6 +44,11 @@ const proaModes = [
     { value: 1, label: 'Active', action: { description: 'Engage the Proa steering controller', warning: true } },
 ];
 
+const kiteControllerModes = [
+    { value: 0, label: 'Manual', action: { description: 'Use the manual turn-rate input for steering' } },
+    { value: 1, label: 'Auto', action: { description: 'Engage automatic waypoint steering', warning: true } },
+];
+
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
     const bearing = summary.bearing;
     const hasCompass = bearing !== undefined;
@@ -84,7 +89,11 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         </>;
     }
     if ('kiteVector' in summary) {
-        return <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />;
+        return <>
+            <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />
+            <SummaryModeActions key={JSON.stringify(['KiteController', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="KiteController" param={10} observedMode={summary.modeValue} modes={kiteControllerModes} />
+        </>;
     }
     if ('drives' in summary) {
         return <>
