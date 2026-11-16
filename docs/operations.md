@@ -293,15 +293,19 @@ The first visit to an older point may need preparation. The Server keeps prepari
 
 Editors, Owners and Platform Admins can add a note at the playhead or bookmark the latest retained telemetry from Cloud Live. They can change the capture interval in Replay for active Domains. Viewers can open shared bookmarks.
 
-## Dreamer model editor preview
+## Dreamer model editor
 
-Start the Client from the Dreamer model-editor branch:
+In the signed-in Cloud workspace, open **Dreamer** on the Domain card. Choose **New model**, import and configure the assembly, and select **Save revision**. Each successful save creates a numbered snapshot with its model settings and geometry. **Open latest** resumes editing. **Revisions** opens earlier snapshots in read-only mode. Owners, Editors and Platform Admins can save in active Domains. Viewers and archived Domains can reopen saved revisions.
+
+If someone else saves first, the editor keeps your draft open and asks you to reopen the latest revision before saving again. Analysis and Workbench can use the stable Domain, model and revision identifiers when those workflows are implemented.
+
+For local development, start the Client from the Dreamer model-editor branch:
 
 ```sh
 HOST=127.0.0.1 PORT=8768 BROWSER=none npm start
 ```
 
-Open [Dreamer model editor](http://127.0.0.1:8768/dreamer/model-editor). The development route reads 3MF files in the browser and keeps editing state in the tab. Reloading clears the working assembly. Cloud Domain model revisions and Workbench handoff are later increments.
+Open [Dreamer model editor](http://127.0.0.1:8768/dreamer/model-editor). The development route reads 3MF files in the browser and keeps editing state in the tab. Reloading the development preview clears its working assembly.
 
 Open an Onshape 3MF in **Import**. Confirm source Forward and Up in **Orient**, then continue to **Configure** and select a part below the 3D view. Positions are in metres, masses in kilograms and display bounds in millimetres. Placement offsets and rotations use the configured boat axes. The centre of mass, pivot and joint axis use the selected mesh's local CAD frame.
 

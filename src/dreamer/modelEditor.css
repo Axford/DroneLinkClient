@@ -131,3 +131,15 @@
   line-height: var(--dw-line-height-heading);
 }
 .dreamer-model-viewport[data-gesture=angle] { cursor: grabbing; }
+
+.dreamer-model-library { margin: var(--dw-space-4); }
+.dreamer-model-library header { justify-content: space-between; }
+.dreamer-model-library h1 { margin: 0; }
+.dreamer-library-list { display: grid; gap: var(--dw-space-2); list-style: none; padding: 0; }
+.dreamer-library-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--dw-space-2); padding: var(--dw-space-2); background: var(--dw-color-raised); border-radius: var(--dw-radius-small); }
+.dreamer-library-row > span { overflow-wrap: anywhere; }
+.dreamer-library-history { padding: var(--dw-space-2) 0 0 var(--dw-space-4); }
+.dreamer-cloud-actions { margin-block-start: var(--dw-space-3); }
+.dreamer-cloud-actions label { display: flex; align-items: center; gap: var(--dw-space-2); min-width: 0; }
+.dreamer-cloud-actions input { min-width: 0; }
+.dreamer-model-fields > label { margin-block: var(--dw-space-2); }

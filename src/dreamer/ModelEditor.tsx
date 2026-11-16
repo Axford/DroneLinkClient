@@ -5,6 +5,8 @@ import IconButton from '../components/ui/IconButton';
 import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, rebaseJointZero, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { AngleHandle, EditTool, Handle, JointPick } from './ModelViewport';
+import { BoatDocument, Revision, Snapshot } from './cloudModels';
+import { ApiError } from '../utils/api';
 import './modelEditor.css';
 
 const origin: Vector = [0, 0, 0];
@@ -41,18 +43,33 @@ function VectorFields({ label, value, change }: VectorFieldsProps) {
   </fieldset>;
 }
 
-export default function ModelEditor() {
+interface CloudEditor {
+  domainId: string;
+  initial?: Snapshot;
+  editable: boolean;
+  save: (modelId: string, revisionId: string, baseRevisionId: string | null, model: BoatDocument) => Promise<Revision>;
+  back: () => void;
+}
+
+export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
+  const initial = cloud?.initial;
+  const editable = cloud?.editable ?? true;
+  const [saved, setSaved] = useState<{ revision: Revision; model: BoatDocument } | undefined>(
+    initial ? { revision: initial, model: initial.model } : undefined);
+  const modelId = useRef(initial?.modelId);
+  const pendingSave = useRef<{ id: string; base: string | null; model: BoatDocument } | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
   const assemblyInput = useRef<HTMLInputElement>(null);
   const replacementInput = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<'import' | 'orient' | 'configure'>('import');
+  const [step, setStep] = useState<'import' | 'orient' | 'configure'>(initial ? 'configure' : 'import');
   const [neutralDraft, setNeutralDraft] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  const [parts, setParts] = useState<BoatPart[]>([]);
-  const [name, setName] = useState('');
+  const [parts, setParts] = useState<BoatPart[]>(initial?.model.parts ?? []);
+  const [name, setName] = useState(initial?.model.name ?? '');
   const [assemblyVersion, setAssemblyVersion] = useState(0);
-  const [selectedId, select] = useState('');
-  const [forward, setForward] = useState<Axis>('+X');
-  const [up, setUp] = useState<Axis>('+Z');
+  const [selectedId, select] = useState(initial?.model.parts[0]?.id ?? '');
+  const [forward, setForward] = useState<Axis>(initial?.model.forward ?? '+X');
+  const [up, setUp] = useState<Axis>(initial?.model.up ?? '+Z');
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [tool, setTool] = useState<EditTool>('mass');
   const [pick, setPick] = useState<JointPick | null>(null);
@@ -68,9 +85,9 @@ export default function ModelEditor() {
   const selectedVisible = Boolean(part && !hidden.has(part.id));
   const previewAngle = animating && joint && jointValid && selectedVisible
     ? jointSweep(joint.minimum, joint.maximum, elapsed) : null;
-  const changePart = (changes: Partial<BoatPart>) => setParts(current =>
+  const changePart = (changes: Partial<BoatPart>) => editable && setParts(current =>
     current.map(item => item.id === selectedId ? { ...item, ...changes } : item));
-  const changeJoint = (changes: Partial<NonNullable<BoatPart['joint']>>) => setParts(current =>
+  const changeJoint = (changes: Partial<NonNullable<BoatPart['joint']>>) => editable && setParts(current =>
     current.map(item => item.id === selectedId && item.joint ? { ...item, joint: { ...item.joint, ...changes } } : item));
 
   useEffect(() => {
@@ -146,8 +163,36 @@ export default function ModelEditor() {
     setStep(next);
   }
 
+  async function save() {
+    if (!cloud?.editable || saving || !parts.length) return;
+    const title = name.trim();
+    if (!title) { setError('Enter a model name.'); return; }
+    modelId.current ??= crypto.randomUUID();
+    const attempt = pendingSave.current ?? {
+      id: crypto.randomUUID(), base: saved?.revision.revisionId ?? null,
+      model: { version: 1 as const, name: title, forward, up, parts },
+    };
+    pendingSave.current = attempt;
+    setSaving(true); setError(''); setNotice('');
+    try {
+      const revision = await cloud.save(modelId.current, attempt.id, attempt.base, attempt.model);
+      setSaved({ revision, model: attempt.model });
+      pendingSave.current = undefined;
+      setNotice('Saved revision ' + revision.number + '.');
+    } catch (issue) {
+      if (issue instanceof ApiError && [400, 401, 403, 409, 413].includes(issue.status)) pendingSave.current = undefined;
+      setError(issue instanceof Error ? issue.message : 'Save failed. Try saving again.');
+    } finally { setSaving(false); }
+  }
+
+  const dirty = parts.length > 0 && (!saved || saved.model.parts !== parts ||
+    saved.model.name !== name.trim() || saved.model.forward !== forward || saved.model.up !== up);
+  function backToModels() {
+    if (!dirty || !editable || window.confirm('Leave this model and discard unsaved changes?')) cloud?.back();
+  }
+
   async function load(file: File | undefined, replacement?: BoatPart) {
-    if (!file || importing.current) return;
+    if (!file || !editable || importing.current) return;
     importing.current = true;
     setPending(true);
     setNotice('');
@@ -162,7 +207,7 @@ export default function ModelEditor() {
         setNotice('Replaced the mesh for ' + replacement.name + '.');
       } else {
         setStep('orient');
-        setName(file.name.replace(/\.3mf$/i, ''));
+        setName(file.name.replace(/\.3mf$/i, '').trim().slice(0, 120) || 'Untitled boat');
         setParts(imported);
         setHidden(new Set());
         setTool('mass');
@@ -179,11 +224,20 @@ export default function ModelEditor() {
   }
 
   const { min, max } = part ? meshBounds(placedVertices(part, forward, up)) : { min: [], max: [] };
-  return <main className="dreamer-model">
+  return <div className="dreamer-model">
     <header className="dreamer-model-heading">
       <h1>Dreamer model editor</h1>
-      <p className="dw-meta">{name ? name + ' · ' : ''}Local preview</p>
+      <p className="dw-meta">{name ? name + ' · ' : ''}{cloud ? (saved ? 'Revision ' + saved.revision.number : 'Unsaved model') : 'Local preview'}
+        {cloud && !editable ? ' · Read-only' : ''}</p>
     </header>
+    {cloud && <div className="dw-toolbar dreamer-cloud-actions">
+      <Button type="button" variant="outline-secondary" disabled={saving || pending} onClick={backToModels}>Back to models</Button>
+      {step === 'configure' && editable && <>
+        <label>Model name <input className="form-control" value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>
+        <Button type="button" disabled={saving || pending} onClick={() => void save()}>{saving ? 'Saving…' : 'Save revision'}</Button>
+        {dirty && <span className="dw-meta">Unsaved changes</span>}
+      </>}
+    </div>}
     <ol className="dreamer-editor-steps" aria-label="Model setup">
       <li aria-current={step === 'import' ? 'step' : undefined}>Import</li>
       <li aria-current={step === 'orient' ? 'step' : undefined}>Orient</li>
@@ -202,7 +256,7 @@ export default function ModelEditor() {
       </div>
     </section>}
     {step !== 'import' && <div className="dreamer-model-toolbar dw-toolbar">
-      <Button type="button" variant="outline-secondary" onClick={() => changeStep(step === 'orient' ? 'import' : 'orient')}>Back</Button>
+      {editable && <Button type="button" variant="outline-secondary" onClick={() => changeStep(step === 'orient' ? 'import' : 'orient')}>Back</Button>}
       {step === 'orient' && <>
         <label>Forward <select className="form-select" value={forward} onChange={event => setForward(event.target.value as Axis)}>
           {axes.filter(axis => axis[1] !== up[1]).map(axis => <option key={axis}>{axis}</option>)}
@@ -218,9 +272,9 @@ export default function ModelEditor() {
     {step !== 'import' && <div className="dreamer-model-workspace">
       <section className="dw-panel dreamer-model-scene" aria-label="Assembly preview">
         <ModelViewport parts={parts} selectedId={step === 'configure' ? selectedId : ''} hidden={hidden} forward={forward} up={up}
-          tool={tool} pick={pick} previewAngle={previewAngle} neutralDraft={neutralDraft} onMoveAngle={moveAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
+          tool={editable ? tool : 'mass'} pick={editable ? pick : null} previewAngle={editable ? previewAngle : null} neutralDraft={editable ? neutralDraft : null} onMoveAngle={moveAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
         {step === 'configure' && <>
-          <div className="dreamer-model-overlay-tools dw-toolbar" role="group" aria-label="Selected part controls">
+          {editable && <div className="dreamer-model-overlay-tools dw-toolbar" role="group" aria-label="Selected part controls">
             <IconButton type="button" label="Edit CG" disabled={!selectedVisible} aria-pressed={tool === 'mass'} icon={<Bullseye />}
               onClick={() => { stopPreview(); setTool('mass'); }} />
             <IconButton type="button" label="Edit joint" disabled={!selectedVisible || !joint} aria-pressed={tool === 'joint'}
@@ -237,7 +291,7 @@ export default function ModelEditor() {
             {previewAngle !== null && <output aria-label="Joint preview angle">{previewAngle.toFixed(1)}°</output>}
             <IconButton type="button" className="dreamer-view-help-button" label="View controls help" icon={<InfoCircle />}
               aria-expanded={showHelp} aria-controls="dreamer-view-help" onClick={() => setShowHelp(previous => !previous)} />
-          </div>
+          </div>}
           <p id="dreamer-view-help" className="dreamer-model-view-help dw-meta" hidden={!showHelp}>
             Left-drag handles, middle-drag to pan, right-drag to orbit, or scroll to zoom.
           </p>
@@ -267,8 +321,8 @@ export default function ModelEditor() {
       {step === 'configure' && part && <section className="dw-panel dreamer-model-properties" aria-label="Selected part settings" key={assemblyVersion + ':' + part.id}>
         <div className="dreamer-part-heading">
           <h2>{part.name}</h2>
-          <IconButton type="button" label="Replace mesh" icon={<ArrowRepeat />} disabled={pending}
-            onClick={() => replacementInput.current?.click()} />
+          {editable && <IconButton type="button" label="Replace mesh" icon={<ArrowRepeat />} disabled={pending}
+            onClick={() => replacementInput.current?.click()} />}
           <input ref={replacementInput} type="file" accept=".3mf" hidden aria-label="Replacement 3MF" disabled={pending}
             onChange={event => {
               void load(event.currentTarget.files?.[0], part);
@@ -279,6 +333,7 @@ export default function ModelEditor() {
         <p className="dw-meta">{part.mesh.triangles.length.toLocaleString()} faces · {part.mesh.closed ? 'Closed edges' : 'Open or inconsistent edges'}</p>
         {(part.mesh.duplicateVertices > 0 || part.mesh.degenerateFaces > 0) &&
           <p className="dw-meta">Merged {part.mesh.duplicateVertices} duplicate vertices and removed {part.mesh.degenerateFaces} zero-area faces.</p>}
+        <fieldset disabled={!editable} className="dreamer-model-fields">
         <label>Physics role <select className="form-select" value={part.role} onChange={event => changePart({ role: event.target.value as BoatPart['role'] })}>
           {roles.map(role => <option key={role}>{role}</option>)}
         </select></label>
@@ -338,7 +393,8 @@ export default function ModelEditor() {
             <label>Maximum from zero (°) <NumberField value={joint.maximum} change={maximum => changeJoint({ maximum })} /></label>
           </div>
         </>}
+        </fieldset>
       </section>}
     </div>}
-  </main>;
+  </div>;
 }
