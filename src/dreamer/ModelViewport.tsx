@@ -24,8 +24,10 @@ interface Props {
 interface Marker { handle: Handle; world: Vector; local: Vector; screen: Vector; color: string; label: string; }
 type Drag =
   | { kind: 'handle'; marker: Marker; pose: MeshPose; pivot?: Vector; start: Point; pointer: number }
-  | { kind: 'orbit' | 'pan'; start: Point; last: Point; pointer: number; moved: boolean };
+  | { kind: 'orbit' | 'pan' | 'pick'; start: Point; last: Point; pointer: number; moved: boolean };
 
+const minScale = 0.01, maxScale = 1_000_000;
+const clampScale = (value: number) => Math.min(maxScale, Math.max(minScale, value));
 const colors = { centerOfMass: '#ffe095', pivot: '#83ddff', axis: '#83ddff' };
 
 export default function ModelViewport({
@@ -36,8 +38,8 @@ export default function ModelViewport({
   const [[width, height], setSize] = useState<Point>([0, 0]);
   const [azimuth, yaw] = useState(-0.9);
   const [elevation, pitch] = useState(0.42);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState<Point>([0, 0]);
+  const [pixels, setPixels] = useState(250);
+  const [target, setTarget] = useState<Vector>([0, 0, 0]);
   const [hover, setHover] = useState<{ id: string; index: number }>();
   const scene = useMemo(() => parts.map(part => {
     const pose = partPose(part, forward, up);
@@ -56,7 +58,7 @@ export default function ModelViewport({
       if (!scene.length) return;
       event.preventDefault();
       const units = event.deltaMode === 1 ? 16 : 1;
-      setZoom(value => Math.min(20, Math.max(0.5, value * Math.exp(-event.deltaY * units * 0.002))));
+      setPixels(value => clampScale(value * Math.exp(-event.deltaY * units * 0.002)));
     };
     element.addEventListener('wheel', wheel, { passive: false });
     return () => { observer.disconnect(); element.removeEventListener('wheel', wheel); };
@@ -67,14 +69,10 @@ export default function ModelViewport({
     const camera: Vector = [ce*ca, ce*sa, se];
     const right: Vector = [-sa, ca, 0], vertical = cross(camera, right);
     const view = (vertex: Vector): Vector => [dot(vertex, right), dot(vertex, vertical), dot(vertex, camera)];
-    const { min, max } = meshBounds(scene.flatMap(entry => entry.vertices.map(view)));
-    const pixels = Math.max(1, Math.min((width-48) / Math.max(0.01, max[0]-min[0]),
-      (height-70) / Math.max(0.01, max[1]-min[1]))) * zoom;
-    const cx = scene.length ? (min[0]+max[0])/2 : 0;
-    const cy = scene.length ? (min[1]+max[1])/2 : 0;
-    const screen = ([x, y, z]: Vector): Vector => [width/2 + (x-cx)*pixels + pan[0],
-      height/2 - (y-cy)*pixels + pan[1], z];
-    const project = (vertex: Vector) => screen(view(vertex));
+    const project = (vertex: Vector): Vector => {
+      const [x, y, z] = view(subtract(vertex, target));
+      return [width/2 + x*pixels, height/2 - y*pixels, z];
+    };
     const joint = selected && jointFrame(selected.part, selected.pose);
     const jointAxis = joint?.axis;
     const jointPivot = joint?.pivot;
@@ -96,9 +94,9 @@ export default function ModelViewport({
       const color = (part.id === selectedId ? [152, 236, 203] : [114, 163, 188]).map(value => Math.round(value * light));
       return { vertices, depth: (p[2]+q[2]+r[2])/3, fill: 'rgb(' + color.join(',') + ')' };
     })).sort((a, b) => a.depth - b.depth);
-    return { right, vertical, pixels, project, joint, move, visible, faces };
-  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, zoom, pan, previewAngle]);
-  const { right, vertical, pixels, project, joint, move, visible, faces } = frame;
+    return { right, vertical, camera, view, project, joint, move, visible, faces };
+  }, [scene, selected, selectedId, hidden, azimuth, elevation, width, height, pixels, target, previewAngle]);
+  const { right, vertical, camera, view, project, joint, move, visible, faces } = frame;
   const pickedPart = visible.find(entry => entry.part.id === selectedId);
 
   const markers: Marker[] = [];
@@ -192,15 +190,27 @@ export default function ModelViewport({
     return [event.clientX - rect.left, event.clientY - rect.top];
   }
 
-  const zoomBy = (amount: number) => setZoom(previous => Math.min(20, Math.max(0.5, previous * amount)));
+  function fitView() {
+    const points = visible.flatMap(entry => entry.vertices.map(view));
+    if (!points.length) return;
+    const { min, max } = meshBounds(points);
+    const [x, y, z] = scale(add(min, max), 0.5);
+    setTarget(add(add(scale(right, x), scale(vertical, y)), scale(camera, z)));
+    setPixels(clampScale(Math.min((width-48) / Math.max(0.0001, max[0]-min[0]),
+      (height-70) / Math.max(0.0001, max[1]-min[1]))));
+  }
+
+  const zoomBy = (amount: number) => setPixels(previous => clampScale(previous * amount));
   return <>
     <div className="dreamer-viewport-tools" role="group" aria-label="View controls">
-      <button type="button" aria-label="Zoom in" disabled={!scene.length || zoom >= 20} onClick={() => zoomBy(1.4)}>+</button>
-      <button type="button" aria-label="Zoom out" disabled={!scene.length || zoom <= 0.5} onClick={() => zoomBy(1/1.4)}>−</button>
-      <button type="button" disabled={!scene.length} onClick={() => { setZoom(1); setPan([0, 0]); }}>Fit view</button>
+      <button type="button" aria-label="Zoom in" disabled={!scene.length || pixels >= maxScale} onClick={() => zoomBy(1.4)}>+</button>
+      <button type="button" aria-label="Zoom out" disabled={!scene.length || pixels <= minScale} onClick={() => zoomBy(1/1.4)}>−</button>
+      <button type="button" disabled={!visible.length} onClick={fitView}>Fit view</button>
     </div>
     <canvas ref={canvas} className={pick ? 'dreamer-model-viewport dreamer-picking' : 'dreamer-model-viewport'}
-      aria-label="3D boat assembly. Drag to orbit, Shift-drag to pan, scroll to zoom." tabIndex={0}
+      aria-label="3D boat assembly. Right-drag to orbit, middle-drag to pan, scroll to zoom." tabIndex={0}
+      onContextMenu={event => event.preventDefault()}
+      onAuxClick={event => event.preventDefault()}
       onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-'].includes(event.key)) return;
         event.preventDefault();
@@ -210,28 +220,37 @@ export default function ModelViewport({
         else pitch(previous => Math.max(-1.5, Math.min(1.5, previous + (event.key === 'ArrowUp' ? 0.1 : -0.1))));
       }}
       onPointerDown={event => {
-        if (event.button !== 0 || drag.current) return;
+        if (event.button < 0 || event.button > 2 || drag.current) return;
         const start = position(event);
-        const handle = !pick && !event.shiftKey && previewAngle === null
+        const handle = event.button === 0 && !pick && previewAngle === null
           ? markers.filter(item => tool === 'mass' ? item.handle === 'centerOfMass' : item.handle !== 'centerOfMass')
             .map(item => ({ item, distance: Math.hypot(item.screen[0]-start[0], item.screen[1]-start[1]) }))
             .filter(hit => hit.distance <= 11).sort((a, b) => a.distance - b.distance)[0]?.item : undefined;
-        drag.current = handle && selected
-          ? { kind: 'handle', marker: handle, pose: selected.pose, pivot: joint?.pivot, start, pointer: event.pointerId }
-          : { kind: event.shiftKey ? 'pan' : 'orbit', start, last: start, pointer: event.pointerId, moved: false };
+        if (handle && selected) {
+          drag.current = { kind: 'handle', marker: handle, pose: selected.pose, pivot: joint?.pivot, start, pointer: event.pointerId };
+        } else {
+          if (event.button === 0 && !pick) return;
+          const kind = event.button === 1 ? 'pan' : event.button === 2 ? 'orbit' : 'pick';
+          drag.current = { kind, start, last: start, pointer: event.pointerId, moved: false };
+        }
+        if (event.button !== 0) event.preventDefault();
+        event.currentTarget.dataset.gesture = drag.current.kind;
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerUp={event => {
         const gesture = drag.current;
         if (gesture?.pointer !== event.pointerId) return;
         drag.current = undefined;
-        if (pick && gesture.kind === 'orbit' && !gesture.moved && pickedPart) {
+        if (pick && gesture.kind === 'pick' && !gesture.moved && pickedPart) {
           const index = nearestVisibleVertex(...position(event), pickedPart.projected, faces);
           if (index !== undefined) onPickVertex(pickedPart.part.mesh.vertices[index]);
           setHover(undefined);
         }
       }}
-      onLostPointerCapture={() => { drag.current = undefined; }}
+      onLostPointerCapture={event => {
+        drag.current = undefined;
+        delete event.currentTarget.dataset.gesture;
+      }}
       onPointerLeave={() => setHover(undefined)}
       onPointerMove={event => {
         const point = position(event);
@@ -262,8 +281,10 @@ export default function ModelViewport({
         gesture.moved = true;
         gesture.last = point;
         setHover(undefined);
-        if (gesture.kind === 'pan') setPan(previous => [previous[0]+dx, previous[1]+dy]);
-        else {
+        if (gesture.kind === 'pan') {
+          const delta = add(scale(right, -dx / pixels), scale(vertical, dy / pixels));
+          setTarget(previous => add(previous, delta));
+        } else if (gesture.kind === 'orbit') {
           yaw(previous => previous - dx * 0.007);
           pitch(previous => Math.max(-1.5, Math.min(1.5, previous + dy * 0.007)));
         }

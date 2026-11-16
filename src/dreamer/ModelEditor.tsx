@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract } from './boatModel';
+import { Axis, BoatPart, Vector, axes, direction, jointSweep, meshBounds, placedVertices, replacePartMesh, roles, subtract, uniformDensityCenter } from './boatModel';
 import { import3mf, max3mfBytes } from './import3mf';
 import ModelViewport, { EditTool, Handle, JointPick } from './ModelViewport';
 import './modelEditor.css';
@@ -168,7 +168,7 @@ export default function ModelEditor() {
     {error && <p className="dreamer-model-error" role="alert">{error}</p>}
     <div className="dreamer-model-workspace">
       <section className="dreamer-model-scene" aria-label="Assembly preview">
-        <ModelViewport key={assemblyVersion} parts={parts} selectedId={selectedId} hidden={hidden} forward={forward} up={up}
+        <ModelViewport parts={parts} selectedId={selectedId} hidden={hidden} forward={forward} up={up}
           tool={tool} pick={pick} previewAngle={previewAngle} onMoveHandle={moveHandle} onPickVertex={pickVertex} />
         {parts.length > 0 && <>
           <div className="dreamer-model-overlay-tools" role="group" aria-label="Selected part controls">
@@ -190,9 +190,9 @@ export default function ModelEditor() {
           <p className="dreamer-model-view-help" role={pick ? 'status' : undefined}>
             {pick === 'origin' ? 'Click a vertex on the selected part for the pivot.' :
               pick === 'direction' ? 'Click a second vertex to point the joint axis.' :
-              selectedVisible && tool === 'mass' ? 'Drag the CG handle. Orbit or Shift-drag to change the view.' :
-              selectedVisible && joint ? 'Drag the pivot or axis tip. Orbit or Shift-drag to change the view.' :
-              'Drag to orbit, Shift-drag to pan or scroll to zoom.'}
+              selectedVisible && tool === 'mass' ? 'Left-drag the CG handle. Middle-drag to pan, right-drag to orbit.' :
+              selectedVisible && joint ? 'Left-drag the pivot or axis tip. Middle-drag to pan, right-drag to orbit.' :
+              'Middle-drag to pan, right-drag to orbit, or scroll to zoom.'}
           </p>
           <div className="dreamer-model-parts" role="group" aria-label="Parts">
             {parts.map(item => <div className="dreamer-model-part" key={item.id}>
@@ -230,6 +230,18 @@ export default function ModelEditor() {
           onChange={event => changePart({ mass: event.currentTarget.value === '' ? null : Math.max(0, event.currentTarget.valueAsNumber) })} /></label>
         <VectorFields label="Placement offset (m)" value={part.translation} change={translation => changePart({ translation })} />
         <VectorFields label="Placement rotation (°)" value={part.rotation} change={rotation => changePart({ rotation })} />
+        <button type="button" disabled={!part.mesh.closed} onClick={() => {
+          const centerOfMass = uniformDensityCenter(part.mesh);
+          if (!centerOfMass) {
+            setNotice('Calculate CG needs a mesh with a valid enclosed volume.');
+            return;
+          }
+          changePart({ centerOfMass });
+          stopPreview();
+          setTool('mass');
+          setNotice('Calculated CG for ' + part.name + ' using uniform density.');
+        }}>Calculate CG</button>
+        <p>{part.mesh.closed ? 'Uses the enclosed volume and assumes uniform density.' : 'Calculate CG requires a closed mesh.'}</p>
         <VectorFields label="Local centre of mass (m)" value={part.centerOfMass} change={centerOfMass => changePart({ centerOfMass })} />
         <label className="dreamer-model-checkbox"><input type="checkbox" checked={Boolean(joint)} onChange={event => {
           const enabled = event.target.checked;

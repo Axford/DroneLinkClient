@@ -1,5 +1,5 @@
 import { strToU8, zipSync } from 'fflate';
-import { BoatPart, meshBounds, placedVertices, replacePartMesh } from './boatModel';
+import { BoatPart, meshBounds, placedVertices, replacePartMesh, uniformDensityCenter } from './boatModel';
 import { import3mf } from './import3mf';
 
 const utf8 = (text: string) => Uint8Array.from(strToU8(text));
@@ -56,4 +56,20 @@ test('flags open meshes and rejects missing triangle indices and cyclic componen
   expect(import3mf(archive(`<object id="1">${mesh([[0, 1, 2]])}</object>`, item))[0].mesh.closed).toBe(false);
   expect(() => import3mf(archive(`<object id="1">${mesh([[0, 8, 2]])}</object>`, item))).toThrow('unknown vertex');
   expect(() => import3mf(archive('<object id="1"><components><component objectid="1"/></components></object>', item))).toThrow('cycle');
+});
+
+
+test('calculates the volume centroid of a closed solid in local coordinates', () => {
+  const offset = vertices.map(([x, y, z]) => [x + 120, y - 500, z + 70]);
+  const item = '<item objectid="1"/>';
+  for (const faces of [closed, closed.map(([a, b, c]) => [a, c, b])]) {
+    const [part] = import3mf(archive(`<object id="1">${mesh(faces, offset)}</object>`, item));
+    const center = uniformDensityCenter(part.mesh)!;
+    [0.42, -0.425, 0.124].forEach((expected, index) => expect(center[index]).toBeCloseTo(expected, 8));
+  }
+  const [open] = import3mf(archive(`<object id="1">${mesh([[0, 1, 2]])}</object>`, item));
+  expect(uniformDensityCenter(open.mesh)).toBeUndefined();
+  const [flat] = import3mf(archive(`<object id="1">${mesh([[0, 1, 2], [0, 2, 1]], vertices.slice(0, 3))}</object>`, item));
+  expect(flat.mesh.closed).toBe(true);
+  expect(uniformDensityCenter(flat.mesh)).toBeUndefined();
 });

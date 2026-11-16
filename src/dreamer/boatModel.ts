@@ -142,3 +142,24 @@ export function meshBounds(vertices: Vector[]) {
   }
   return { min, max };
 }
+
+export function uniformDensityCenter(mesh: PartMesh): Vector | undefined {
+  if (!mesh.closed || !mesh.triangles.length) return undefined;
+  const { min, max } = meshBounds(mesh.vertices);
+  const origin = scale(add(min, max), 0.5);
+  let volume = 0, absoluteVolume = 0;
+  let moment: Vector = [0, 0, 0];
+  // Each oriented triangle and the reference point form a signed tetrahedron.
+  for (const [i, j, k] of mesh.triangles) {
+    const a = subtract(mesh.vertices[i], origin);
+    const b = subtract(mesh.vertices[j], origin);
+    const c = subtract(mesh.vertices[k], origin);
+    const weight = dot(a, cross(b, c));
+    volume += weight;
+    absoluteVolume += Math.abs(weight);
+    moment = add(moment, scale(add(add(a, b), c), weight / 4));
+  }
+  if (!absoluteVolume || Math.abs(volume) <= absoluteVolume * 1e-12) return undefined;
+  const center = add(origin, scale(moment, 1 / volume));
+  return center.every(Number.isFinite) ? center : undefined;
+}

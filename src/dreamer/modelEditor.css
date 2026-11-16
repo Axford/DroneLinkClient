@@ -17,8 +17,9 @@
 .dreamer-model-scene, .dreamer-model-properties { border: 1px solid var(--model-line); border-radius: 12px; background: var(--model-panel); }
 .dreamer-model-scene { position: relative; overflow: hidden; }
 .dreamer-model-scene:only-child { grid-column: 1 / -1; }
-.dreamer-model-viewport { display: block; width: 100%; height: clamp(340px, 65vh, 720px); touch-action: none; cursor: grab; }
-.dreamer-model-viewport:active { cursor: grabbing; }
+.dreamer-model-viewport { display: block; width: 100%; height: clamp(340px, 65vh, 720px); touch-action: none; }
+.dreamer-model-viewport[data-gesture=orbit], .dreamer-model-viewport[data-gesture=pan] { cursor: grabbing; }
+.dreamer-model-viewport[data-gesture=handle] { cursor: move; }
 .dreamer-model-parts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-top: 1px solid var(--model-line); }
 .dreamer-model-properties { min-width: 0; padding: 14px; }
 .dreamer-model-properties h2 { font-size: 1.2rem; overflow-wrap: anywhere; }
