@@ -221,7 +221,9 @@ KiteController projects the reported yaw, pitch, payout distance and estimated r
 
 ### TankSteer drive comparison
 
-TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale. Heading at 22 and signed target at 20 share a north-referenced dial. Distance at 24 sets the length of the observed target vector up to the 20 m ring, while the readout keeps the full distance. Mode at 10 reports Manual or Automatic. Reading Details preserves independent receipts. Stop and target writes retain their separate action scope.
+TankSteer displays signed motor outputs at 8 and 9 on the same −1 to +1 scale. Heading at 22 and signed target at 20 share a north-referenced dial. Distance at 24 sets the length of the observed target vector up to the 20 m ring, while the readout keeps the full distance. Mode at 10 reports Manual or Automatic. Reading Details preserves independent receipts.
+
+The Summary can request Manual or Automatic by writing the observed writable mode parameter through the selected Cloud or Workbench path. **Clear distance** writes zero to parameter 24 when that path reports Manual and a positive writable distance. Its feedback reports the distance input, while the drive bars continue to show observed outputs. Steering trim can still contribute output at zero distance. The dial displays observed geometry. A dial click in the legacy UI sent separate heading and distance writes, which the current command path can deliver independently.
 
 ### TurnRate dial
 

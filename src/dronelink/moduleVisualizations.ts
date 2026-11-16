@@ -63,6 +63,7 @@ export interface TankSteerSummary {
     distance: ObservedSummary;
     distanceMetres?: number;
     mode: ObservedSummary;
+    modeValue?: 0 | 1;
     details: ObservedSummary[];
 }
 
@@ -995,6 +996,7 @@ function tankSteerSummary(channel: ChannelState): TankSteerSummary {
     const modeValue = byteArray(channel.params[10], 1)?.[0];
     const mode = field(channel, 10, 'Mode', modeValue === 0 ? 'Manual' : modeValue === 1 ? 'Automatic' : undefined);
     return { drives, heading, target, distance, distanceMetres, mode,
+        modeValue: modeValue === 0 || modeValue === 1 ? modeValue : undefined,
         details: [heading, target, distance, ...Object.values(drives).map(drive => drive.reading), mode] };
 }
 

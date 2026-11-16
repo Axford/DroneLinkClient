@@ -21,6 +21,7 @@ import Mpu6050Instrument from './Mpu6050Instrument';
 import PolarInstrument from './PolarInstrument';
 import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
+import TankSteerActions from './TankSteerActions';
 import TurnRateInstrument from './TurnRateInstrument';
 import ProaInstrument from './ProaInstrument';
 import SailorInstrument from './SailorInstrument';
@@ -70,7 +71,10 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         return <KiteControllerInstrument label={label} summary={summary} scope={sampleScope} />;
     }
     if ('drives' in summary) {
-        return <TankSteerInstrument label={label} summary={summary} />;
+        return <>
+            <TankSteerInstrument label={label} summary={summary} />
+            <TankSteerActions key={JSON.stringify([nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId} summary={summary} />
+        </>;
     }
     if ('turnOutput' in summary) {
         return <TurnRateInstrument label={label} summary={summary} />;
