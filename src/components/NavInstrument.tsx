@@ -22,7 +22,7 @@ export default function NavInstrument({ nodeId, label, summary }: {
     label: string;
     summary: NavSummary;
 }) {
-    const { navigationBearings, crossTrack, distance, following, followingNode } = summary;
+    const { navigationBearings, crossTrack, distance, following, followingNode, mode } = summary;
     const nodes = useContext(ObservationNamesContext);
     const external = followingNode !== undefined && followingNode !== nodeId;
     const name = external ? nodes[followingNode]?.name : undefined;
@@ -49,6 +49,7 @@ export default function NavInstrument({ nodeId, label, summary }: {
             <Readout reading={crossTrack} />
             <Readout reading={distance} />
             <Readout reading={source} />
+            <Readout reading={mode} />
         </div>
     </dl>;
 }

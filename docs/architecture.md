@@ -173,6 +173,8 @@ Motor reads the observed signed speed input from FLOAT parameter 8. The bar show
 
 Servo plots normalized input from −1 to +1 against output angle from 0 to 180°. The configured curve uses the four observed FLOAT control points at parameter 12 and the centre adjustment at parameter 13. It samples the firmware's cubic mapping, truncation and bounds. The independently observed position input at parameter 8 and PWM controller angle at parameter 14 provide separate guides and readouts. The reported output can lag the configured mapping while the firmware applies its movement rate limit. Each observation has its own source and receipt in Reading Details.
 
+**Set position** and **Edit curve** open the selected local Workbench path in the explicit parameter editor. The position accepts −1 to +1. The curve sends all four control points together, with each point from 0° to 180°. The plotted curve and output marker continue to show observations.
+
 ### NMEA fix and correction details
 
 The NMEA Summary keeps heading and satellite status alongside primary position, speed in knots and metres per second, and observed HDOP. The firmware sends HDOP as a UINT8 in tenths with 255 reserved for unknown. Reading Details lists the secondary GPS position, configured reference fix and differential correction offsets when their parameters are present. Coordinates arrive longitude first and display latitude first. Correction shows the signed latitude, longitude and altitude offsets. Some firmware transmits a fourth correction float before assigning its distance, so the Summary relies on the three verified components.
@@ -239,6 +241,8 @@ The Summary can request Manual or Automatic by writing the observed writable mod
 
 TurnRate compares the heading at 12 and signed target at 10 on the shared circular dial. Parameter 16 is a signed controller output, not an angular velocity. Firmware clamps it to ±10, while the arc preserves the legacy visual cap at ±6. Positive output draws clockwise from heading. Parameter 17 supplies the angular threshold band around target, and 19 supplies the observed Normal, Possible gybe or Gybing mode. Sailor and TurnRate share the amber and red cues for possible and active gybes. Each reading retains its own receipt. The heading map binding remains independent of the renderer.
 
+The Summary offers **Normal**, **Gybe**, and **Set heading**. The firmware can revise the requested mode as heading error changes. Set heading prepares a bounded write to parameter 10 in the selected path editor.
+
 ### Proa steering and wind profiles
 
 Proa rotates its shared polar and speed profiles by live wind. Heading rotates the vessel drawing and its observed steering. The wing output maps to ±90° and the two pontoon outputs to ±120°. Course over water is already vessel-relative. The target frame adds the observed offset to course. Parameter 29 reports passive/active operation, while the fourth debug value at 30 reports Normal, Brake or Run. Missing inputs omit their marks and retain independent receipt provenance in Reading Details.
@@ -248,6 +252,8 @@ Proa rotates its shared polar and speed profiles by live wind. Heading rotates t
 ### Sailor marine dial
 
 Sailor shares the navigation guides and hands. Target and course accept signed bearings from Nav. Live wind at parameter 12 determines the estimated wing orientation with the FLOAT wing command at 22. Course wind comes from byte 3 of flags at 21 and rotates the mirrored polar profile (18) and the independently reported speed halves (19 and 20). The chart marks incomplete speed coverage and uses a common relative radial scale. Sheet at 17 sits in the centre. Rudder at 24 drives a signed arc from heading, with a gybing cue from the flags. Four-byte flags retain course, tack, helm and course wind. The crossing-wind state needs a fifth byte. Firmware `69cd31f` declares five bytes but copies only four in its live update, so the Summary marks a supplied crossing-wind flag as unverified. Reading Details retains the reported byte and observation receipt.
+
+**Set heading** opens the selected path editor for the target input at parameter 8. A subscribed source can overwrite the value.
 
 ### Waypoint route progress
 
@@ -259,7 +265,7 @@ The Waypoint Summary places its actions below the observed readings. **Restart**
 
 ### Nav bearing comparison
 
-The Nav Summary shares the circular guides used by the wind dials. It compares north-referenced heading (8), adjusted heading (20) and wind (21) with distinct hands. It shows the signed cross-track value (17) as reported because firmware may normalize it against the target corridor. Distance to target (9) also drives the node chip. Following reflects the observed target subscription (13) and resolves names only in the current Inspector scope. The map context actions still use their existing command path. Reading Details uses the observed address and independent receipts.
+The Nav Summary shares the circular guides used by the wind dials. It compares north-referenced heading (8), adjusted heading (20) and wind (21) with distinct hands. It shows the signed cross-track value (17) as reported because firmware may normalize it against the target corridor. Distance to target (9) also drives the node chip. Following reflects the observed target subscription (13) and resolves names only in the current Inspector scope. The map context actions retain target and follow selection. The Summary shows the reported mode at parameter 14 with **Idle** and **Go to** controls. Stored values 2–6 appear as numbers because the legacy and current mode enums differ and the current navigation loop only branches on Idle. Reading Details uses the observed address and independent receipts.
 
 ### Wind direction and distribution
 

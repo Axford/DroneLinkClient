@@ -70,6 +70,7 @@ export interface TankSteerSummary {
 }
 
 export interface TurnRateSummary {
+    modeValue?: number;
     turnOutput: ObservedSummary;
     output?: number;
     heading: ObservedSummary;
@@ -120,6 +121,8 @@ export interface WaypointSummary {
 }
 
 export interface NavSummary {
+    mode: ObservedSummary;
+    modeValue?: number;
     navigationBearings: Record<'heading' | 'adjusted' | 'wind', ObservedSummary>;
     crossTrack: ObservedSummary;
     distance: ObservedSummary;
@@ -793,8 +796,11 @@ function navSummary(channel: ChannelState): NavSummary {
         followingNode = address.node;
         following = field(channel, 13, 'Target source', `${address.node}>${address.channel}.${address.parameter}`);
     }
-    return { navigationBearings, crossTrack, distance, following, followingNode,
-        details: [...Object.values(navigationBearings), crossTrack, distance, following] };
+    const modeValue = byteArray(channel.params[14], 1)?.[0];
+    const mode = field(channel, 14, 'Mode', modeValue === undefined ? undefined :
+        modeValue === 0 ? 'Idle' : modeValue === 1 ? 'Go to' : String(modeValue));
+    return { navigationBearings, crossTrack, distance, following, followingNode, mode, modeValue,
+        details: [...Object.values(navigationBearings), crossTrack, distance, following, mode] };
 }
 
 function waypointDistance(metres: number | undefined): string | undefined {
@@ -995,7 +1001,7 @@ function turnRateSummary(channel: ChannelState): TurnRateSummary {
     const threshold = field(channel, 17, 'Gybe threshold', thresholdDegrees === undefined ? undefined : `${thresholdDegrees.toFixed(1)}°`);
     const modeValue = byteArray(channel.params[19], 1)?.[0];
     const mode = gybeState(channel, 19, 'Mode', modeValue);
-    return { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, gybing: modeValue === 2,
+    return { turnOutput, output, heading, target, threshold, thresholdDegrees, mode, modeValue, gybing: modeValue === 2,
         details: [heading, target, turnOutput, threshold, mode] };
 }
 

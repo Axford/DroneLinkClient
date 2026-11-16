@@ -1,19 +1,22 @@
+import type React from 'react';
 import { DRONE_LINK_MSG_TYPE_UINT8_T as UINT8 } from '../dronelink/DroneLinkMsg';
 import useSummaryWrite from './useSummaryWrite';
 
 interface Mode {
     value: number;
     label: string;
+    allowExit?: boolean;
     action?: { description: string; warning?: boolean; label?: string; oneShot?: boolean };
 }
 
-export default function SummaryModeActions({ nodeId, channelId, name, param, observedMode, modes }: {
-    nodeId: number; channelId: number; name: string; param: number; observedMode?: number; modes: readonly Mode[];
+export default function SummaryModeActions({ nodeId, channelId, name, param, observedMode, modes, children }: {
+    nodeId: number; channelId: number; name: string; param: number; observedMode?: number; modes: readonly Mode[]; children?: React.ReactNode;
 }) {
     const { resolve, send, busy, status } = useSummaryWrite(nodeId, channelId);
     const write = resolve(param, UINT8);
-    const current = modes.find(mode => mode.value === observedMode)?.action;
-    const canChooseMode = observedMode === write?.observed && !!current && !current.oneShot;
+    const current = modes.find(mode => mode.value === observedMode);
+    const canChooseMode = observedMode === write?.observed &&
+        (current?.allowExit || (current?.action && !current.action.oneShot));
 
     function modeReadback(observed: number, requested: number, oneShot?: boolean) {
         const mode = modes.find(candidate => candidate.value === observed);
@@ -38,6 +41,7 @@ export default function SummaryModeActions({ nodeId, channelId, name, param, obs
                     onClick={() => { if (canChange) void send(actionLabel, write, value,
                         (observed, requested) => modeReadback(observed, requested, action.oneShot)); }}>{actionLabel}</button>;
             })}
+            {children}
         </div>
         {status}
     </div>;

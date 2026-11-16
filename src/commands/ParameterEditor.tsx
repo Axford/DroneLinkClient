@@ -30,7 +30,12 @@ export interface Delivery {
     refresh?: () => Promise<Delivery>;
 }
 type ResolvePath = (target: Target, pinned?: string) => ParameterPath | undefined;
-interface EditorContext { resolve: ResolvePath; canOpen: (target: Target) => boolean; open: (target: Target, name: string, opener: HTMLElement) => void }
+interface EditOptions {
+    description: string;
+    fieldLabels: readonly string[];
+    validate: (payload: Payload) => void;
+}
+interface EditorContext { resolve: ResolvePath; canOpen: (target: Target) => boolean; open: (target: Target, name: string, opener: HTMLElement, options?: EditOptions) => void }
 export const ParameterEditorContext = createContext<EditorContext | null>(null);
 
 export function LastKnownParameterActions({ node }: { node?: NodeState }) {
@@ -49,7 +54,7 @@ export function LastKnownParameterActions({ node }: { node?: NodeState }) {
     </details>;
 }
 
-interface Draft { target: Target; name: string; path: ParameterPath; observation: WriteObservation; opener: HTMLElement; offset: number }
+interface Draft { target: Target; name: string; path: ParameterPath; observation: WriteObservation; opener: HTMLElement; offset: number; options?: EditOptions }
 const waitMs = 15000;
 
 function matches(observation: ValueObservation, payload: Payload) {
@@ -128,7 +133,10 @@ function Popup({ draft, current, close }: { draft: Draft; current?: ParameterPat
         if (!available || !current || !compatible || busy) return;
         setError('');
         let payload: Payload;
-        try { payload = typedPayload(draft.path.id !== 'cloud' && expected.msgType === CHAR ? { ...expected, payloadBytes: 16 } : expected, fields); }
+        try {
+            payload = typedPayload(draft.path.id !== 'cloud' && expected.msgType === CHAR ? { ...expected, payloadBytes: 16 } : expected, fields);
+            draft.options?.validate(payload);
+        }
         catch (problem) { setError(message(problem)); return; }
         setBusy(true);
         setElapsed(false);
@@ -164,7 +172,8 @@ function Popup({ draft, current, close }: { draft: Draft; current?: ParameterPat
         <Form onSubmit={event => { event.preventDefault(); void send(); }}>
             <p className="dw-meta">Observed {sample.value ? fieldsFromObservation(sample.value).join(', ') : '—'}
                 {sample.receivedAt !== undefined ? ` · ${receiptLabel(sample.receivedAt)}` : ''}</p>
-            <ParameterFields msgType={expected.msgType} fields={fields} onChange={change} />
+            {draft.options && <p className="dw-meta">{draft.options.description}</p>}
+            <ParameterFields msgType={expected.msgType} fields={fields} onChange={change} labels={draft.options?.fieldLabels} />
             {!available && <p role="status">Original connection unavailable. Select it again or reopen on another connection.</p>}
             {available && !compatible && <p role="status">Observation metadata changed. Reopen the editor to review it.</p>}
             {error && <p role="alert">{error}</p>}
@@ -199,10 +208,10 @@ export function ParameterEditorProvider({ resolve, children }: React.PropsWithCh
             const path = resolve(target);
             return !!(path?.available && path.sample.observation);
         },
-        open: (target, name, opener) => {
+        open: (target, name, opener, options) => {
             const path = resolve(target);
             if (!path?.available || !path.sample.observation) return;
-            const draft = { target, name, path, observation: path.sample.observation, opener, offset: (drafts.length % 6) * 32 };
+            const draft = { target, name, path, observation: path.sample.observation, opener, options, offset: (drafts.length % 6) * 32 };
             setDrafts(current => current.some(item => draftKey(item) === draftKey(draft)) ? current : [...current, draft]);
         },
     };

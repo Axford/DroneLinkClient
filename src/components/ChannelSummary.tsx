@@ -21,6 +21,7 @@ import Hmc5883lInstrument from './Hmc5883lInstrument';
 import Mpu6050Instrument from './Mpu6050Instrument';
 import PolarInstrument from './PolarInstrument';
 import SummaryModeActions from './SummaryModeActions';
+import SummaryParameterEdit, { headingEdit, servoPositionEdit, servoCurveEdit } from './SummaryParameterEdit';
 import KiteControllerInstrument from './KiteControllerInstrument';
 import TankSteerInstrument from './TankSteerInstrument';
 import TankSteerActions from './TankSteerActions';
@@ -59,6 +60,18 @@ const calibrationModes = [
     { value: 3, label: calibrationModeLabels[3], action: {
         label: 'Store calibration', description: 'Save the current calibration on the device and switch to Fixed mode', warning: true, oneShot: true,
     } },
+];
+
+const turnRateModes = [
+    { value: 0, label: 'Normal', action: { description: 'Request normal steering. The controller can change mode as the heading error changes.' } },
+    { value: 1, label: 'Possible gybe', allowExit: true },
+    { value: 2, label: 'Gybe', action: { description: 'Request a gybe. The controller can change mode as the heading error changes.', warning: true } },
+];
+
+const navModes = [
+    { value: 0, label: 'Idle', action: { description: 'Pause navigation calculations for the current target' } },
+    { value: 1, label: 'Go to', action: { description: 'Navigate towards the current target', warning: true } },
+    ...[2, 3, 4, 5, 6].map(value => ({ value, label: String(value), allowExit: true })),
 ];
 
 function Reading({ summary, primary, inlineSeverity, hideLabel }: { summary: ObservedSummary; primary?: boolean; inlineSeverity?: boolean; hideLabel?: boolean }) {
@@ -114,7 +127,13 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         </>;
     }
     if ('turnOutput' in summary) {
-        return <TurnRateInstrument label={label} summary={summary} />;
+        return <>
+            <TurnRateInstrument label={label} summary={summary} />
+            <SummaryModeActions key={JSON.stringify(['TurnRate', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="TurnRate" param={19} observedMode={summary.modeValue} modes={turnRateModes}>
+                <SummaryParameterEdit nodeId={nodeId} channelId={channelId} edit={headingEdit(10)} />
+            </SummaryModeActions>
+        </>;
     }
     if ('proaBearings' in summary) {
         return <>
@@ -124,7 +143,12 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         </>;
     }
     if ('sailBearings' in summary) {
-        return <SailorInstrument label={label} summary={summary} />;
+        return <>
+            <SailorInstrument label={label} summary={summary} />
+            <div className="dw-summary-actions"><div className="dw-summary-action-row">
+                <SummaryParameterEdit nodeId={nodeId} channelId={channelId} edit={headingEdit(8)} />
+            </div></div>
+        </>;
     }
     if ('waypoint' in summary) {
         return <>
@@ -133,7 +157,11 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         </>;
     }
     if ('navigationBearings' in summary) {
-        return <NavInstrument nodeId={nodeId} label={label} summary={summary} />;
+        return <>
+            <NavInstrument nodeId={nodeId} label={label} summary={summary} />
+            <SummaryModeActions key={JSON.stringify(['Nav', nodeId, channelId, generation])} nodeId={nodeId} channelId={channelId}
+                name="Nav" param={14} observedMode={summary.modeValue} modes={navModes} />
+        </>;
     }
     if ('worldWind' in summary) {
         return <WindDials key={summary.worldWind.parameterId} label={label} summary={summary} scope={sampleScope} />;
@@ -156,7 +184,13 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
         </>;
     }
     if ('servoPosition' in summary) {
-        return <ServoInstrument label={label} summary={summary} />;
+        return <>
+            <ServoInstrument label={label} summary={summary} />
+            <div className="dw-summary-actions"><div className="dw-summary-action-row" role="group" aria-label="Servo calibration">
+                <SummaryParameterEdit nodeId={nodeId} channelId={channelId} edit={servoPositionEdit} />
+                <SummaryParameterEdit nodeId={nodeId} channelId={channelId} edit={servoCurveEdit} />
+            </div></div>
+        </>;
     }
     if ('motorSpeed' in summary) {
         return <MotorInstrument label={label} summary={summary} />;
