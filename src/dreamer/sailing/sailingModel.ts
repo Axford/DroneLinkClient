@@ -2,6 +2,7 @@ import { BoatDocument } from '../cloudModels';
 import {
   BoatPart, Vector, add, cross, direction, dot, jointFrame, jointPlacement, meshBounds, partPose, scale, subtract, transformPoint,
 } from '../boatModel';
+import { SailStrip, buildSailStrips, fitSurfaceNormal } from './sailStrips';
 
 export const waterDensity = 1025;
 export type Controls = Record<string, number>;
@@ -18,6 +19,7 @@ export interface SailingPart {
   name: string;
   center: Vector;
   foil?: { medium: 'air' | 'water'; chord: Vector; span: Vector; height: number; width: number; area: number };
+  sailStrips?: SailStrip[];
   joint?: SailingJoint;
 }
 interface DisplacementCell {
@@ -89,33 +91,19 @@ function hullCells(part: SailingPart, vertices: Vector[], triangles: Vector[]): 
   return cells.map(cell => ({ ...cell, volume: cell.volume*volume/sampledVolume }));
 }
 
-function foilGeometry(part: BoatPart, vertices: Vector[], origin: Vector): { foil: NonNullable<SailingPart['foil']>; center: Vector } {
-  // Area-weighted normal tensor. Opposite faces reinforce the same axis, and
-  // a tall raked sail cannot make its span look like a horizontal chord.
-  const tensor: Vector[] = [[0,0,0], [0,0,0], [0,0,0]];
-  for (const [i,j,k] of part.mesh.triangles) {
-    const face = cross(subtract(vertices[j],vertices[i]), subtract(vertices[k],vertices[i]));
-    const area2 = Math.hypot(...face);
-    if (!area2) continue;
-    for (let row = 0; row < 3; row++)
-      for (let column = 0; column < 3; column++)
-        tensor[row][column] += face[row]*face[column]/area2;
-  }
-  const diagonal = tensor.map((row,index) => row[index]);
-  const seed = diagonal.indexOf(Math.max(...diagonal));
-  let normal: Vector = [0,0,0];
-  normal[seed] = 1;
-  for (let iteration = 0; iteration < 16; iteration++)
-    normal = direction(tensor.map(row => dot(row, normal)) as Vector) ?? normal;
+function foilGeometry(part: BoatPart, vertices: Vector[], origin: Vector) {
+  const faces = part.mesh.triangles.map(([i,j,k]) =>
+    cross(subtract(vertices[j],vertices[i]), subtract(vertices[k],vertices[i])));
+  const normal = fitSurfaceNormal(faces);
 
   const up: Vector = [0,0,1];
   const span = direction(subtract(up, scale(normal, dot(up, normal))));
   if (!span) throw new Error(part.name + ' needs a lifting surface with height and chord.');
   const chord = cross(normal, span);
   let area2 = 0, moment: Vector = [0,0,0];
-  for (const [i,j,k] of part.mesh.triangles) {
-    const [a,b,c] = [vertices[i],vertices[j],vertices[k]];
-    const weight = Math.abs(dot(normal, cross(subtract(b,a), subtract(c,a))));
+  for (let index = 0; index < faces.length; index++) {
+    const [a,b,c] = part.mesh.triangles[index].map(vertex => vertices[vertex]);
+    const weight = Math.abs(dot(normal, faces[index]));
     const centroid = scale(add(add(subtract(a,origin),subtract(b,origin)),subtract(c,origin)),1/3);
     area2 += weight;
     moment = add(moment,scale(centroid,weight));
@@ -131,7 +119,8 @@ function foilGeometry(part: BoatPart, vertices: Vector[], origin: Vector): { foi
   if (!(area > 1e-8 && height > 1e-6)) throw new Error(part.name + ' needs a lifting surface with height and chord.');
   return {
     center: add(origin,scale(moment,1/area2)),
-    foil: { medium: part.role === 'Rigid sail' ? 'air' : 'water', chord, span, height, width: area/height, area },
+    foil: { chord, span, height, width: area/height, area },
+    normal,
   };
 }
 
@@ -165,7 +154,11 @@ export function prepareSailingBoat(model: BoatDocument): SailingBoat {
     }
     if (part.role === 'Water foil' || part.role === 'Rigid sail') {
       const geometry = foilGeometry(part, vertices, center);
-      entry.foil = geometry.foil;
+      entry.foil = { ...geometry.foil, medium: part.role === 'Rigid sail' ? 'air' : 'water' };
+      if (part.role === 'Rigid sail') {
+        entry.sailStrips = buildSailStrips(vertices, part.mesh.triangles, part.mesh.closed, center, geometry.foil.span, geometry.normal);
+        if (!entry.sailStrips.length) throw new Error(part.name + ' needs a sail surface with measurable area.');
+      }
       entry.center = geometry.center;
       if (part.joint) {
         const frame = jointFrame(part, pose);

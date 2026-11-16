@@ -303,7 +303,15 @@ Open a saved revision and choose **Stability**, the fourth tab after **Import**,
 
 Open the **Sail** tab on a saved revision for manual testing. Choose **Flat calm**, **Smooth water · light wind** or **Chop · gusting wind**, and a numeric weather seed. Enable **Override wind speed** to enter a fixed speed in m/s. The preset still controls the waves and wind direction. **Run** starts the live 3D preview. Adjust each jointed foil or sail within its saved travel. **Pause** stops the clock, **Reset** starts from upright and stationary at water balance, and **Replay inputs** repeats the recorded control changes under the same conditions. Replay is kept in the open tab. Sail uses the saved geometry and loading.
 
-The sea grid has fixed 1 m squares. The blue contour marks where the current water surface meets the displacement hull. The true and apparent wind arrows point with the airflow and share a linear speed scale. Air and water arrows show each component's representative centre of pressure and load in newtons. This first model samples displacement from sealed hull meshes and approximates foils and rigid sails as lifting surfaces fitted to the area and orientation of their neutral mesh. Sail force labels include the magnitude of the incidence angle to the local airflow. The force coefficients use the provisional analytic model. Joint commands rotate the rendered part and its lifting surface. Inertia and mass distribution use the neutral pose.
+The sea grid has fixed 1 m squares. The blue contour marks where the current water surface meets the displacement hull. The true and apparent wind arrows point with the airflow and share a linear speed scale. Air and water arrows show each component's resultant force in newtons at a representative centre of pressure. Sail labels show the area-weighted mean absolute incidence. The solver clips each rigid sail's mesh into eight spanwise bands and derives their area, orientation and geometric load centre. It rotates the bands at the saved pivot and calculates lift and drag from the airflow at each band, including the velocity from boat rotation. The symmetric coefficients approximate attached lift, stall and broadside drag. They need force calibration, and each sail sees the same ambient wind. The solver also samples displacement from the sealed hull geometry and fits immersed water foils. Inertia and mass distribution use the neutral pose.
+
+For a local two-sail trim sweep, pass a boat model or saved revision JSON to the Client tool:
+
+```sh
+node tools/sweep-sail-trim.cjs revision.json sail-trim.csv 5
+```
+
+The tool evaluates each pair of neutral-relative angles at 5° intervals and includes both sails' exact travel endpoints. It holds the boat upright and stationary at heading 000° in wind from 045°. The optional speed in m/s defaults to 5. The CSV reports combined and per-sail forces in newtons, with positive drive forward and positive side force to port. Positive yaw moment in N·m turns the bow to port about the boat's centre of gravity. Sail 1 and Sail 2 follow their order in the model. Keep private model snapshots and generated sweeps outside the repository.
 
 For local development, start the Client from the Dreamer model-editor branch:
 

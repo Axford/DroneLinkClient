@@ -1,7 +1,8 @@
+import { Vector, add, scale } from '../boatModel';
 import type { BoatDocument } from '../cloudModels';
 import fixture from './__fixtures__/sloop.json';
 import { jointAngle, prepareSailingBoat } from './sailingModel';
-import { instruments, loads } from './sailingPhysics';
+import { initialState, instruments, loads, makeWeather, weatherPresets } from './sailingPhysics';
 import { SailingRun, neutralControls } from './sailingRun';
 import { waterGrid } from './sailingScene';
 
@@ -101,3 +102,67 @@ test('a tall canted sail keeps its projected plate area, span and centre through
   expect(foil.span[2]).toBeCloseTo(Math.cos(50*Math.PI/180), 8);
   raked.center.forEach((value, axis) => expect(value).toBeCloseTo(baseline.center[axis], 8));
 });
+
+test('an open rigid sail feathers, reverses lift across tacks, and produces broadside drag', () => {
+  const vertices: Vector[] = [[0,0,0.2], [0.6,0,0.2], [0.6,0,1.2], [0,0,1.2]];
+  const prepared = withSailMesh(vertices, [[0,1,2], [0,2,3]]);
+  const aerodynamicLoad = (degrees: number, speed: number) => {
+    const angle = degrees*Math.PI/180;
+    return sailLoad(prepared, [speed*Math.cos(angle), speed*Math.sin(angle), 0]);
+  };
+  expect(aerodynamicLoad(0,0)).toBeUndefined();
+  const feather = aerodynamicLoad(0,5)!;
+  expect(feather.incidence).toBeCloseTo(0);
+  expect(feather.force[1]).toBeCloseTo(0);
+  const port = aerodynamicLoad(12,5)!;
+  const starboard = aerodynamicLoad(-12,5)!;
+  expect(port.force[1]).toBeGreaterThan(1);
+  expect(port.force[0]).toBeCloseTo(starboard.force[0], 10);
+  expect(port.force[1]).toBeCloseTo(-starboard.force[1], 10);
+  const broadside = aerodynamicLoad(90,5)!;
+  expect(broadside.force[0]).toBeCloseTo(0, 10);
+  expect(broadside.force[1]).toBeGreaterThan(4);
+  expect(feather.force[0]).toBeLessThan(broadside.force[1]/20);
+  const faster = aerodynamicLoad(12,10)!;
+  faster.force.forEach((value, i) => expect(value).toBeCloseTo(4*port.force[i], 10));
+  faster.moment.forEach((value, i) => expect(value).toBeCloseTo(4*port.moment[i], 10));
+});
+
+test('strip loads capture changing local incidence and survive CAD retessellation', () => {
+  // The upper part of this tapered surface bends out of the lower plane.
+  const vertices: Vector[] = [[0,0,0.2], [0.6,0,0.2], [0.5,0,0.7], [0,0,0.7], [0.3,0.25,1.2], [0,0.25,1.2]];
+  const triangles: Vector[] = [[0,1,2], [0,2,3], [3,2,4], [3,4,5]];
+  const refined = [...vertices];
+  const subdivision: Vector[] = [];
+  for (const [a,b,c] of triangles) {
+    const middle = refined.push(scale(add(add(vertices[a], vertices[b]),vertices[c]),1/3))-1;
+    subdivision.push([a,b,middle], [b,c,middle], [c,a,middle]);
+  }
+  const coarse = withSailMesh(vertices, triangles);
+  const fine = withSailMesh(refined, subdivision);
+  const strips = coarse.parts.find(part => part.sailStrips)!.sailStrips!;
+  expect(strips).toHaveLength(8);
+  expect(strips[0].area).toBeGreaterThan(strips[7].area);
+  expect(strips[0].span[1]).toBeCloseTo(0, 10);
+  expect(strips[7].span[1]).toBeGreaterThan(0.4);
+  const wind: Vector = [-4, 2, 0];
+  const coarseLoad = sailLoad(coarse, wind)!;
+  const fineLoad = sailLoad(fine, wind)!;
+  coarseLoad.force.forEach((value, i) => expect(value).toBeCloseTo(fineLoad.force[i], 10));
+  coarseLoad.moment.forEach((value, i) => expect(value).toBeCloseTo(fineLoad.moment[i], 10));
+  const turning = sailLoad(coarse, wind, [0,0,1])!;
+  expect(Math.abs(turning.moment[2] - coarseLoad.moment[2])).toBeGreaterThan(0.03);
+});
+
+function withSailMesh(vertices: Vector[], triangles: Vector[]) {
+  return prepareSailingBoat({ ...model, parts: model.parts.map(part =>
+    part.role === 'Rigid sail' ? { ...part, translation: [0,0,0], rotation: [0,0,0], joint: null,
+      mesh: { ...part.mesh, vertices, triangles, closed: false } } : part,
+  ) });
+}
+
+function sailLoad(prepared: ReturnType<typeof boat>, wind: Vector, angular: Vector = [0,0,0]) {
+  const weather = { ...makeWeather(weatherPresets['Flat calm'], 1), wind: () => wind };
+  const state = { ...initialState(prepared, weather), angular };
+  return loads(prepared, state, neutralControls(prepared), weather, true).components.find(part => part.medium === 'air');
+}

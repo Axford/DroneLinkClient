@@ -1,5 +1,6 @@
 // Adapted from the fixed-step Dreamer physics prototype at Server 5f9abc7.
 import { Vector, add, cross, dot, scale, subtract as sub } from '../boatModel';
+import { sailCoefficients } from './sailStrips';
 import { Controls, SailingBoat, SailingPart, jointAngle, waterDensity } from './sailingModel';
 
 type Quaternion = [number, number, number, number];
@@ -10,7 +11,15 @@ export interface SailingState {
   velocity: Vector;
   angular: Vector;
 }
-export interface ForceVector { name: string; medium: 'air' | 'water'; center: Vector; force: Vector; incidence?: number }
+export interface ForceVector {
+  name: string;
+  partId: string;
+  medium: 'air' | 'water';
+  center: Vector;
+  force: Vector;
+  moment: Vector; // World-space torque about the boat CG, including residual couples.
+  incidence?: number;
+}
 
 const gravity = 9.80665;
 const airDensity = 1.225;
@@ -145,6 +154,37 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
   }
   const wind = weather.wind(state.time);
   for (const part of boat.parts) {
+    if (part.sailStrips) {
+      const joint = part.joint;
+      const frame = joint ? axisAngle(joint.axis, radians(jointAngle(joint, controls[part.id]))) : null;
+      const orientation = frame ? compose(q, frame) : q;
+      const origin = joint?.pivot ?? boat.center;
+      const originArm = rotate(q, sub(origin, boat.center));
+      let weightedIncidence = 0, area = 0;
+      for (const strip of part.sailStrips) {
+        const arm = add(originArm, rotate(orientation, sub(strip.center, origin)));
+        const chord = rotate(orientation, strip.chord);
+        const span = rotate(orientation, strip.span);
+        const normal = cross(span, chord);
+        const relative = sub(wind, localVelocity(arm));
+        const flow = sub(relative, scale(span, dot(relative, span)));
+        const speed = norm(flow);
+        if (speed < 1e-6) continue;
+        const direction = scale(flow, 1 / speed);
+        const angle = Math.atan2(dot(flow, normal), Math.abs(dot(flow, chord)));
+        const coefficients = sailCoefficients(angle);
+        const liftDirection = sub(normal, scale(direction, dot(normal, direction)));
+        const lift: Vector = norm(liftDirection) < 1e-6 ? [0, 0, 0] : scale(unit(liftDirection), coefficients.lift);
+        const drag = scale(direction, coefficients.drag);
+        apply(scale(add(lift, drag), 0.5*airDensity*speed**2*strip.area), arm, part);
+        if (sailIncidence) {
+          weightedIncidence += strip.area * Math.abs(angle);
+          area += strip.area;
+        }
+      }
+      if (area) sailIncidence?.set(part, degrees(weightedIncidence / area));
+      continue;
+    }
     const foil = part.foil;
     if (!foil) continue;
     const center = partPoint(part, part.center, controls);
@@ -153,24 +193,22 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     const chord = rotate(q, sub(chordTip, center));
     const span = rotate(q, sub(spanTip, center));
     const normal = cross(span, chord);
-    const aero = foil.medium === 'air';
-    const strips = aero ? 1 : 4;
+    const strips = 4;
     for (let strip = 0; strip < strips; strip++) {
       const arm = add(rotate(q, sub(center, boat.center)), scale(span, ((strip + 0.5) / strips - 0.5) * foil.height));
       const [x, y, z] = add(state.position, arm);
-      const water = aero ? null : weather.water(x, y, state.time);
+      const water = weather.water(x, y, state.time);
       const half = (Math.abs(span[2]) * foil.height / strips + Math.abs(chord[2]) * foil.width) / 2;
-      const fraction = water ? wetFraction(water.height - z, half) : 1;
+      const fraction = wetFraction(water.height - z, half);
       if (!fraction) continue;
-      const relative = sub(water ? [0, 0, water.verticalSpeed] : wind, localVelocity(arm));
+      const relative = sub([0, 0, water.verticalSpeed], localVelocity(arm));
       const flow = sub(relative, scale(span, dot(relative, span)));
       const speed = norm(flow);
       if (speed < 1e-6) continue;
       const direction = scale(flow, 1 / speed);
       const liftDirection = sub(normal, scale(direction, dot(normal, direction)));
       const angle = Math.atan2(dot(flow, normal), Math.abs(dot(flow, chord)));
-      if (aero) sailIncidence?.set(part, degrees(Math.abs(angle)));
-      const pressureArea = 0.5 * (aero ? airDensity : waterDensity) * speed**2 * foil.area * fraction / strips;
+      const pressureArea = 0.5 * waterDensity * speed**2 * foil.area * fraction / strips;
       const lift: Vector = norm(liftDirection) < 1e-6 ? [0, 0, 0] : scale(unit(liftDirection), 1.1 * Math.sin(2 * angle));
       const drag = scale(direction, 0.012 + 1.1 * Math.sin(angle)**2);
       apply(scale(add(lift, drag), pressureArea), arm, part);
@@ -181,13 +219,16 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
   const { components } = result;
   for (const [part, entry] of Array.from(byPart)) {
     const forceSquared = dot(entry.force, entry.force);
-    if (forceSquared < 1e-12) continue;
     // Choose the point on the resultant's line of action closest to the
     // force-weighted sample centre. A moment parallel to the force is residual.
     const reference = scale(entry.weightedArm, 1 / entry.weight);
-    const correction = scale(cross(entry.force, sub(entry.moment, cross(reference, entry.force))), 1 / forceSquared);
+    const correction = forceSquared < 1e-12 ? [0, 0, 0] as Vector
+      : scale(cross(entry.force, sub(entry.moment, cross(reference, entry.force))), 1 / forceSquared);
     const center = add(state.position, add(reference, correction));
-    components.push({ name: part.name, medium: part.foil?.medium ?? 'water', center, force: entry.force, incidence: sailIncidence?.get(part) });
+    components.push({
+      name: part.name, partId: part.id, medium: part.foil?.medium ?? 'water',
+      center, force: entry.force, moment: entry.moment, incidence: sailIncidence?.get(part),
+    });
   }
   return { ...result, components };
 }
