@@ -1,5 +1,6 @@
 // Adapted from the fixed-step Dreamer physics prototype at Server 5f9abc7.
 import { Vector, add, cross, dot, scale, subtract as sub } from '../boatModel';
+import { bodyPatchForce } from './bodyStrips';
 import { sailCoefficients } from './sailStrips';
 import { Controls, SailingBoat, SailingPart, jointAngle, waterDensity } from './sailingModel';
 
@@ -148,12 +149,24 @@ export function loads(boat: SailingBoat, state: SailingState, controls: Controls
     if (!volume) continue;
     displaced += volume;
     apply([0, 0, waterDensity * gravity * volume], arm, cell.part);
-    const relative = rotate(toBody, sub(localVelocity(arm), [0, 0, water.verticalSpeed]));
-    const drag = relative.map((value, axis) => -waterDensity * volume * [0.7, 4, 8][axis] * value * (0.5 + Math.abs(value))) as Vector;
-    apply(rotate(q, drag), arm, cell.part);
   }
   const wind = weather.wind(state.time);
   for (const part of boat.parts) {
+    if (part.displacementSurface) {
+      const { strips, sideLiftSlope } = part.displacementSurface;
+      for (const strip of strips) {
+        for (const patch of strip) {
+          const arm = rotate(q, sub(patch.center, boat.center));
+          const [x,y,z] = add(state.position, arm);
+          const { height, verticalSpeed } = weather.water(x, y, state.time);
+          const wet = wetFraction(height-z, dot(up, patch.halfSize));
+          if (!wet) continue;
+          const relative = rotate(toBody, sub(localVelocity(arm), [0,0,verticalSpeed]));
+          apply(rotate(q, bodyPatchForce(patch, relative, wet, sideLiftSlope, waterDensity)), arm, part);
+        }
+      }
+      continue;
+    }
     if (part.sailStrips) {
       const joint = part.joint;
       const frame = joint ? axisAngle(joint.axis, radians(jointAngle(joint, controls[part.id]))) : null;

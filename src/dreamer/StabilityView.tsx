@@ -17,7 +17,7 @@ const diagnosticLabels: Record<string, string> = {
   'missing-or-invalid-mass': 'Set the mass, or enter zero.',
   'missing-or-invalid-cg': 'Set the centre of mass.',
   'invalid-displacement-shell': 'Use a sealed displacement mesh.',
-  'no-displacement-hull': 'Assign the Displacement hull role to a sealed part.',
+  'no-displacement-hull': 'Assign the Displacement body role to a sealed part.',
   'insufficient-displacement': 'The loaded boat is too heavy for its displacement volume.',
   'invalid-total-mass': 'Give the boat a positive total mass.',
   'invalid-model': 'Review the saved assembly and its orientation.',

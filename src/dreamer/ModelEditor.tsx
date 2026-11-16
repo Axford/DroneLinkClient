@@ -363,9 +363,9 @@ export default function ModelEditor({ cloud }: { cloud?: CloudEditor }) {
           <p className="dw-meta">Merged {part.mesh.duplicateVertices} duplicate vertices and removed {part.mesh.degenerateFaces} zero-area faces.</p>}
         <fieldset disabled={!editable} className="dreamer-model-fields">
         <label>Physics role <select className="form-select" value={part.role} onChange={event => changePart({ role: event.target.value as BoatPart['role'] })}>
-          {roles.map(role => <option key={role}>{role}</option>)}
+          {roles.map(role => <option key={role} value={role}>{role === 'Displacement hull' ? 'Displacement body' : role === 'Ballast' ? 'Ballast (mass only)' : role}</option>)}
         </select></label>
-        {part.role === 'Displacement hull' && !part.mesh.closed && <p className="dreamer-model-warning">A displacement hull needs a closed mesh.</p>}
+        {part.role === 'Displacement hull' && !part.mesh.closed && <p className="dreamer-model-warning">A displacement body needs a closed mesh.</p>}
         <label>Mass (kg) <input className="form-control" type="number" min="0" step="any" value={part.mass ?? ''}
           onChange={event => changePart({ mass: event.currentTarget.value === '' ? null : Math.max(0, event.currentTarget.valueAsNumber) })} /></label>
         <details className="dreamer-part-detail">

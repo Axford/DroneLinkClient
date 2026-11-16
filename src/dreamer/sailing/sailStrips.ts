@@ -1,3 +1,4 @@
+import { clipPolygon } from './clipPolygon';
 import { Vector, add, cross, direction, dot, scale, subtract } from '../boatModel';
 
 export interface SailStrip {
@@ -28,18 +29,6 @@ export function fitSurfaceNormal(faces: Vector[]): Vector {
   return normal;
 }
 
-function clip(polygon: Vector[], axis: Vector, boundary: number, side: number): Vector[] {
-  const clipped: Vector[] = [];
-  for (let i = 0; i < polygon.length; i++) {
-    const a = polygon[i], b = polygon[(i+1) % polygon.length];
-    const da = side * (dot(a, axis) - boundary), db = side * (dot(b, axis) - boundary);
-    if (da >= 0) clipped.push(a);
-    if ((da < 0 && db > 0) || (da > 0 && db < 0))
-      clipped.push(add(a, scale(subtract(b,a), da/(da-db))));
-  }
-  return clipped;
-}
-
 export function buildSailStrips(
   vertices: Vector[], triangles: Vector[], closed: boolean, origin: Vector, span: Vector, normal: Vector,
 ): SailStrip[] {
@@ -61,7 +50,7 @@ export function buildSailStrips(
     const polygon = triangle.map(index => points[index]);
     const indices = triangle.map(bandIndex);
     for (let band = Math.min(...indices); band <= Math.max(...indices); band++) {
-      const slice = clip(clip(polygon, span, lower+band*width, 1), span, lower+(band+1)*width, -1);
+      const slice = clipPolygon(clipPolygon(polygon, span, lower+band*width, 1), span, lower+(band+1)*width, -1);
       for (let i = 1; i+1 < slice.length; i++) {
         const [a,b,c] = [slice[0],slice[i],slice[i+1]];
         bands[band].push({

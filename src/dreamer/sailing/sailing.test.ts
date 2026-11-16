@@ -166,3 +166,59 @@ function sailLoad(prepared: ReturnType<typeof boat>, wind: Vector, angular: Vect
   const state = { ...initialState(prepared, weather), angular };
   return loads(prepared, state, neutralControls(prepared), weather, true).components.find(part => part.medium === 'air');
 }
+
+test('a sealed displacement bulb adds its buoyancy and water loads at the saved mass and CG', () => {
+  const legacy = boat();
+  const wet = prepareSailingBoat({ ...model, parts: model.parts.map(part =>
+    part.role === 'Ballast' ? { ...part, role: 'Displacement hull' } : part,
+  ) });
+  expect(wet.mass).toEqual(legacy.mass);
+  expect(wet.center).toEqual(legacy.center);
+  const weather = makeWeather(weatherPresets['Flat calm'], 1);
+  const state = initialState(wet, weather);
+  const controls = neutralControls(wet);
+  const [nose, side] = [0.5, 0.12];
+  const bulb = (prepared: ReturnType<typeof boat>, forward: number, leeway: number) =>
+    loads(prepared, { ...state, velocity: [forward,leeway,0] }, controls, weather, true)
+      .components.find(part => part.partId === '2');
+  expect(bulb(legacy,nose,side)).toBeUndefined();
+  const stationary = bulb(wet,0,0)!;
+  expect(stationary.force[2]).toBeCloseTo(1025*9.80665*0.28*0.09*0.09, 5);
+  expect(stationary.force.slice(0,2)).toEqual([0,0]);
+  expect(stationary.moment[2]).toBe(0);
+  const port = bulb(wet,nose,side)!;
+  const starboard = bulb(wet,nose,-side)!;
+  expect(port.force[0]).toBeLessThan(0);
+  expect(port.force[1]).toBeLessThan(0);
+  expect(port.force[0]).toBeCloseTo(starboard.force[0], 8);
+  expect(port.force[1]).toBeCloseTo(-starboard.force[1], 8);
+  const twice = bulb(wet,2*nose,2*side)!;
+  expect(twice.force[0]).toBeCloseTo(4*port.force[0], 8);
+  expect(twice.force[1]).toBeCloseTo(4*port.force[1], 8);
+  expect(twice.moment[2]).toBeCloseTo(4*port.moment[2], 8);
+});
+
+test('mesh-derived body strips conserve wetted geometry under retessellation', () => {
+  const hull = model.parts.find(part => part.role === 'Displacement hull')!;
+  const { vertices, triangles } = hull.mesh;
+  const refined = [...vertices];
+  const subdivision: Vector[] = [];
+  for (const [a,b,c] of triangles) {
+    const middle = refined.push(scale(add(add(vertices[a],vertices[b]),vertices[c]),1/3))-1;
+    subdivision.push([a,b,middle], [b,c,middle], [c,a,middle]);
+  }
+  const modified = prepareSailingBoat({ ...model, parts: model.parts.map(part =>
+    part.id === hull.id ? { ...part, mesh: { ...part.mesh, vertices: refined, triangles: subdivision } } : part,
+  ) });
+  const original = boat();
+  const weather = makeWeather(weatherPresets['Flat calm'], 1);
+  const state = { ...initialState(original, weather), velocity: [0.52,0.18,0] as Vector, angular: [0,0,0.3] as Vector };
+  const forces = (prepared: ReturnType<typeof boat>) =>
+    loads(prepared, state, neutralControls(prepared), weather, true).components.find(part => part.partId === hull.id)!;
+  const a = forces(original), b = forces(modified);
+  a.force.forEach((value, i) => expect(value).toBeCloseTo(b.force[i], 8));
+  a.moment.forEach((value, i) => expect(value).toBeCloseTo(b.moment[i], 8));
+  const yawing = loads(original, { ...state, velocity: [0,0,0] }, neutralControls(original), weather, true)
+    .components.find(part => part.partId === hull.id)!;
+  expect(yawing.moment[2]).toBeLessThan(0);
+});

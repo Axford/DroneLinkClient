@@ -2,6 +2,7 @@ import { BoatDocument } from '../cloudModels';
 import {
   BoatPart, Vector, add, cross, direction, dot, jointFrame, jointPlacement, meshBounds, partPose, scale, subtract, transformPoint,
 } from '../boatModel';
+import { DisplacementSurface, buildBodyStrips } from './bodyStrips';
 import { SailStrip, buildSailStrips, fitSurfaceNormal } from './sailStrips';
 
 export const waterDensity = 1025;
@@ -19,6 +20,7 @@ export interface SailingPart {
   name: string;
   center: Vector;
   foil?: { medium: 'air' | 'water'; chord: Vector; span: Vector; height: number; width: number; area: number };
+  displacementSurface?: DisplacementSurface;
   sailStrips?: SailStrip[];
   joint?: SailingJoint;
 }
@@ -149,6 +151,7 @@ export function prepareSailingBoat(model: BoatDocument): SailingBoat {
       if (hullBounds.some(box => box.min.every((n,i) => Math.min(box.max[i],bounds.max[i]) > Math.max(n,bounds.min[i]))))
         throw new Error(part.name + ' has overlapping displacement bounds.');
       hullBounds.push(bounds);
+      entry.displacementSurface = buildBodyStrips(vertices, part.mesh.triangles);
       cells.push(...hullCells(entry, vertices, part.mesh.triangles));
       if (cells.length > 4000) throw new Error('The displacement model has too many sampled cells.');
     }
@@ -171,7 +174,7 @@ export function prepareSailingBoat(model: BoatDocument): SailingBoat {
   }
   const mass = loads.reduce((sum, part) => sum + part.mass, 0);
   if (!(mass > 0) || !Number.isFinite(mass)) throw new Error('Set a positive boat mass.');
-  if (!cells.length) throw new Error('Assign the Displacement hull role to a sealed hull.');
+  if (!cells.length) throw new Error('Assign the Displacement body role to a sealed part.');
   if (mass >= waterDensity * cells.reduce((sum, cell) => sum + cell.volume, 0))
     throw new Error('The hull cannot displace enough water for this mass.');
   const center = scale(loads.reduce((sum, part) => add(sum, scale(part.cg,part.mass)), [0,0,0] as Vector), 1/mass);
