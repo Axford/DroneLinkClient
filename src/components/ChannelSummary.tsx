@@ -6,6 +6,7 @@ import IconButton from './ui/IconButton';
 import { useCommandScope } from '../commands/session';
 import SettingsDialog from './ui/SettingsDialog';
 import Rfm69Signal from './Rfm69Signal';
+import Rfm69Actions from './Rfm69Actions';
 import CellVoltageDial from './CellVoltageDial';
 import HeadingCompass from './HeadingCompass';
 import AnemometerInstrument from './AnemometerInstrument';
@@ -211,6 +212,8 @@ export default function ChannelSummary({ nodeId, channelId, summary, sampleScope
                 </div>)}
             </dl>
             {summary.signal && <Rfm69Signal key={sampleScope} signal={summary.signal} scope={sampleScope} />}
+            {summary.radioSettings && <Rfm69Actions key={JSON.stringify([nodeId, channelId, generation])} nodeId={nodeId}
+                channelId={channelId} {...summary.radioSettings} />}
         </>;
     }
     if ('attitudeReading' in summary) {

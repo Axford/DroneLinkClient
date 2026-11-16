@@ -226,6 +226,7 @@ interface PacketTelemetrySummary {
     details: ObservedSummary[];
     note?: string;
     signal?: ObservedSummary;
+    radioSettings?: { power?: number; priority?: number };
 }
 
 interface PacketTelemetryDefinition {
@@ -1184,7 +1185,13 @@ const visualizations = new Map<string, ModuleVisualization>([
         inspector(channel) {
             const packets = rfm69Packets.inspector(channel);
             const signal = rfm69Signal(channel);
-            return { ...packets, signal, details: [...packets.details, signal] };
+            const power = numericValue(channel.params[11], [DRONE_LINK_MSG_TYPE_FLOAT]);
+            const priority = byteArray(channel.params[13], 1)?.[0];
+            return { ...packets, signal, radioSettings: { power, priority }, details: [
+                ...packets.details, signal,
+                field(channel, 11, 'Transmit power', power === undefined ? undefined : `${power} dBm`),
+                field(channel, 13, 'Minimum priority', priority?.toString()),
+            ] };
         }
     }],
     ['SerialTelemetry', new PacketTelemetryRenderer({
