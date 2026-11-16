@@ -3,6 +3,7 @@ import { Container, Alert, Row, Col, Nav } from 'react-bootstrap';
 import { Domain, User } from './App';
 import DomainModal from './DomainModal';
 import DomainCard from './components/DomainCard';
+import PendingInvitations from './components/PendingInvitations';
 import IconButton from './components/ui/IconButton';
 import { Plus, ChevronLeft, ChevronRight } from 'react-bootstrap-icons';
 interface HomePageProps {
@@ -14,6 +15,10 @@ interface HomePageProps {
 export default function HomePage({ user, onRefresh, domains, onDomainUpdate, pagination, onPageChange, loading, canCreate, status, onStatusChange }: HomePageProps) {
   const [creating, setCreating] = useState(false);
   return <Container fluid className="p-0 domain-home">
+    <PendingInvitations key={JSON.stringify([user._id, user.email])} onAccepted={() => {
+      if (status === 'archived') onStatusChange('active');
+      else onPageChange('reset');
+    }} />
     <div className="dw-home-toolbar">
     <Nav variant="tabs" role="tablist" aria-label="Domain status" activeKey={status} onSelect={key => { if (key === 'active' || key === 'archived') onStatusChange(key); }} className="mb-0 dw-attached-tabs">
       <Nav.Item><Nav.Link as="button" eventKey="active" role="tab" id="domain-tab-active" aria-controls="domain-list" aria-selected={status === 'active'}>Active domains</Nav.Link></Nav.Item>

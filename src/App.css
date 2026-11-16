@@ -87,6 +87,12 @@
 .dw-parameter-label { min-width: 0; overflow-wrap: anywhere; }
 .dw-parameter-value { margin-left: auto; overflow-wrap: anywhere; font-family: var(--dw-font-mono); }
 
+.dw-home-invitations {
+  background: var(--dw-color-surface);
+  border: 1px solid var(--dw-color-border);
+  border-radius: var(--dw-radius-small);
+}
+.dw-home-invitation + .dw-home-invitation { border-top: 1px solid var(--dw-color-border); }
 .dw-home-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--dw-space-3); }
 .dw-home-toolbar > .dw-icon-button { align-self: center; }
 

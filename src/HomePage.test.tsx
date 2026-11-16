@@ -7,8 +7,10 @@ import { Domain, User } from './App';
 const owner: Domain = { _id: 'fleet', name: 'Fleet', revision: 7, status: 'active', myRole: 'owner', canManageMembers: true, canManageKeys: true, canEdit: true, canArchive: true, canRestore: false };
 const user: User = { _id: 'user', displayName: 'User', email: 'user@example.test' };
 const reply = (data: any, status = 200) => ({ ok: status < 400, status, json: async () => data });
-function setup(domain = owner) {
+function setup(domain = owner, invitations: { invitationId: string; domainName: string; role: string; revision: number; expiresAt: string }[] = []) {
   global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    if (url === '/api/user/invitations') return reply({ data: invitations, pagination: { nextCursor: null } });
+    if (url === '/api/user/invitations/invite-1/accept') return reply({ data: { domainId: 'new-fleet', role: 'editor' } });
     if (url.includes('/members?limit=100')) return reply({ data: [{ _id: 'one' }], pagination: { nextCursor: url.includes('cursor=') ? null : 'next-page' } });
     if (url.endsWith('/identities')) return reply({ data: { drones: [{ _id: 'drone' }], nodes: [{ nodeAddress: 1 }] } });
     if (url.includes('/members?')) return reply({ data: [{ _id: 'user', displayName: 'User', email: user.email, role: domain.myRole }], pagination: { nextCursor: null } });
@@ -19,8 +21,9 @@ function setup(domain = owner) {
   });
   const refresh = jest.fn().mockResolvedValue(undefined);
   const statusChange = jest.fn();
-  const view = render(<ToastProvider><MemoryRouter><HomePage user={user} domains={[domain]} onRefresh={refresh} onDomainUpdate={jest.fn()} onDomainDelete={jest.fn()} pagination={{ limit: 10, nextCursor: null, hasPrev: false }} onPageChange={jest.fn()} loading={false} canCreate={false} status={domain.status} onStatusChange={statusChange} /></MemoryRouter></ToastProvider>);
-  return { ...view, refresh, statusChange };
+  const pageChange = jest.fn();
+  const view = render(<ToastProvider><MemoryRouter><HomePage user={user} domains={[domain]} onRefresh={refresh} onDomainUpdate={jest.fn()} onDomainDelete={jest.fn()} pagination={{ limit: 10, nextCursor: null, hasPrev: false }} onPageChange={pageChange} loading={false} canCreate={false} status={domain.status} onStatusChange={statusChange} /></MemoryRouter></ToastProvider>);
+  return { ...view, refresh, statusChange, pageChange };
 }
 afterEach(() => jest.restoreAllMocks());
 test('homepage cards count all member pages and separate operations from collapsed administration', async () => {
@@ -32,7 +35,7 @@ test('homepage cards count all member pages and separate operations from collaps
   expect(screen.queryByRole('link', { name: 'Open map and inspector' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Domain settings' })).toHaveAttribute('aria-haspopup', 'dialog');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  expect((fetch as jest.Mock).mock.calls.some(([url]) => url.includes('/invitations') || url.endsWith('/key'))).toBe(false);
+  expect((fetch as jest.Mock).mock.calls.some(([url]) => url.startsWith('/api/domains/') && (url.includes('/invitations') || url.endsWith('/key')))).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: 'Domain settings' }));
   await screen.findByText(user.email);
   expect(screen.getByRole('button', { name: 'Create invitation' })).toBeVisible();
@@ -74,4 +77,19 @@ test('domain status uses selected tabs and keeps refresh beside totals', async (
   expect(statusChange).toHaveBeenCalledWith('archived');
   expect(within(screen.getByLabelText('Domain totals')).getByRole('button', { name: 'Refresh totals' })).toBeInTheDocument();
   await waitFor(() => expect(screen.getByLabelText('Domain totals')).toHaveTextContent('2 users'));
+});
+
+test('Home lists offers above Domain tabs and accepts with the displayed revision', async () => {
+  const { pageChange } = setup(owner, [{ invitationId: 'invite-1', domainName: 'New Fleet', role: 'editor', revision: 2, expiresAt: '2026-11-20T01:02:03.000Z' }]);
+  const panel = await screen.findByRole('region', { name: 'Pending invitations' });
+  expect(within(panel).getByText('editor')).toBeVisible();
+  expect(within(panel).getByText('New Fleet')).toBeVisible();
+  expect(panel.querySelector('time')).toHaveAttribute('datetime', '2026-11-20T01:02:03.000Z');
+  expect(panel.compareDocumentPosition(screen.getByRole('tablist')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(within(panel).getByRole('button', { name: 'Accept invitation to New Fleet' }));
+  const link = await within(panel).findByRole('link', { name: 'Open New Fleet' });
+  expect(link).toHaveAttribute('href', '/private/domain/new-fleet');
+  expect(within(panel).queryByRole('button', { name: 'Accept invitation to New Fleet' })).not.toBeInTheDocument();
+  expect(fetch).toHaveBeenCalledWith('/api/user/invitations/invite-1/accept', expect.objectContaining({ method: 'POST', body: JSON.stringify({ revision: 2 }) }));
+  expect(pageChange).toHaveBeenCalledWith('reset');
 });
